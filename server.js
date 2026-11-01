@@ -47,17 +47,16 @@ const estadoInicial = {
     listaCompras: [],
     config: {
         nombreNegocio: "LA BARRITA PRO",
-        logoUrl: "", // Nuevo campo
-        bgUrl: "",   // Nuevo campo
+        logoUrl: "", 
+        fondoPantallaUrl: "",
         promoTexto: "🔥 PROMOCIÓN ESTELAR: 2x1 EN MICHELADAS Y ALITAS HASTA LAS 9:00 PM 🍺",
         promoTextoInferior: "📲 Wi-Fi: LaBarrita_VIP • Pide desde tu móvil",
         tamanoTextoSup: 20,
         tamanoTextoInf: 15,
         redesUrl: "",
         mediaUrl: "",
-        activarYoutube: false, // Nuevo control explícito
+        mostrarYouTube: false, 
         videoConAudio: false,
-        tiempoImagenSegundos: 8, // Nuevo control
         skinSeleccionada: "tech-neon"
     }
 };
@@ -73,12 +72,11 @@ function leerDB() {
         if (!data.mensajesChat) data.mensajesChat = [];
         if (!data.listaCompras) data.listaCompras = [];
         
-        // Migración config
-        if (!data.config.logoUrl) data.config.logoUrl = "";
-        if (!data.config.bgUrl) data.config.bgUrl = "";
-        if (typeof data.config.activarYoutube === 'undefined') data.config.activarYoutube = false;
-        if (typeof data.config.tiempoImagenSegundos === 'undefined') data.config.tiempoImagenSegundos = 8;
-        
+        if (!data.config) data.config = estadoInicial.config;
+        if (data.config.logoUrl === undefined) data.config.logoUrl = "";
+        if (data.config.fondoPantallaUrl === undefined) data.config.fondoPantallaUrl = "";
+        if (data.config.mostrarYouTube === undefined) data.config.mostrarYouTube = false;
+
         if (data.usuarios && data.usuarios.length > 0 && !data.usuarios[0].permisos) {
             data.usuarios = data.usuarios.map(u => {
                 if (u.rol === 'admin') u.permisos = { menu: true, mapa: true, barra: true, inventario: true, admin: true };
@@ -145,7 +143,7 @@ io.on('connection', (socket) => {
         const user = actual.usuarios.find(u => String(u.usuario).toLowerCase() === String(usuario).trim().toLowerCase() && String(u.pin) === String(pin).trim());
         if (user) {
             socket.data.usuario = user.usuario;
-            const isSuperAdmin = user.permisos.admin;
+            const isSuperAdmin = user.permisos && user.permisos.admin;
             callback({ success: true, rol: isSuperAdmin ? 'admin' : 'usuario', nombre: user.nombre, usuario: user.usuario, permisos: user.permisos });
         } else {
             callback({ success: false, mensaje: 'Credenciales inválidas' });
@@ -265,7 +263,6 @@ io.on('connection', (socket) => {
         actual.listaCompras.unshift({ id: Date.now(), texto: texto });
         guardarDB(actual); io.emit('sincronizar_todo', filtrarDatosParaCliente(actual));
     });
-    
     socket.on('eliminar_insumo', (id) => {
         const actual = leerDB();
         if(actual.listaCompras) actual.listaCompras = actual.listaCompras.filter(x => x.id !== id);
