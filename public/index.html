@@ -38,33 +38,21 @@
         
         .prod-img-container { width: 100%; height: 120px; background-color: #07070a; border-radius: 0.75rem; overflow: hidden; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: center; border: 1px solid #1f1f2e; }
         .prod-img { width: 100%; height: 100%; object-fit: cover; }
-        .prod-img-placeholder { font-size: 2rem; opacity: 0.3; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        #pantalla-bienvenida {
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-        }
-        
-        #logoBienvenida, #headerLogo {
-            max-height: 80px;
-            object-fit: contain;
-        }
-        #headerLogo {
-            max-height: 30px;
-        }
+        #pantalla-bienvenida { background-size: cover; background-position: center; background-repeat: no-repeat; }
+        #logoBienvenida, #headerLogo { max-height: 80px; object-fit: contain; }
+        #headerLogo { max-height: 30px; }
     </style>
     <script>
         var socket = null; var usuarioActivo = null; var rolActivo = 'cliente'; var miMesaAsignada = 'Para Llevar';
         var caja = { abierta: false, fondoInicial: 0 }; var productos = []; var comandas = []; var historialVentas = []; var egresos = []; var usuariosSistema = []; var archivosPublicidad = []; var archivosImagenes = []; var mensajesChat = [];
         var listaCompras = [];
-        var config = { nombreNegocio: "LA BARRITA PRO", logoUrl: "", fondoPantallaUrl: "", promoTexto: "🔥 2x1 EN MICHELADAS Y ALITAS HASTA LAS 9:00 PM 🍺", promoTextoInferior: "📲 Wi-Fi: LaBarrita_VIP", tamanoTextoSup: 20, tamanoTextoInf: 15, redesUrl: "", mediaUrl: "", mostrarYouTube: false, videoConAudio: false, skinSeleccionada: "tech-neon" };
+        var config = { nombreNegocio: "LA BARRITA PRO", logoUrl: "", fondoPantallaUrl: "", promoTexto: "🔥 PROMOCIÓN 2x1", promoTextoInferior: "📲 Wi-Fi: LaBarrita_VIP", tamanoTextoSup: 20, tamanoTextoInf: 15, redesUrl: "", mediaUrl: "", mostrarYouTube: false, videoConAudio: false, skinSeleccionada: "tech-neon" };
         var mesasData = []; 
         var ipServidor = window.location.host; var carrito = []; var indexPublicidad = -1; var comandaCobroActiva = null; var metodoPago = 'Efectivo'; var timerPublicidad = null; var chartVentas = null;
-        var modoEdicionMapa = false;
-        var modalProductoActivo = null;
+        var modoEdicionMapa = false; var modalProductoActivo = null;
 
         var SKINS = {
             "tech-neon": { bgMain: "#07070a", cardBg: "#0f0f15", border: "#1f1f2e", accent: "#a855f7", glow: "rgba(168, 85, 247, 0.35)" },
@@ -73,15 +61,31 @@
             "emerald-bar": { bgMain: "#040d0a", cardBg: "#081c15", border: "#14382c", accent: "#10b981", glow: "rgba(16, 185, 129, 0.35)" }
         };
 
+        // Registro de Service Worker para Notificaciones
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(function(err) { console.log('Error SW:', err); });
+        }
+
+        function notificarDispositivo(titulo, cuerpo, url) {
+            if (Notification.permission === 'granted' && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'MOSTRAR_NOTIFICACION',
+                    payload: { titulo: titulo, cuerpo: cuerpo, url: url || window.location.href }
+                });
+            } else if (Notification.permission === 'granted') {
+                new Notification(titulo, { body: cuerpo, icon: config.logoUrl || '' });
+            }
+        }
+
         function mostrarToast(titulo, mensaje, tipo) {
             var toast = document.getElementById('toastNotificacion'); if (!toast) return;
             document.getElementById('toastTitulo').textContent = titulo;
             document.getElementById('toastMensaje').textContent = mensaje;
             if (tipo === 'alerta') {
-                toast.className = 'fixed top-5 right-5 z-50 flex bg-red-600 text-white font-black px-6 py-4 rounded-3xl shadow-2xl items-center gap-3 border-2 border-red-300 animate-pulse';
+                toast.className = 'fixed top-5 right-5 z-[150] flex bg-red-600 text-white font-black px-6 py-4 rounded-3xl shadow-2xl items-center gap-3 border-2 border-red-300 animate-pulse';
                 document.getElementById('toastIcon').textContent = '⚠️';
             } else {
-                toast.className = 'fixed top-5 right-5 z-50 flex bg-green-500 text-black font-black px-6 py-4 rounded-3xl shadow-2xl items-center gap-3 border-2 border-white animate-bounce';
+                toast.className = 'fixed top-5 right-5 z-[150] flex bg-green-500 text-black font-black px-6 py-4 rounded-3xl shadow-2xl items-center gap-3 border-2 border-white animate-bounce';
                 document.getElementById('toastIcon').textContent = '🔔';
             }
             setTimeout(function() { toast.classList.replace('flex', 'hidden'); }, 7000);
@@ -90,17 +94,9 @@
         function aplicarSkinGlobal(nombre, emitir) {
             var s = SKINS[nombre] || SKINS["tech-neon"]; config.skinSeleccionada = nombre; var r = document.documentElement;
             r.style.setProperty('--bg-main', s.bgMain); r.style.setProperty('--card-bg', s.cardBg); r.style.setProperty('--card-border', s.border); r.style.setProperty('--accent', s.accent); r.style.setProperty('--accent-glow', s.glow);
-            var sup = document.getElementById('marqueePromoSuperior');
-            if (sup && sup.parentElement) { sup.parentElement.style.background = s.accent; sup.parentElement.style.color = (nombre === 'onyx-gold' || nombre === 'tech-neon') ? '#000' : '#fff'; }
             if (emitir && socket) socket.emit('actualizar_config', { skinSeleccionada: nombre });
         }
 
-        function cambiarTamanoTexto(tipo, valor) {
-            var val = parseInt(valor, 10); var r = document.documentElement;
-            if (tipo === 'sup') { config.tamanoTextoSup = val; r.style.setProperty('--marquee-size-sup', val + 'px'); document.getElementById('lblTamanoSup').textContent = val + 'px'; } 
-            else { config.tamanoTextoInf = val; r.style.setProperty('--marquee-size-inf', val + 'px'); document.getElementById('lblTamanoInf').textContent = val + 'px'; }
-            if (socket) socket.emit('actualizar_config', { tamanoTextoSup: config.tamanoTextoSup, tamanoTextoInf: config.tamanoTextoInf });
-        }
         function escapeHTML(s) { return !s ? '' : String(s).replace(/[&<>'"]/g, function(t) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[t] || t; }); }
         
         function reproducirAlertaSonora(tipo) {
@@ -119,32 +115,62 @@
                 }
             } catch (e) {}
         }
- function activarAudioNavegador() { 
+        
+        function activarAudioNavegador() { 
             reproducirAlertaSonora('nuevo'); 
             if (typeof Notification !== 'undefined' && Notification.permission !== "granted") { Notification.requestPermission(); }
             var btn = document.getElementById('btnActivarAudio'); if (btn) btn.classList.add('hidden'); 
         }
 
+        // ====== CONTROL DE VISTAS (Aislamiento de Cliente) ======
         function entrarModo(modo, vistaInicial = 'comandas') {
-            rolActivo = modo; document.getElementById('pantalla-bienvenida').classList.add('hidden');
+            rolActivo = modo; 
+            document.getElementById('pantalla-bienvenida').classList.add('hidden');
+            
             if (modo === 'monitor') { 
                 document.getElementById('appTopBar').classList.add('hidden'); 
                 var btnChat = document.getElementById('btnChatFlotante'); if (btnChat) btnChat.classList.add('hidden');
-                cambiarVista('pantalla-cliente'); renderizarMonitor(); iniciarCarruselPublicidad(); return; 
+                cambiarVista('pantalla-cliente'); 
+                renderizarMonitor(); 
+                iniciarCarruselPublicidad(); 
+                return; 
             }
-            document.getElementById('appTopBar').classList.remove('hidden'); configurarAppBottomBar();
+            
+            if (modo === 'cliente') {
+                document.getElementById('appTopBar').classList.add('hidden');
+                var selMesa = document.getElementById('selectMesa');
+                if(selMesa) { selMesa.disabled = true; selMesa.classList.add('opacity-50', 'cursor-not-allowed'); }
+                var btnChat = document.getElementById('btnChatFlotante'); if (btnChat) btnChat.classList.add('hidden');
+            } else {
+                document.getElementById('appTopBar').classList.remove('hidden'); 
+            }
+
+            configurarAppBottomBar();
             cambiarVista(vistaInicial);
-            if(document.getElementById('btnChatFlotante')) document.getElementById('btnChatFlotante').classList.remove('hidden');
+            
+            if(document.getElementById('btnChatFlotante') && modo !== 'cliente') {
+                document.getElementById('btnChatFlotante').classList.remove('hidden');
+            }
+        }
+
+        function volverMenuAnterior() {
+            if(rolActivo === 'cliente') {
+                cerrarSesion();
+            } else if(usuarioActivo && usuarioActivo.permisos) {
+                cambiarVista(usuarioActivo.permisos.admin ? 'admin' : 'mapa');
+            } else {
+                cerrarSesion();
+            }
         }
 
         function abrirModalLogin() { document.getElementById('modal-login').classList.remove('hidden'); document.getElementById('loginUsuario').value = ''; document.getElementById('loginPin').value = ''; document.getElementById('loginUsuario').focus(); }
         function cerrarModalLogin() { document.getElementById('modal-login').classList.add('hidden'); }
+        
         function procesarLogin() {
             var usuario = document.getElementById('loginUsuario').value.trim().toLowerCase(); var pin = document.getElementById('loginPin').value.trim();
             if (!usuario || !pin) return alert('Ingresa usuario y PIN');
             if (usuario === 'admin' && pin === '1234') {
-                var permisosAdmin = { menu: true, mapa: true, barra: true, inventario: true, admin: true };
-                usuarioActivo = { usuario: 'admin', rol: 'admin', nombre: 'ADMINISTRADOR', permisos: permisosAdmin };
+                usuarioActivo = { usuario: 'admin', rol: 'admin', nombre: 'ADMINISTRADOR', permisos: { menu: true, mapa: true, barra: true, inventario: true, admin: true } };
                 cerrarModalLogin(); entrarModo('admin', 'admin'); return;
             }
             if (socket) { 
@@ -170,73 +196,33 @@
 
         function cambiarVista(v) {
             if (usuarioActivo && usuarioActivo.permisos) {
-                if (v === 'admin' && !usuarioActivo.permisos.admin) return alert('No tienes permisos de Administrador.');
-                if (v === 'inventario' && !usuarioActivo.permisos.inventario && !usuarioActivo.permisos.admin) return alert('No tienes permisos para ver el Inventario.');
-                if (v === 'barra' && !usuarioActivo.permisos.barra && !usuarioActivo.permisos.admin) return alert('No tienes permisos para ver la Barra.');
-                if (v === 'mapa' && !usuarioActivo.permisos.mapa && !usuarioActivo.permisos.admin) return alert('No tienes permisos para ver el Mapa.');
-                if (v === 'comandas' && !usuarioActivo.permisos.menu && !usuarioActivo.permisos.admin && rolActivo !== 'cliente') return alert('No tienes permisos para ver el Menú.');
+                if (v === 'admin' && !usuarioActivo.permisos.admin) return alert('No tienes permisos.');
+                if (v === 'inventario' && !usuarioActivo.permisos.inventario && !usuarioActivo.permisos.admin) return alert('No tienes permisos.');
+                if (v === 'barra' && !usuarioActivo.permisos.barra && !usuarioActivo.permisos.admin) return alert('No tienes permisos.');
+                if (v === 'mapa' && !usuarioActivo.permisos.mapa && !usuarioActivo.permisos.admin) return alert('No tienes permisos.');
             }
-
             ['comandas', 'barra', 'inventario', 'admin', 'pantalla-cliente', 'mapa'].forEach(function(x) { var el = document.getElementById('vista-' + x); if (el) el.classList.add('hidden'); });
             var vActiva = document.getElementById('vista-' + v); if (vActiva) vActiva.classList.remove('hidden');
             if (v === 'inventario') renderizarInventario(); if (v === 'barra') { renderizarBarra(); renderizarInsumos(); } if (v === 'admin') { renderizarAdmin(); renderizarInsumos(); } if (v === 'mapa') { modoEdicionMapa=false; renderizarMapa(); }
             if (v === 'pantalla-cliente') { renderizarMonitor(); iniciarCarruselPublicidad(); } else clearInterval(timerPublicidad);
+            if (v === 'comandas') renderizarMenu();
         }
 
         function configurarAppBottomBar() {
-            var bar = document.getElementById('appBottomBar'); if (!bar) return; bar.classList.remove('hidden');
-            if (rolActivo === 'cliente') { 
-                bar.innerHTML = '<div class="flex justify-around items-center w-full max-w-md mx-auto py-2"><button onclick="cambiarVista(\'comandas\')" class="flex flex-col items-center text-accent text-xs font-bold transition"><span class="text-xl">🍕</span><span>Menú</span></button></div>'; 
-                return;
-            }
+            var bar = document.getElementById('appBottomBar'); if (!bar) return; 
+            if (rolActivo === 'cliente') { bar.classList.add('hidden'); return; } else { bar.classList.remove('hidden'); }
             
-            var htmlBotones = '';
-            var permisos = usuarioActivo.permisos || {};
+            var htmlBotones = ''; var permisos = usuarioActivo.permisos || {};
+            if (permisos.admin) htmlBotones += '<button onclick="cambiarVista(\'admin\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">📊</span><span>Dashboard</span></button>';
+            if (permisos.mapa || permisos.admin) htmlBotones += '<button onclick="cambiarVista(\'mapa\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">🗺️</span><span>Mapa</span></button>';
+            if (permisos.menu || permisos.admin) htmlBotones += '<button onclick="cambiarVista(\'comandas\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">📝</span><span>Menú POS</span></button>';
+            if (permisos.barra || permisos.admin) htmlBotones += '<button onclick="cambiarVista(\'barra\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">🍻</span><span>Barra</span></button>';
+            if (permisos.inventario || permisos.admin) htmlBotones += '<button onclick="cambiarVista(\'inventario\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">📦</span><span>Stock</span></button>';
             
-            if (permisos.admin) { htmlBotones += '<button onclick="cambiarVista(\'admin\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">📊</span><span>Dashboard</span></button>'; }
-            if (permisos.mapa || permisos.admin) { htmlBotones += '<button onclick="cambiarVista(\'mapa\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">🗺️</span><span>Mapa/Caja</span></button>'; }
-            if (permisos.menu || permisos.admin) { htmlBotones += '<button onclick="cambiarVista(\'comandas\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">📝</span><span>Menú POS</span></button>'; }
-            if (permisos.barra || permisos.admin) { htmlBotones += '<button onclick="cambiarVista(\'barra\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">🍻</span><span>Barra</span></button>'; }
-            if (permisos.inventario || permisos.admin) { htmlBotones += '<button onclick="cambiarVista(\'inventario\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">📦</span><span>Stock</span></button>'; }
-            
-            htmlBotones += '<button onclick="cambiarVista(\'pantalla-cliente\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">📺</span><span>Monitor</span></button>';
             bar.innerHTML = '<div class="flex justify-around items-center w-full max-w-2xl mx-auto py-2">' + htmlBotones + '</div>';
         }
 
-        function toggleEdicionMapa() {
-            if(!usuarioActivo || (!usuarioActivo.permisos.admin && !usuarioActivo.permisos.mapa)) return alert('No tienes permiso para editar el mapa.');
-            modoEdicionMapa = !modoEdicionMapa;
-            document.getElementById('btnEditarMapa').textContent = modoEdicionMapa ? '💾 Guardar Mapa' : '⚙️ Editar Mapa';
-            document.getElementById('btnEditarMapa').className = modoEdicionMapa ? 'bg-green-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold animate-pulse' : 'bg-gray-800 text-gray-300 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-gray-700';
-            renderizarMapa();
-        }
-
-        var dragTarget = null; var offsetX = 0; var offsetY = 0;
-        function onDragStart(e, idMesa) { if(!modoEdicionMapa) return; dragTarget = e.currentTarget; var rect = dragTarget.getBoundingClientRect();
-            if(e.type === 'touchstart') { offsetX = e.touches[0].clientX - rect.left; offsetY = e.touches[0].clientY - rect.top; }
-            else { offsetX = e.clientX - rect.left; offsetY = e.clientY - rect.top; }
-            dragTarget.style.zIndex = "100";
-        }
-        function onDragMove(e) { if(!dragTarget || !modoEdicionMapa) return; e.preventDefault();
-            var container = document.getElementById('mapaContainerWrapper'); var contRect = container.getBoundingClientRect();
-            var clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX; var clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
-            var newX = clientX - contRect.left - offsetX; var newY = clientY - contRect.top - offsetY;
-            newX = Math.max(0, Math.min(newX, contRect.width - dragTarget.offsetWidth));
-            newY = Math.max(0, Math.min(newY, contRect.height - dragTarget.offsetHeight));
-            dragTarget.style.left = (newX / contRect.width * 100) + '%'; dragTarget.style.top = (newY / contRect.height * 100) + '%';
-        }
-        function onDragEnd(e) { if(!dragTarget || !modoEdicionMapa) return;
-            var idMesa = dragTarget.getAttribute('data-id'); dragTarget.style.zIndex = "20"; dragTarget = null;
-            if (socket) {
-                var container = document.getElementById('mapaContainerWrapper'); var contRect = container.getBoundingClientRect();
-                var elRect = document.querySelector('.mesa-node[data-id="'+idMesa+'"]').getBoundingClientRect();
-                var px = ((elRect.left - contRect.left) / contRect.width) * 100; var py = ((elRect.top - contRect.top) / contRect.height) * 100;
-                socket.emit('guardar_posicion_mesa', { id: idMesa, x: px, y: py });
-            }
-        }
-        document.addEventListener('mousemove', onDragMove); document.addEventListener('mouseup', onDragEnd);
-        document.addEventListener('touchmove', onDragMove, {passive: false}); document.addEventListener('touchend', onDragEnd);
-
+        // MAPA
         function renderizarMapa() {
             var container = document.getElementById('mapaContainerWrapper'); if (!container) return;
             container.innerHTML = mesasData.map(function(mesaObj) {
@@ -247,20 +233,19 @@
                     if (hayListas) { colorClase = 'bg-blue-900 border-blue-400 text-blue-100 shadow-[0_0_15px_rgba(59,130,246,0.5)]'; estadoTexto = 'Entregar'; icono = '🔔'; animacion = 'animate-pulse'; } 
                     else { colorClase = 'bg-red-900 border-red-500 text-red-100 shadow-[0_0_15px_rgba(239,68,68,0.3)]'; estadoTexto = 'Ocupada'; icono = '🔥'; }
                 }
-                var clsModo = modoEdicionMapa ? 'edit-mode' : '';
-                return '<div data-id="'+mesa+'" onmousedown="onDragStart(event, \''+mesa+'\')" ontouchstart="onDragStart(event, \''+mesa+'\')" onclick="if(!modoEdicionMapa) gestionarClicMesa(\''+mesa+'\')" class="mesa-node '+colorClase+' '+clsModo+' '+animacion+'" style="left: '+mesaObj.x+'%; top: '+mesaObj.y+'%;">' +
+                return '<div data-id="'+mesa+'" onclick="gestionarClicMesa(\''+mesa+'\')" class="mesa-node '+colorClase+' '+animacion+'" style="left: '+mesaObj.x+'%; top: '+mesaObj.y+'%;">' +
                     '<span class="text-3xl drop-shadow-md">' + icono + '</span><h3 class="font-black text-[11px] uppercase tracking-wide leading-tight mt-1">' + mesa + '</h3>' +
                     '<span class="text-[9px] font-bold px-1.5 py-0.5 bg-black bg-opacity-50 rounded mt-0.5">' + estadoTexto + '</span>' +
-                    (activas.length > 0 && !modoEdicionMapa ? '<span class="text-[10px] mt-1 text-green-400 font-black bg-black bg-opacity-60 px-2 py-0.5 rounded">$' + totalMesa.toFixed(0) + '</span>' : '') + '</div>';
+                    (activas.length > 0 ? '<span class="text-[10px] mt-1 text-green-400 font-black bg-black bg-opacity-60 px-2 py-0.5 rounded">$' + totalMesa.toFixed(0) + '</span>' : '') + '</div>';
             }).join('');
         }
-
         function gestionarClicMesa(mesa) {
             var activas = comandas.filter(function(c) { return c.mesa === mesa; });
-            if (activas.length === 0) { miMesaAsignada = mesa; var sm = document.getElementById('selectMesa'); if(sm) sm.value = mesa; document.getElementById('labelMesaAsignada').textContent = mesa; cambiarVista('comandas'); } 
+            if (activas.length === 0) { miMesaAsignada = mesa; var sm = document.getElementById('selectMesa'); if(sm) sm.value = mesa; cambiarVista('comandas'); } 
             else { abrirCobro(activas[0].id); }
         }
 
+        // CHAT (Solo empleados)
         function toggleChat() {
             var chat = document.getElementById('panelChatFlotante');
             if(chat.classList.contains('hidden')) { chat.classList.remove('hidden'); renderizarChat(); document.getElementById('inputChat').focus(); document.getElementById('badgeChatNew').classList.add('hidden'); }
@@ -268,10 +253,8 @@
         }
         function enviarMensajeChat(e) {
             if(e && e.key !== 'Enter') return;
-            var msg = document.getElementById('inputChat').value.trim();
-            if(!msg || !usuarioActivo) return;
-            var payload = { usuario: usuarioActivo.nombre, rol: usuarioActivo.permisos.admin ? 'admin' : (usuarioActivo.permisos.barra ? 'barra' : 'mesero'), texto: msg };
-            if(socket) socket.emit('enviar_mensaje_chat', payload);
+            var msg = document.getElementById('inputChat').value.trim(); if(!msg || !usuarioActivo) return;
+            socket.emit('enviar_mensaje_chat', { usuario: usuarioActivo.nombre, rol: usuarioActivo.permisos.admin ? 'admin' : 'mesero', texto: msg });
             document.getElementById('inputChat').value = '';
         }
         function renderizarChat() {
@@ -281,181 +264,104 @@
                 var isMe = usuarioActivo && m.usuario === usuarioActivo.nombre;
                 var col = isMe ? 'bg-purple-900 text-purple-100 ml-4' : 'bg-gray-800 text-gray-300 mr-4';
                 var ali = isMe ? 'text-right' : 'text-left';
-                var nameCol = m.rol === 'admin' ? 'text-accent' : (m.rol === 'barra' ? 'text-green-400' : 'text-blue-400');
-                return '<div class="mb-2 ' + ali + '"><div class="text-[9px] mb-0.5 ' + nameCol + ' font-bold">' + escapeHTML(m.usuario) + ' <span class="text-gray-500">' + m.hora + '</span></div><div class="inline-block px-3 py-1.5 rounded-xl text-xs ' + col + '">' + escapeHTML(m.texto) + '</div></div>';
-            }).join('');
-            body.scrollTop = body.scrollHeight;
+                return '<div class="mb-2 ' + ali + '"><div class="text-[9px] mb-0.5 text-blue-400 font-bold">' + escapeHTML(m.usuario) + '</div><div class="inline-block px-3 py-1.5 rounded-xl text-xs ' + col + '">' + escapeHTML(m.texto) + '</div></div>';
+            }).join(''); body.scrollTop = body.scrollHeight;
         }
 
-        function getImagenUrl(imgName) { return imgName ? encodeURI(imgName) : ''; }
-
-     function renderizarMenu() {
+        // MENU Y CARRITO
+        function renderizarMenu() {
             var grid = document.getElementById('gridProductos'); if (!grid) return;
-            var filtro = document.getElementById('filtroCategoriaComanda');
-            var catSeleccionada = filtro ? filtro.value : 'Todos';
+            var cat = document.getElementById('filtroCategoriaComanda') ? document.getElementById('filtroCategoriaComanda').value : 'Todos';
+            var prodFiltrados = cat === 'Todos' ? productos : productos.filter(function(p) { return p.categoria === cat; });
             
-            // Filtrar productos según el menú desplegable
-            var prodFiltrados = catSeleccionada === 'Todos' ? productos : productos.filter(function(p) { return p.categoria === catSeleccionada; });
-            
-            if (prodFiltrados.length === 0) {
-                grid.innerHTML = '<p class="text-gray-500 col-span-full text-center mt-10">No hay productos en esta categoría</p>';
-                return;
-            }
+            if (prodFiltrados.length === 0) { grid.innerHTML = '<p class="text-gray-500 col-span-full text-center mt-10">No hay productos en esta categoría</p>'; return; }
+            var categoriasUnicas = []; prodFiltrados.forEach(function(p) { if(categoriasUnicas.indexOf(p.categoria) === -1) categoriasUnicas.push(p.categoria); });
 
             var html = '';
-            // Obtener las categorías únicas para agrupar (como en el volante)
-            var categoriasUnicas = [];
-            prodFiltrados.forEach(function(p) { if(categoriasUnicas.indexOf(p.categoria) === -1) categoriasUnicas.push(p.categoria); });
-
-            // Dibujar cada categoría y sus productos
-            categoriasUnicas.forEach(function(cat) {
-                // TÍTULO DE CATEGORÍA (Estilo letras de fuego/rojas del volante)
-                html += '<div class="col-span-full mt-4 mb-2 border-b-2 border-red-600 pb-1 text-center"><h3 class="text-2xl font-black text-white italic tracking-widest uppercase transform -skew-x-6 drop-shadow-[0_2px_4px_rgba(220,38,38,0.8)]">' + escapeHTML(cat) + '</h3></div>';
-                
-                var prodsDeCat = prodFiltrados.filter(function(p) { return p.categoria === cat; });
+            categoriasUnicas.forEach(function(c) {
+                html += '<div class="col-span-full mt-4 mb-2 border-b-2 border-red-600 pb-1 text-center"><h3 class="text-2xl font-black text-white italic tracking-widest uppercase transform -skew-x-6 drop-shadow-[0_2px_4px_rgba(220,38,38,0.8)]">' + escapeHTML(c) + '</h3></div>';
+                var prodsDeCat = prodFiltrados.filter(function(p) { return p.categoria === c; });
                 prodsDeCat.forEach(function(p) {
-                    var imgUrl = getImagenUrl(p.imagen);
+                    var imgUrl = p.imagen ? encodeURI(p.imagen) : '';
                     var imgHtml = imgUrl ? '<img src="'+imgUrl+'" class="w-full h-full object-cover">' : '<span class="text-4xl opacity-20">🔥</span>';
-                    
-                    // TARJETA DE PRODUCTO (Fondo negro, texto amarillo, precio en cuadro rojo)
                     html += '<div onclick="abrirDetalleProducto(' + p.id + ')" class="cursor-pointer flex flex-col bg-black rounded-xl border-2 border-gray-800 overflow-hidden shadow-2xl hover:border-red-500 transition transform hover:scale-105 active:scale-95">' +
-                        '<div class="h-24 w-full bg-gray-900 flex items-center justify-center relative">' + imgHtml + 
-                        (p.stock <= 0 ? '<div class="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center"><span class="text-red-500 font-black border-2 border-red-500 p-1 transform -rotate-12 bg-black">AGOTADO</span></div>' : '') +
-                        '</div>' +
+                        '<div class="h-24 w-full bg-gray-900 flex items-center justify-center relative">' + imgHtml + (p.stock <= 0 ? '<div class="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center"><span class="text-red-500 font-black border-2 border-red-500 p-1 transform -rotate-12 bg-black">AGOTADO</span></div>' : '') + '</div>' +
                         '<div class="p-2 flex-1 flex flex-col justify-between bg-gradient-to-b from-gray-900 to-black text-center">' +
                         '<h4 class="font-black text-yellow-400 text-xs leading-tight uppercase drop-shadow-md mb-2">' + escapeHTML(p.nombre) + '</h4>' +
-                        '<div class="flex justify-center mt-auto">' +
-                        '<span class="bg-red-600 text-white font-black px-3 py-1 rounded text-sm shadow-[0_4px_6px_-1px_rgba(0,0,0,0.8)] border border-red-700">$' + Number(p.precio).toFixed(0) + '</span>' +
-                        '</div>' +
+                        '<div class="flex justify-center mt-auto"><span class="bg-red-600 text-white font-black px-3 py-1 rounded text-sm border border-red-700">$' + Number(p.precio).toFixed(0) + '</span></div>' +
                         '</div></div>';
                 });
-            });
-            
-            grid.innerHTML = html;
+            }); grid.innerHTML = html;
         }
 
         function abrirDetalleProducto(id) {
-            var p = productos.find(function(x) { return x.id === id; }); if(!p) return;
-            modalProductoActivo = p;
-            var m = document.getElementById('modal-detalle-producto');
-            var imgUrl = getImagenUrl(p.imagen);
-            document.getElementById('detProdImgContainer').innerHTML = imgUrl ? '<img src="'+imgUrl+'" class="w-full h-40 object-cover rounded-xl">' : '<div class="w-full h-32 bg-gray-900 rounded-xl flex items-center justify-center text-4xl opacity-50">🍲</div>';
-            document.getElementById('detProdNombre').textContent = p.nombre;
-            document.getElementById('detProdCat').textContent = p.categoria;
-            document.getElementById('detProdDesc').textContent = p.descripcion || 'Sin descripción detallada.';
-            document.getElementById('detProdPrecio').textContent = '$' + Number(p.precio).toFixed(2);
-            document.getElementById('detProdStock').textContent = p.stock > 0 ? 'Disponibles: ' + p.stock : 'Agotado';
-            document.getElementById('detProdStock').className = p.stock > 0 ? 'text-xs text-gray-400' : 'text-xs text-red-400 font-bold';
-            
-            if (p.tipo === 'combo' && p.componentes && p.componentes.length > 0) {
-                document.getElementById('detProdComponentes').classList.remove('hidden');
-                document.getElementById('detProdComponentesLista').innerHTML = p.componentes.map(function(c) {
-                    var sub = productos.find(function(s) { return s.id === c.id; });
-                    return sub ? ('<li class="flex justify-between"><span class="text-gray-300">' + c.cant + 'x ' + escapeHTML(sub.nombre) + '</span></li>') : '';
-                }).join('');
-            } else { document.getElementById('detProdComponentes').classList.add('hidden'); }
-
-            m.classList.remove('hidden');
+            var p = productos.find(function(x) { return x.id === id; }); if(!p) return; modalProductoActivo = p;
+            document.getElementById('detProdNombre').textContent = p.nombre; document.getElementById('detProdPrecio').textContent = '$' + Number(p.precio).toFixed(2);
+            document.getElementById('modal-detalle-producto').classList.remove('hidden');
         }
-
-        function cerrarDetalleProducto() { document.getElementById('modal-detalle-producto').classList.add('hidden'); modalProductoActivo = null; }
-        
         function agregarDesdeDetalle() {
-            if(!modalProductoActivo) return;
-            if(modalProductoActivo.stock <= 0) return alert('Producto sin existencias');
+            if(!modalProductoActivo || modalProductoActivo.stock <= 0) return;
             var item = carrito.find(function(x) { return x.id === modalProductoActivo.id; }); 
             if (item) { item.cantidad++; } else { carrito.push(Object.assign({}, modalProductoActivo, { cantidad: 1 })); } 
-            renderizarCarrito(); cerrarDetalleProducto();
+            renderizarCarrito(); document.getElementById('modal-detalle-producto').classList.add('hidden');
         }
-
         function ajustarCantidad(id, delta) {
-            var item = carrito.find(function(x) { return x.id === id; }); var p = productos.find(function(x) { return x.id === id; }); if (!item) return;
-            item.cantidad += delta; if (p && item.cantidad > p.stock) item.cantidad = p.stock;
+            var item = carrito.find(function(x) { return x.id === id; }); if (!item) return; item.cantidad += delta; 
             if (item.cantidad <= 0) { carrito = carrito.filter(function(x) { return x.id !== id; }); } renderizarCarrito();
         }
-
         function renderizarCarrito() {
-            var lista = document.getElementById('listaCarrito'); var totalEl = document.getElementById('totalCarrito'); var btnEnvio = document.getElementById('btnEnviarComanda');
-            if (!lista || !totalEl) return;
-            if (carrito.length === 0) { lista.innerHTML = '<p class="text-center py-6 text-gray-500 text-xs">Toca un platillo del menú para agregar</p>'; totalEl.textContent = '$0.00'; return; }
+            var lista = document.getElementById('listaCarrito'); var totalEl = document.getElementById('totalCarrito');
+            if (carrito.length === 0) { lista.innerHTML = '<p class="text-center py-6 text-gray-500 text-xs">Agrega platillos aquí</p>'; totalEl.textContent = '$0.00'; return; }
             var total = 0;
             lista.innerHTML = carrito.map(function(i) {
                 var sub = i.precio * i.cantidad; total += sub;
-                return '<div class="flex justify-between items-center bg-app-base p-2 rounded-xl text-xs border border-gray-800">' +
-                    '<span class="truncate mr-2 font-bold text-gray-200">' + escapeHTML(i.nombre) + '</span><div class="flex items-center gap-1.5"><button onclick="ajustarCantidad(' + i.id + ', -1)" class="px-2 py-0.5 bg-gray-800 rounded text-gray-300">-</button>' +
-                    '<span class="font-bold text-accent">' + i.cantidad + '</span><button onclick="ajustarCantidad(' + i.id + ', 1)" class="px-2 py-0.5 bg-gray-800 rounded text-gray-300">+</button>' +
-                    '<span class="text-green-400 font-bold ml-1">$' + sub.toFixed(2) + '</span></div></div>';
+                return '<div class="flex justify-between items-center bg-black p-2 rounded-xl text-xs border border-gray-800">' +
+                    '<span class="truncate mr-2 font-bold text-gray-200">' + escapeHTML(i.nombre) + '</span><div class="flex items-center gap-1.5"><button onclick="ajustarCantidad(' + i.id + ', -1)" class="px-2 py-0.5 bg-gray-800 text-gray-300">-</button>' +
+                    '<span class="font-bold text-accent">' + i.cantidad + '</span><button onclick="ajustarCantidad(' + i.id + ', 1)" class="px-2 py-0.5 bg-gray-800 text-gray-300">+</button><span class="text-green-400 font-bold ml-1">$' + sub.toFixed(2) + '</span></div></div>';
             }).join('');
             totalEl.textContent = '$' + total.toFixed(2);
         }
-
         function procesarEnvioOrden() {
-            if (carrito.length === 0) return alert('El carrito está vacío');
+            if (carrito.length === 0) return alert('Carrito vacío');
             var mesaEl = document.getElementById('selectMesa'); var mesa = mesaEl ? mesaEl.value : miMesaAsignada;
-            var nom = document.getElementById('clienteNombre').value.trim(); var tel = document.getElementById('clienteTelefono').value.trim();
-            var letraFolio = mesa.replace(/[^0-9]/g, '') || '1'; var numAzar = Math.floor(100 + Math.random() * 900); var folioLegible = 'M' + letraFolio + '-' + numAzar;
-            var orden = { id: Date.now(), folio: folioLegible, mesa: mesa, items: carrito.slice(), total: carrito.reduce(function(a, b) { return a + (b.precio * b.cantidad); }, 0), estado: 'Preparando...', hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), cliente: tel ? { nombre: nom || 'Cliente', telefono: tel } : null };
-            if (socket) socket.emit('nueva_orden', orden);
-            if (rolActivo === 'cliente') { mostrarFichaTurnoCliente(orden); } else { alert('¡Orden enviada a Barra con éxito!'); cambiarVista('mapa'); }
-            carrito = []; renderizarCarrito();
+            var nom = document.getElementById('clienteNombre').value.trim();
+            var orden = { id: Date.now(), folio: 'M' + mesa.replace(/[^0-9]/g, '') + '-' + Math.floor(100+Math.random()*900), mesa: mesa, items: carrito.slice(), total: carrito.reduce(function(a, b) { return a + (b.precio * b.cantidad); }, 0), estado: 'Preparando...', hora: new Date().toLocaleTimeString(), cliente: { nombre: nom } };
+            socket.emit('nueva_orden', orden); alert('¡Orden enviada a Barra!'); carrito = []; renderizarCarrito();
+            if (rolActivo !== 'cliente') cambiarVista('mapa');
         }
 
-        function mostrarFichaTurnoCliente(orden) {
-            var modal = document.getElementById('modal-turno-cliente');
-            document.getElementById('ticketFolioGrande').textContent = orden.folio; document.getElementById('ticketMesaNombre').textContent = orden.mesa; document.getElementById('ticketHoraGenerado').textContent = orden.hora; document.getElementById('ticketTotalPagar').textContent = '$' + Number(orden.total).toFixed(2);
-            document.getElementById('ticketListaItems').innerHTML = orden.items.map(function(i) { return '<div class="flex justify-between py-0.5"><span>' + i.cantidad + 'x ' + escapeHTML(i.nombre) + '</span><span>$' + (i.precio * i.cantidad).toFixed(2) + '</span></div>'; }).join('');
-            modal.classList.remove('hidden');
-        }
-
+        // BARRA
         function renderizarBarra() {
             var grid = document.getElementById('gridComandasBarra'); if (!grid) return;
             grid.innerHTML = comandas.length === 0 ? '<p class="text-gray-500 col-span-full py-12 text-center text-xs">Sin comandas activas</p>' :
                 comandas.map(function(c) {
-                    return '<div class="bg-card p-4 rounded-3xl border ' + (c.estado === 'Listo' ? 'border-green-500' : 'border-gray-800') + ' space-y-2 shadow-2xl">' +
-                        '<div class="flex justify-between items-center"><div><h3 class="font-black text-accent text-base">' + escapeHTML(c.mesa) + '</h3>' +
-                        (c.folio ? '<span class="text-[11px] bg-accent text-white px-2 py-0.5 rounded-full font-mono font-bold">' + c.folio + '</span>' : '') + '</div><span class="text-[10px] text-gray-400">' + c.hora + '</span></div>' +
-                        (c.mesero ? '<div class="text-[10px] text-blue-400">Mesero: ' + escapeHTML(c.mesero) + '</div>' : '') +
-                        '<ul class="text-xs space-y-1 divide-y divide-gray-800">' + c.items.map(function(i) { return '<li class="py-1 flex justify-between"><span>' + i.cantidad + 'x ' + escapeHTML(i.nombre) + '</span></li>'; }).join('') + '</ul>' +
-                        (c.estado !== 'Listo' ? '<button onclick="marcarListo(' + c.id + ')" class="w-full bg-green-500 hover:bg-green-400 text-black font-black py-2.5 rounded-2xl text-xs transition">🔔 ¡ORDEN LISTA! (Avisar)</button>' : '<div class="text-center py-1.5 bg-green-900 text-green-300 text-xs font-bold rounded-2xl border border-green-800">✓ Listo para entrega</div>') + '</div>';
+                    return '<div class="bg-card p-4 rounded-3xl border ' + (c.estado === 'Listo' ? 'border-green-500' : 'border-gray-800') + ' shadow-2xl">' +
+                        '<div class="flex justify-between items-center mb-2"><div><h3 class="font-black text-accent text-base">' + escapeHTML(c.mesa) + '</h3><span class="text-[11px] bg-accent text-white px-2 py-0.5 rounded-full font-mono font-bold">' + c.folio + '</span></div><span class="text-[10px] text-gray-400">' + c.hora + '</span></div>' +
+                        '<ul class="text-xs space-y-1 divide-y divide-gray-800 mb-2">' + c.items.map(function(i) { return '<li class="py-1 flex justify-between"><span>' + i.cantidad + 'x ' + escapeHTML(i.nombre) + '</span></li>'; }).join('') + '</ul>' +
+                        (c.estado !== 'Listo' ? '<button onclick="marcarListo(' + c.id + ')" class="w-full bg-green-500 text-black font-black py-2.5 rounded-2xl text-xs">🔔 ¡ORDEN LISTA!</button>' : '<div class="text-center py-1.5 bg-green-900 text-green-300 text-xs font-bold rounded-2xl border border-green-800">✓ Listo</div>') + '</div>';
                 }).join('');
         }
-        function marcarListo(id) { if (socket) socket.emit('pedido_listo', id); }
+        function marcarListo(id) { socket.emit('pedido_listo', id); }
 
+        // COBRO MODAL REDISEÑADO
         function abrirCobro(id) {
             var c = comandas.find(function(x) { return x.id === id; }); if (!c) return; comandaCobroActiva = c;
-            document.getElementById('cobroMesaLabel').textContent = c.mesa + (c.folio ? ' (' + c.folio + ')' : ''); document.getElementById('cobroSubtotal').textContent = '$' + Number(c.total).toFixed(2);
-            document.getElementById('cobroPropina').value = 0; document.getElementById('cobroMontoRecibido').value = ''; document.getElementById('cobroMesero').value = usuarioActivo ? usuarioActivo.nombre : (c.mesero || ''); 
+            document.getElementById('cobroMesaLabel').textContent = c.mesa; document.getElementById('cobroSubtotal').textContent = '$' + Number(c.total).toFixed(2);
+            document.getElementById('cobroPropina').value = 0; document.getElementById('cobroMontoRecibido').value = ''; document.getElementById('cobroMesero').value = usuarioActivo ? usuarioActivo.nombre : ''; 
             setMetodoPago('Efectivo'); document.getElementById('modal-cobro').classList.remove('hidden');
         }
         function cerrarCobro() { document.getElementById('modal-cobro').classList.add('hidden'); comandaCobroActiva = null; }
         function setMetodoPago(m) {
             metodoPago = m; var bEf = document.getElementById('btnPagoEfectivo'); var bTa = document.getElementById('btnPagoTarjeta'); var bMp = document.getElementById('btnPagoMP'); var blq = document.getElementById('bloqueEfectivo');
-            bEf.className = 'py-2 rounded-xl text-xs font-black ' + (m==='Efectivo' ? 'bg-green-500 text-black' : 'bg-gray-900 text-gray-400 border border-gray-800'); bTa.className = 'py-2 rounded-xl text-xs font-black ' + (m==='Tarjeta' ? 'bg-blue-500 text-black' : 'bg-gray-900 text-gray-400 border border-gray-800'); bMp.className = 'py-2 rounded-xl text-xs font-black ' + (m==='Mercado Pago' ? 'bg-blue-400 text-white border border-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.5)]' : 'bg-gray-900 text-gray-400 border border-gray-800');
-            if (m === 'Efectivo') { blq.classList.remove('hidden'); } else { blq.classList.add('hidden'); } actualizarTotalCobro();
+            bEf.className = 'py-3 rounded-xl text-sm font-black transition transform active:scale-95 ' + (m==='Efectivo' ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-gray-900 text-gray-400 border border-gray-800'); 
+            bTa.className = 'py-3 rounded-xl text-sm font-black transition transform active:scale-95 ' + (m==='Tarjeta' ? 'bg-blue-500 text-black' : 'bg-gray-900 text-gray-400 border border-gray-800'); 
+            bMp.className = 'py-3 rounded-xl text-sm font-black transition transform active:scale-95 ' + (m==='Mercado Pago' ? 'bg-blue-400 text-white border border-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.5)]' : 'bg-gray-900 text-gray-400 border border-gray-800');
+            if (m === 'Efectivo') blq.classList.remove('hidden'); else blq.classList.add('hidden'); actualizarTotalCobro();
         }
         function actualizarTotalCobro() {
             if (!comandaCobroActiva) return; var sub = Number(comandaCobroActiva.total); var prop = parseFloat(document.getElementById('cobroPropina').value) || 0; var tot = sub + prop; document.getElementById('cobroTotalPagar').textContent = '$' + tot.toFixed(2);
             var rec = parseFloat(document.getElementById('cobroMontoRecibido').value) || 0; document.getElementById('cobroCambio').textContent = '$' + Math.max(0, rec - tot).toFixed(2);
         }
-        function confirmarCobroFinal(imprimir) {
-            if (!comandaCobroActiva) return; var sub = Number(comandaCobroActiva.total); var prop = parseFloat(document.getElementById('cobroPropina').value) || 0;
-            var mesero = document.getElementById('cobroMesero').value.trim() || 'General'; var tot = sub + prop;
-            var cobroData = { idComanda: comandaCobroActiva.id, propina: prop, mesero: mesero, metodoPago: metodoPago, montoRecibido: tot, cambio: 0 };
-            if (socket) socket.emit('cobrar_orden', cobroData); cerrarCobro();
-            var ultimoTicket = Object.assign({}, comandaCobroActiva, cobroData, { totalPagar: tot, horaCobro: new Date().toLocaleTimeString() });
-            var cuerpo = document.getElementById('cuerpoTicketDigital');
-            cuerpo.innerHTML = '<div class="text-center font-bold text-sm">' + escapeHTML(config.nombreNegocio) + '</div><div class="text-center text-[10px] text-gray-500">' + ultimoTicket.mesa + ' • ' + ultimoTicket.horaCobro + '</div>' +
-                '<div class="border-t border-b border-dashed my-2 py-1">' + ultimoTicket.items.map(function(i) { return '<div class="flex justify-between"><span>' + i.cantidad + 'x ' + escapeHTML(i.nombre) + '</span><span>$' + (i.precio * i.cantidad).toFixed(2) + '</span></div>'; }).join('') +
-                '</div><div class="text-right font-bold text-sm">TOTAL: $' + tot.toFixed(2) + ' (' + metodoPago + ')</div>';
-            document.getElementById('modal-ticket-digital').classList.remove('hidden'); if (imprimir) window.print();
-        }
-        function compartirTicketWhatsApp() { 
-            var c = comandaCobroActiva || (historialVentas.length > 0 ? historialVentas[0] : null); if(!c) return;
-            var texto = '*TICKET DIGITAL - ' + config.nombreNegocio + '*\nFolio: ' + (c.folio || 'N/A') + '\nMesa: ' + c.mesa + '\nTotal: $' + Number(c.totalPagar || c.total).toFixed(2) + '\n\n¡Gracias por tu visita!'; 
-            var url = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(texto);
-            if (c.cliente && c.cliente.telefono) { var tel = c.cliente.telefono.replace(/[^0-9]/g, ''); if(tel) url += '&phone=' + tel; } window.open(url, '_blank'); 
-        }
-
         function tecladoCobro(val) {
             var input = document.getElementById('cobroMontoRecibido');
             if (val === 'del') { input.value = input.value.slice(0, -1); } 
@@ -463,399 +369,131 @@
             else { input.value += val; }
             actualizarTotalCobro();
         }
-
-        function abrirCajaTurno() { var m = prompt("Fondo inicial ($):", "500"); if (m !== null && !isNaN(parseFloat(m))) { if (socket) socket.emit('abrir_caja', parseFloat(m)); } }
-        function registrarGastoOperativo() { var c = prompt("Concepto:"); var m = prompt("Monto ($):"); if (c && m && !isNaN(parseFloat(m))) { if (socket) socket.emit('registrar_egreso', { concepto: c, monto: parseFloat(m) }); } }
-        function ejecutarCorteCaja() { if (confirm("¿Cerrar caja y reiniciar registros?")) { if (socket) socket.emit('cerrar_corte_caja', function(res) { if (res && res.success) alert("Caja cerrada exitosamente."); }); } }
-
-        function renderizarAdmin() {
-            var totalVentas = historialVentas.reduce(function(a, b) { return a + (b.total || 0); }, 0); var totalEgresos = egresos.reduce(function(a, b) { return a + (b.monto || 0); }, 0);
-            var totalGanancia = historialVentas.reduce(function(a, b) { return a + (b.gananciaNeta || (b.total * 0.45)); }, 0); var fondo = caja.fondoInicial || 0;
-            var ventasEfectivo = historialVentas.filter(function(v){ return v.metodoPago === 'Efectivo'; }).reduce(function(a,b){ return a + b.total; }, 0); var dineroEsperadoEfectivo = fondo + ventasEfectivo - totalEgresos;
-
-            document.getElementById('lblFondoInicial').textContent = '$' + fondo.toFixed(2); document.getElementById('lblTotalIngresos').textContent = '$' + totalVentas.toFixed(2);
-            document.getElementById('lblTotalEgresos').textContent = '$' + totalEgresos.toFixed(2); document.getElementById('lblGananciaNeta').textContent = '$' + totalGanancia.toFixed(2); document.getElementById('lblEfectivoEsperado').textContent = '$' + dineroEsperadoEfectivo.toFixed(2);
-            var badgeCaja = document.getElementById('badgeEstadoCaja');
-            if (caja.abierta) { badgeCaja.textContent = "ABIERTA (" + caja.horaApertura + ")"; badgeCaja.className = "pill-badge text-green-400 bg-green-900 border border-green-800"; } 
-            else { badgeCaja.textContent = "CERRADA"; badgeCaja.className = "pill-badge text-red-400 bg-red-900 border border-red-800"; }
-
-            var ventasPorMesero = {};
-            historialVentas.forEach(function(v) {
-                var m = v.mesero || 'General'; if (!ventasPorMesero[m]) ventasPorMesero[m] = { total: 0, propinas: 0, pedidos: 0 };
-                ventasPorMesero[m].total += v.total; ventasPorMesero[m].propinas += (v.propina || 0); ventasPorMesero[m].pedidos++;
-            });
-
-            var listaMeseros = document.getElementById('listaRendimientoMeseros'); var nombresM = Object.keys(ventasPorMesero);
-            if (nombresM.length === 0) { listaMeseros.innerHTML = '<p class="text-xs text-gray-500">Sin órdenes cobradas hoy</p>'; } 
-            else {
-                listaMeseros.innerHTML = nombresM.map(function(nom) {
-                    var dat = ventasPorMesero[nom];
-                    return '<div class="flex justify-between items-center bg-app-base p-3 rounded-xl border border-gray-800 text-xs"><div><strong class="text-accent">' + escapeHTML(nom) + '</strong> (' + dat.pedidos + ' comandas)</div><div class="text-right">Venta: <strong class="text-green-400">$' + dat.total.toFixed(2) + '</strong> | Propina: <span class="text-blue-400">$' + dat.propinas.toFixed(2) + '</span></div></div>';
-                }).join('');
-            }
-            actualizarGraficaFinanzas(totalVentas, totalEgresos, totalGanancia); renderizarListaUsuarios();
+        function confirmarCobroFinal(imprimir) {
+            if (!comandaCobroActiva) return; var sub = Number(comandaCobroActiva.total); var prop = parseFloat(document.getElementById('cobroPropina').value) || 0;
+            var mesero = document.getElementById('cobroMesero').value.trim() || 'General'; var tot = sub + prop;
+            socket.emit('cobrar_orden', { idComanda: comandaCobroActiva.id, propina: prop, mesero: mesero, metodoPago: metodoPago, montoRecibido: tot, cambio: 0 }); cerrarCobro();
+            if(imprimir) { document.getElementById('modal-ticket-digital').classList.remove('hidden'); }
         }
 
-        function actualizarGraficaFinanzas(ventas, egresos, ganancias) {
-            var ctx = document.getElementById('chartFinanzas'); if (!ctx) return;
-            if (chartVentas) chartVentas.destroy();
-            chartVentas = new Chart(ctx, { type: 'bar', data: { labels: ['Ventas Brutas', 'Egresos', 'Ganancia Neta'], datasets: [{ label: 'Balance ($)', data: [ventas, egresos, ganancias], backgroundColor: ['#10b981', '#ef4444', '#a855f7'], borderRadius: 8 }] }, options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#9ca3af' }, grid: { color: '#181824' } }, x: { ticks: { color: '#9ca3af' }, grid: { display: false } } } } });
+        // INVENTARIO Y USUARIOS (Jalar datos)
+        function renderizarInventario() {
+            var lista = document.getElementById('listaAdminProductos'); if (!lista) return;
+            lista.innerHTML = productos.map(function(p) {
+                return '<div class="flex justify-between items-center bg-black p-3 rounded-2xl border border-gray-800 text-xs"><div><div class="font-extrabold text-white">' + escapeHTML(p.nombre) + '</div><div class="text-gray-400 mt-1"><span>Costo: $' + (p.costo||0).toFixed(2) + '</span> | <span>Venta: $' + Number(p.precio).toFixed(2) + '</span> | <span>Stock: ' + p.stock + '</span></div></div>' +
+                    '<div><button onclick="editarProducto(' + p.id + ')" class="text-blue-400 font-bold px-2 mr-2">Editar</button><button onclick="eliminarProducto(' + p.id + ')" class="text-red-400 font-bold px-2">Borrar</button></div></div>';
+            }).join('');
+        }
+        function editarProducto(id) {
+            var p = productos.find(function(x) { return x.id === id; }); if (!p) return;
+            document.getElementById('prodNombre').value = p.nombre; document.getElementById('prodCosto').value = p.costo || 0;
+            document.getElementById('prodPrecio').value = p.precio; document.getElementById('prodStock').value = p.stock || 0; document.getElementById('prodCategoria').value = p.categoria;
+            var btnGuardar = document.getElementById('btnGuardarProducto');
+            btnGuardar.textContent = "Actualizar Producto"; btnGuardar.setAttribute("data-edit-id", p.id);
+            btnGuardar.className = "w-full bg-blue-500 text-white font-extrabold py-2.5 rounded-xl text-xs shadow-[0_0_15px_rgba(59,130,246,0.5)]";
+            document.getElementById('btnCancelarEdicion').classList.remove('hidden'); window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        function limpiarFormProducto() {
+            document.getElementById('prodNombre').value = ''; document.getElementById('prodPrecio').value = ''; document.getElementById('prodCosto').value = ''; document.getElementById('prodStock').value = '';
+            var btnGuardar = document.getElementById('btnGuardarProducto'); btnGuardar.textContent = "Guardar en Catálogo"; btnGuardar.removeAttribute("data-edit-id");
+            btnGuardar.className = "w-full bg-green-500 text-black font-extrabold py-2.5 rounded-xl text-xs";
+            document.getElementById('btnCancelarEdicion').classList.add('hidden');
+        }
+        function guardarProducto() {
+            var idEdicion = document.getElementById('btnGuardarProducto').getAttribute('data-edit-id');
+            var nombre = document.getElementById('prodNombre').value.trim(); var precio = parseFloat(document.getElementById('prodPrecio').value);
+            if (!nombre || isNaN(precio)) return alert('Nombre y precio requeridos');
+            var nuevoProd = { id: idEdicion ? parseInt(idEdicion) : Date.now(), nombre: nombre, costo: parseFloat(document.getElementById('prodCosto').value)||0, precio: precio, stock: parseInt(document.getElementById('prodStock').value)||0, categoria: document.getElementById('prodCategoria').value };
+            if (idEdicion) { var idx = productos.findIndex(function(p) { return p.id === parseInt(idEdicion); }); if(idx !== -1) productos[idx] = nuevoProd; } else { productos.push(nuevoProd); }
+            socket.emit('actualizar_productos', productos); limpiarFormProducto(); renderizarInventario(); alert(idEdicion ? 'Actualizado' : 'Guardado');
         }
 
+        function renderizarListaUsuarios() {
+            var lista = document.getElementById('listaUsuariosAdmin'); if (!lista) return;
+            lista.innerHTML = usuariosSistema.map(function(u) {
+                return '<div class="flex justify-between items-center bg-black p-2.5 rounded-xl border border-gray-800 text-xs"><div><span class="font-bold text-white">' + escapeHTML(u.nombre) + ' (' + escapeHTML(u.usuario) + ')</span></div>' +
+                    '<div><button onclick="editarUsuario(' + u.id + ')" class="text-blue-400 font-bold px-2 mr-2">Editar</button>' +
+                    (u.usuario !== 'admin' ? '<button onclick="eliminarUsuario(' + u.id + ')" class="text-red-400 font-bold px-2">Eliminar</button>' : '') + '</div></div>';
+            }).join('');
+        }
+        function editarUsuario(id) {
+            var u = usuariosSistema.find(function(x) { return x.id === id; }); if (!u) return;
+            document.getElementById('nuevoUsuarioNick').value = u.usuario; document.getElementById('nuevoUsuarioNombre').value = u.nombre; document.getElementById('nuevoUsuarioPin').value = u.pin;
+            document.getElementById('checkPermisoMenu').checked = u.permisos.menu; document.getElementById('checkPermisoMapa').checked = u.permisos.mapa; document.getElementById('checkPermisoAdmin').checked = u.permisos.admin;
+            var btnGuardar = document.getElementById('btnGuardarNuevoUsuario');
+            btnGuardar.textContent = "Actualizar Usuario"; btnGuardar.setAttribute("data-edit-id", u.id);
+        }
+        function guardarNuevoUsuario() {
+            var idEdicion = document.getElementById('btnGuardarNuevoUsuario').getAttribute('data-edit-id');
+            var usuario = document.getElementById('nuevoUsuarioNick').value.trim(); var nombre = document.getElementById('nuevoUsuarioNombre').value.trim(); var pin = document.getElementById('nuevoUsuarioPin').value.trim(); 
+            var permisos = { menu: document.getElementById('checkPermisoMenu').checked, mapa: document.getElementById('checkPermisoMapa').checked, barra: document.getElementById('checkPermisoBarra').checked, inventario: document.getElementById('checkPermisoInventario').checked, admin: document.getElementById('checkPermisoAdmin').checked };
+            if (!usuario || !nombre || !pin) return alert('Campos requeridos');
+            var payload = { usuario: usuario, nombre: nombre, pin: pin, permisos: permisos }; if (idEdicion) payload.id = parseInt(idEdicion);
+            socket.emit('guardar_usuario', payload);
+            document.getElementById('nuevoUsuarioNick').value = ''; document.getElementById('nuevoUsuarioNombre').value = ''; document.getElementById('nuevoUsuarioPin').value = '';
+            var btnGuardar = document.getElementById('btnGuardarNuevoUsuario'); btnGuardar.textContent = "Crear Usuario" ; btnGuardar.removeAttribute("data-edit-id"); alert(idEdicion ? 'Actualizado.' : 'Registrado.');
+        }
+
+        // MONITOR
         function renderizarMonitor() {
-            var sup = document.getElementById('marqueePromoSuperior'); var inf = document.getElementById('marqueePromoInferior');
-            if (sup) sup.textContent = config.promoTexto || '¡BIENVENIDOS!'; if (inf) inf.textContent = config.promoTextoInferior || 'CONSULTA NUESTRAS PROMOCIONES';
-            var cont = document.getElementById('gridPantallaEstado');
-            if (cont) {
-                cont.innerHTML = comandas.length === 0 ? '<p class="text-gray-500 text-center py-10 text-xs">Sin órdenes en preparación</p>' :
-                    comandas.map(function(c) {
-                        return '<div class="p-3.5 rounded-2xl border ' + (c.estado === 'Listo' ? 'bg-green-900 bg-opacity-70 border-green-400 text-green-200' : 'bg-app-input border-gray-800 text-white') + ' flex justify-between items-center text-xs shadow-xl">' +
-                            '<div><span class="font-black text-sm block tracking-wide">' + escapeHTML(c.mesa) + '</span><span class="text-xxs text-gray-400">' + c.items.length + ' artículos</span></div>' +
-                            '<span class="pill-badge uppercase ' + (c.estado === 'Listo' ? 'bg-green-500 text-black animate-bounce font-black' : 'bg-accent border border-accent') + '">' + escapeHTML(c.estado) + '</span></div>';
-                    }).join('');
-            }
-            var qrCont = document.getElementById('qrRedesPublico');
-            if (qrCont && typeof QRCode !== 'undefined') { qrCont.innerHTML = ''; new QRCode(qrCont, { text: config.redesUrl || ('http://' + ipServidor), width: 140, height: 140 }); }
+            var cont = document.getElementById('gridPantallaEstado'); if(!cont) return;
+            cont.innerHTML = comandas.length === 0 ? '<p class="text-gray-500 text-center py-10 text-xs">Sin órdenes activas</p>' :
+                comandas.map(function(c) {
+                    return '<div class="p-3.5 rounded-2xl border ' + (c.estado === 'Listo' ? 'bg-green-900 bg-opacity-70 border-green-400 text-green-200' : 'bg-[#1a1a1a] border-gray-800 text-white') + ' flex justify-between items-center text-xs shadow-xl">' +
+                        '<div><span class="font-black text-sm block">' + escapeHTML(c.mesa) + '</span><span class="text-xxs text-gray-400">' + c.items.length + ' arts</span></div>' +
+                        '<span class="pill-badge uppercase ' + (c.estado === 'Listo' ? 'bg-green-500 text-black animate-bounce font-black' : 'bg-accent border border-accent') + '">' + escapeHTML(c.estado) + '</span></div>';
+                }).join('');
         }
-
         function iniciarCarruselPublicidad() { 
             clearInterval(timerPublicidad); 
             if (config.mostrarYouTube && config.mediaUrl && (config.mediaUrl.indexOf('youtube.com') !== -1 || config.mediaUrl.indexOf('youtu.be') !== -1)) {
                 mostrarMediaPublicidad(); return; 
             }
-            mostrarMediaPublicidad(); 
-            timerPublicidad = setInterval(function() { mostrarMediaPublicidad(); }, 8500); 
+            mostrarMediaPublicidad(); timerPublicidad = setInterval(function() { mostrarMediaPublicidad(); }, 8500); 
         }
-
         function mostrarMediaPublicidad() {
             var mediaCont = document.getElementById('contenedorMediaCentral'); if (!mediaCont) return; 
-            var muteAttr = config.videoConAudio ? '' : 'muted';
-            
-            if (config.mostrarYouTube && config.mediaUrl && (config.mediaUrl.indexOf('youtube.com') !== -1 || config.mediaUrl.indexOf('youtu.be') !== -1)) {
-                var videoId = ""; 
-                if (config.mediaUrl.indexOf('v=') !== -1) videoId = config.mediaUrl.split('v=')[1].split('&')[0]; 
-                else if (config.mediaUrl.indexOf('youtu.be/') !== -1) videoId = config.mediaUrl.split('youtu.be/')[1].split('?')[0];
-                if (videoId) { 
-                    var muteParam = config.videoConAudio ? '0' : '1'; 
-                    mediaCont.innerHTML = '<iframe class="w-full h-full pointer-events-none" src="https://www.youtube.com/embed/' + videoId + '?autoplay=1&mute=' + muteParam + '&loop=1&playlist=' + videoId + '&controls=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>'; 
-                    return; 
-                }
+            if (config.mostrarYouTube && config.mediaUrl) {
+                var videoId = config.mediaUrl.indexOf('v=') !== -1 ? config.mediaUrl.split('v=')[1].split('&')[0] : config.mediaUrl.split('youtu.be/')[1].split('?')[0];
+                var muteParam = config.videoConAudio ? '0' : '1'; 
+                mediaCont.innerHTML = '<iframe class="w-full h-full pointer-events-none" src="https://www.youtube.com/embed/' + videoId + '?autoplay=1&mute=' + muteParam + '&loop=1&playlist=' + videoId + '&controls=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>'; return; 
             }
             if (archivosPublicidad && archivosPublicidad.length > 0) {
                 indexPublicidad = (indexPublicidad + 1) % archivosPublicidad.length; var ruta = encodeURI(archivosPublicidad[indexPublicidad]);
-                if (ruta.toLowerCase().indexOf('.mp4') !== -1 || ruta.toLowerCase().indexOf('.webm') !== -1) { mediaCont.innerHTML = '<video src="' + ruta + '" autoplay ' + muteAttr + ' loop playsinline class="media-asset max-w-full max-h-full object-contain"></video>'; } else { mediaCont.innerHTML = '<img src="' + ruta + '" class="media-asset max-w-full max-h-full object-contain rounded-2xl">'; } return;
+                if (ruta.toLowerCase().indexOf('.mp4') !== -1) { mediaCont.innerHTML = '<video src="' + ruta + '" autoplay loop muted playsinline class="media-asset max-w-full max-h-full object-contain"></video>'; } 
+                else { mediaCont.innerHTML = '<img src="' + ruta + '" class="media-asset max-w-full max-h-full object-contain rounded-2xl">'; } return;
             }
-            mediaCont.innerHTML = '<div class="text-center p-8 text-sm text-gray-500">Activa YouTube en la configuración o guarda videos/imágenes en <strong>public/publicidad/</strong></div>';
-        }
-
-    function renderizarListaUsuarios() {
-            var lista = document.getElementById('listaUsuariosAdmin'); if (!lista) return;
-            lista.innerHTML = usuariosSistema.map(function(u) {
-                var isSuper = u.permisos && u.permisos.admin;
-                return '<div class="flex justify-between items-center bg-app-base p-2.5 rounded-xl border border-gray-800 text-xs"><div><span class="font-bold text-white">' + escapeHTML(u.nombre) + ' (' + escapeHTML(u.usuario) + ')</span>' +
-                    '<span class="ml-2 pill-badge bg-accent text-white uppercase">' + (isSuper ? 'ADMIN' : 'PERSONAL') + '</span></div>' +
-                    '<div><button onclick="editarUsuario(' + u.id + ')" class="text-blue-400 font-bold px-2 py-0.5 mr-2">Editar</button>' +
-                    (usuariosSistema.length > 1 && u.usuario !== 'admin' ? '<button onclick="eliminarUsuario(' + u.id + ')" class="text-red-400 font-bold px-2 py-0.5">Eliminar</button>' : '') + '</div></div>';
-            }).join('');
-        }
-
-        function editarUsuario(id) {
-            var u = usuariosSistema.find(function(x) { return x.id === id; }); if (!u) return;
-            document.getElementById('nuevoUsuarioNick').value = u.usuario;
-            document.getElementById('nuevoUsuarioNombre').value = u.nombre;
-            document.getElementById('nuevoUsuarioPin').value = u.pin;
-            document.getElementById('checkPermisoMenu').checked = u.permisos.menu;
-            document.getElementById('checkPermisoMapa').checked = u.permisos.mapa;
-            document.getElementById('checkPermisoBarra').checked = u.permisos.barra;
-            document.getElementById('checkPermisoInventario').checked = u.permisos.inventario;
-            document.getElementById('checkPermisoAdmin').checked = u.permisos.admin;
-            var btnGuardar = document.getElementById('btnGuardarNuevoUsuario');
-            btnGuardar.textContent = "Actualizar Usuario"; btnGuardar.setAttribute("data-edit-id", u.id);
-        }
-
-        function guardarNuevoUsuario() {
-            var idEdicion = document.getElementById('btnGuardarNuevoUsuario').getAttribute('data-edit-id');
-            var usuario = document.getElementById('nuevoUsuarioNick').value.trim(); var nombre = document.getElementById('nuevoUsuarioNombre').value.trim(); var pin = document.getElementById('nuevoUsuarioPin').value.trim(); 
-            var permisos = { 
-                menu: document.getElementById('checkPermisoMenu').checked, mapa: document.getElementById('checkPermisoMapa').checked, 
-                barra: document.getElementById('checkPermisoBarra').checked, inventario: document.getElementById('checkPermisoInventario').checked, admin: document.getElementById('checkPermisoAdmin').checked 
-            };
-            if (!usuario || !nombre || !pin) return alert('Todos los campos son requeridos');
-            
-            var payload = { usuario: usuario, nombre: nombre, pin: pin, permisos: permisos };
-            if (idEdicion) payload.id = parseInt(idEdicion);
-            
-            if (socket) socket.emit('guardar_usuario', payload);
-            
-            document.getElementById('nuevoUsuarioNick').value = ''; document.getElementById('nuevoUsuarioNombre').value = ''; document.getElementById('nuevoUsuarioPin').value = '';
-            document.getElementById('checkPermisoMenu').checked = true; document.getElementById('checkPermisoMapa').checked = true; document.getElementById('checkPermisoBarra').checked = false; document.getElementById('checkPermisoInventario').checked = false; document.getElementById('checkPermisoAdmin').checked = false;
-            var btnGuardar = document.getElementById('btnGuardarNuevoUsuario');
-            btnGuardar.textContent = "Crear Usuario" ; btnGuardar.removeAttribute("data-edit-id");
-            alert(idEdicion ? 'Usuario actualizado.' : 'Usuario registrado.');
-        }
-        function guardarNuevoUsuario() {
-            var usuario = document.getElementById('nuevoUsuarioNick').value.trim(); var nombre = document.getElementById('nuevoUsuarioNombre').value.trim(); var pin = document.getElementById('nuevoUsuarioPin').value.trim(); 
-            var pMenu = document.getElementById('checkPermisoMenu').checked; var pMapa = document.getElementById('checkPermisoMapa').checked; var pBarra = document.getElementById('checkPermisoBarra').checked; 
-            var pInventario = document.getElementById('checkPermisoInventario').checked; var pAdmin = document.getElementById('checkPermisoAdmin').checked;
-            
-            if (!usuario || !nombre || !pin) return alert('Todos los campos de texto son requeridos');
-            
-            var permisos = { menu: pMenu, mapa: pMapa, barra: pBarra, inventario: pInventario, admin: pAdmin };
-            
-            if (socket) socket.emit('guardar_usuario', { usuario: usuario, nombre: nombre, pin: pin, permisos: permisos });
-            
-            document.getElementById('nuevoUsuarioNick').value = ''; document.getElementById('nuevoUsuarioNombre').value = ''; document.getElementById('nuevoUsuarioPin').value = '';
-            document.getElementById('checkPermisoMenu').checked = true; document.getElementById('checkPermisoMapa').checked = true; document.getElementById('checkPermisoBarra').checked = false; document.getElementById('checkPermisoInventario').checked = false; document.getElementById('checkPermisoAdmin').checked = false;
-            alert('Usuario registrado.');
-        }
-        function eliminarUsuario(id) { if (confirm('¿Eliminar usuario?')) { if (socket) socket.emit('eliminar_usuario', id); } }
-
-        function guardarConfigGeneral() {
-            var sup = parseInt(document.getElementById('sliderTextoSup').value, 10) || 20; var inf = parseInt(document.getElementById('sliderTextoInf').value, 10) || 15;
-            var pSup = document.getElementById('configPromo').value.trim(); var pInf = document.getElementById('configPromoInferior').value.trim();
-            var fondoUrl = document.getElementById('configFondoPantalla').value; var logoUrl = document.getElementById('configLogoNegocio').value;
-            
-            var c = { 
-                nombreNegocio: document.getElementById('configNombreNegocio').value.trim(), 
-                promoTexto: pSup, promoTextoInferior: pInf, tamanoTextoSup: sup, tamanoTextoInf: inf, 
-                redesUrl: document.getElementById('configRedes').value.trim(), mediaUrl: document.getElementById('configMedia').value.trim(), 
-                videoConAudio: document.getElementById('checkVideoAudio').checked,
-                mostrarYouTube: document.getElementById('checkMostrarYouTube').checked,
-                fondoPantallaUrl: fondoUrl, logoUrl: logoUrl
-            };
-            var ms = document.getElementById('marqueePromoSuperior'); var mi = document.getElementById('marqueePromoInferior'); if (ms) ms.textContent = pSup; if (mi) mi.textContent = pInf;
-            if (socket) socket.emit('actualizar_config', c); alert('Ajustes y tamaños guardados correctamente.');
-        }
-
-        function generarQR(tipo) {
-            var m = document.getElementById('selectMesaQR').value; var div = document.getElementById('qrCodeDiv'); div.innerHTML = ''; document.getElementById('contenedorQR').classList.remove('hidden');
-            var txt = (tipo === 'cliente') ? (m) : 'INGRESO PERSONAL'; document.getElementById('qrTextoMesa').textContent = txt;
-            var base = window.location.protocol + '//' + ipServidor + '/'; var finalUrl = (tipo === 'cliente') ? (base + '?modo=cliente&mesa=' + encodeURIComponent(m)) : (base + '?modo=login');
-            new QRCode(div, { text: finalUrl, width: 140, height: 140 });
-        }
-
-        function agregarInsumoLista(idElemento) {
-            var el = document.getElementById(idElemento);
-            var txt = el ? el.value.trim() : '';
-            if(!txt) return;
-            if(socket) socket.emit('agregar_insumo', txt);
-            if(el) el.value = '';
-        }
-        function eliminarInsumoLista(id) { if(socket) socket.emit('eliminar_insumo', id); }
-        function renderizarInsumos() {
-            var html = listaCompras.length === 0 ? '<p class="text-xs text-gray-500 text-center py-4">Lista limpia</p>' : listaCompras.map(function(i) {
-                return '<li class="flex justify-between items-center bg-black p-2 rounded-lg text-xs border border-gray-800"><span class="text-gray-300">' + escapeHTML(i.texto) + '</span><button onclick="eliminarInsumoLista('+i.id+')" class="text-red-400 hover:text-red-300 font-black px-2 text-sm">X</button></li>';
-            }).join('');
-            var ulBarra = document.getElementById('listaInsumosBarra'); if(ulBarra) ulBarra.innerHTML = html;
-            var ulAdmin = document.getElementById('listaInsumosAdmin'); if(ulAdmin) ulAdmin.innerHTML = html;
-        }
-
-        function toggleModoCombo(isCombo) {
-            if(isCombo) { document.getElementById('panelSubProductos').classList.remove('hidden'); } else { document.getElementById('panelSubProductos').classList.add('hidden'); }
-        }
-        
-        function limpiarFormProducto() {
-            document.getElementById('prodNombre').value = ''; document.getElementById('prodPrecio').value = ''; document.getElementById('prodCosto').value = ''; document.getElementById('prodStock').value = ''; document.getElementById('prodDesc').value = ''; 
-            document.getElementById('checkEsCombo').checked = false; componentesComboTemp = []; toggleModoCombo(false); renderizarListaComponentes();
-            var btnGuardar = document.getElementById('btnGuardarProducto');
-            btnGuardar.textContent = "Guardar en Catálogo";
-            btnGuardar.removeAttribute("data-edit-id");
-            btnGuardar.className = "w-full bg-green-500 text-black font-extrabold py-2.5 rounded-xl text-xs";
-            document.getElementById('btnCancelarEdicion').classList.add('hidden');
-        }
-
-        function editarProducto(id) {
-            var p = productos.find(function(x) { return x.id === id; }); if (!p) return;
-            document.getElementById('prodNombre').value = p.nombre; document.getElementById('prodDesc').value = p.descripcion || ''; document.getElementById('prodCosto').value = p.costo || 0;
-            document.getElementById('prodPrecio').value = p.precio; document.getElementById('prodStock').value = p.stock || 0; document.getElementById('prodCategoria').value = p.categoria; document.getElementById('prodImagenUrl').value = p.imagen || '';
-            var esCombo = (p.tipo === 'combo'); document.getElementById('checkEsCombo').checked = esCombo; toggleModoCombo(esCombo);
-            if(esCombo) { componentesComboTemp = JSON.parse(JSON.stringify(p.componentes || [])); renderizarListaComponentes(); } else { componentesComboTemp = []; }
-            
-            var btnGuardar = document.getElementById('btnGuardarProducto');
-            btnGuardar.textContent = "Actualizar Producto";
-            btnGuardar.setAttribute("data-edit-id", p.id);
-            btnGuardar.className = "w-full bg-blue-500 text-white font-extrabold py-2.5 rounded-xl text-xs shadow-[0_0_15px_rgba(59,130,246,0.5)]";
-            document.getElementById('btnCancelarEdicion').classList.remove('hidden');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function renderizarInventario() {
-            var selectCompra = document.getElementById('compraSelectProd'); var lista = document.getElementById('listaAdminProductos'); var selCombo = document.getElementById('prodComboItems');
-            if (!lista || !selectCompra) return;
-            var opcionesInv = productos.map(function(p) { return '<option value="' + p.id + '">' + escapeHTML(p.nombre) + ' (Stock: ' + p.stock + ')</option>'; }).join('');
-            var opcionesCombo = productos.filter(function(p) { return p.tipo !== 'combo'; }).map(function(p) { return '<option value="' + p.id + '">' + escapeHTML(p.nombre) + '</option>'; }).join('');
-            selectCompra.innerHTML = opcionesInv; if(selCombo) selCombo.innerHTML = opcionesCombo;
-            
-            lista.innerHTML = productos.map(function(p) {
-                var costo = p.costo || 0; var margen = p.precio > 0 ? (((p.precio - costo) / p.precio) * 100).toFixed(1) : 0;
-                var tagCombo = p.tipo === 'combo' ? '<span class="text-[9px] bg-yellow-900 text-yellow-300 px-1.5 py-0.5 rounded ml-2">COMBO</span>' : '';
-                return '<div class="flex justify-between items-center bg-app-base p-3 rounded-2xl border border-gray-800 text-xs"><div><div class="font-extrabold text-white">' + escapeHTML(p.nombre) + tagCombo + ' <span class="text-blue-400 font-normal">(' + escapeHTML(p.categoria) + ')</span></div>' +
-                    '<div class="text-gray-400 mt-1 space-x-2"><span>Costo: $' + costo.toFixed(2) + '</span><span>Venta: $' + Number(p.precio).toFixed(2) + '</span><span class="text-green-400 font-bold">Margen: ' + margen + '%</span><span>Stock: ' + p.stock + '</span></div></div>' +
-                    '<div><button onclick="editarProducto(' + p.id + ')" class="text-blue-400 hover:text-blue-300 font-bold px-2 py-1 mr-2">Editar</button><button onclick="eliminarProducto(' + p.id + ')" class="text-red-400 hover:text-red-300 font-bold px-2 py-1">Eliminar</button></div></div>';
-            }).join('');
-            
-            var selImg = document.getElementById('prodImagenUrl');
-            if(selImg) {
-                selImg.innerHTML = '<option value="">Sin imagen (icono por defecto)</option>' + archivosImagenes.map(function(img) { return '<option value="'+img+'">'+img.split('/').pop()+'</option>'; }).join('');
-            }
-            
-            var selFondo = document.getElementById('configFondoPantalla'); var selLogo = document.getElementById('configLogoNegocio');
-            if(selFondo && selLogo) {
-                var opcionesImagenes = '<option value="">Ninguna</option>' + archivosImagenes.map(function(img) { return '<option value="'+img+'">'+img.split('/').pop()+'</option>'; }).join('');
-                var valFondo = config.fondoPantallaUrl || ''; var valLogo = config.logoUrl || '';
-                selFondo.innerHTML = opcionesImagenes; selFondo.value = valFondo;
-                selLogo.innerHTML = opcionesImagenes; selLogo.value = valLogo;
-            }
-        }
-        var componentesComboTemp = [];
-        function agregarComponenteCombo() {
-            var sel = document.getElementById('prodComboItems'); var id = parseInt(sel.value, 10);
-            var p = productos.find(function(x) { return x.id === id; }); if(!p) return;
-            var ext = componentesComboTemp.find(function(c) { return c.id === id; });
-            if(ext) ext.cant++; else componentesComboTemp.push({id: id, cant: 1, nombre: p.nombre});
-            renderizarListaComponentes();
-        }
-        function renderizarListaComponentes() {
-            var cont = document.getElementById('listaComponentesTemp');
-            cont.innerHTML = componentesComboTemp.map(function(c, i) {
-                return '<div class="flex justify-between text-[10px] bg-black p-1 rounded border border-gray-800 mb-1"><span>' + c.cant + 'x ' + escapeHTML(c.nombre) + '</span><button onclick="componentesComboTemp.splice('+i+',1); renderizarListaComponentes();" class="text-red-400 px-1">X</button></div>';
-            }).join('');
-        }
-        function guardarProducto() {
-            var idEdicion = document.getElementById('btnGuardarProducto').getAttribute('data-edit-id');
-            var nombre = document.getElementById('prodNombre').value.trim(); var costo = parseFloat(document.getElementById('prodCosto').value) || 0;
-            var precio = parseFloat(document.getElementById('prodPrecio').value); var stock = parseInt(document.getElementById('prodStock').value, 10) || 0; 
-            var categoria = document.getElementById('prodCategoria').value; var desc = document.getElementById('prodDesc').value.trim();
-            var img = document.getElementById('prodImagenUrl').value; var esCombo = document.getElementById('checkEsCombo').checked;
-            
-            if (!nombre || isNaN(precio)) return alert('Nombre y precio son obligatorios');
-            
-            var nuevoProd = { id: idEdicion ? parseInt(idEdicion) : Date.now(), nombre: nombre, descripcion: desc, imagen: img, costo: costo, precio: precio, stock: stock, categoria: categoria, tipo: esCombo ? 'combo' : 'individual' };
-            if(esCombo) { if(componentesComboTemp.length === 0) return alert('Un combo debe tener productos.'); nuevoProd.componentes = componentesComboTemp; }
-            
-            if (idEdicion) {
-                var idx = productos.findIndex(function(p) { return p.id === parseInt(idEdicion); });
-                if(idx !== -1) productos[idx] = nuevoProd;
-            } else { productos.push(nuevoProd); }
-            
-            if (socket) socket.emit('actualizar_productos', productos);
-            limpiarFormProducto(); renderizarInventario(); alert(idEdicion ? 'Producto actualizado' : 'Producto nuevo guardado');
-        }
-        function procesarCompraStock() {
-            var idProducto = document.getElementById('compraSelectProd').value; var cant = parseInt(document.getElementById('compraCantidad').value, 10); var nCosto = document.getElementById('compraNuevoCosto').value;
-            if (!cant || cant <= 0) return alert('Ingresa una cantidad válida');
-            if (socket) socket.emit('registrar_compra_stock', { idProducto: idProducto, cantidadSumar: cant, nuevoCosto: nCosto ? parseFloat(nCosto) : null });
-            document.getElementById('compraCantidad').value = ''; document.getElementById('compraNuevoCosto').value = ''; renderizarInventario(); alert('Inventario actualizado');
-        }
-        function eliminarProducto(id) { if (confirm('¿Eliminar producto?')) { productos = productos.filter(function(p) { return p.id !== id; }); if (socket) socket.emit('actualizar_productos', productos); renderizarInventario(); } }
-
-        function abrirModalGithub() {
-            if (!usuarioActivo || !usuarioActivo.permisos.admin) return alert('Solo administradores pueden sincronizar a GitHub.');
-            document.getElementById('modal-github').classList.remove('hidden'); document.getElementById('gitDetalleUpdate').value = ''; document.getElementById('gitLoading').classList.add('hidden');
-        }
-        function ejecutarSyncGithub() {
-            var tipo = document.getElementById('gitTipoUpdate').value; var detalle = document.getElementById('gitDetalleUpdate').value.trim();
-            if (!detalle) return alert('Por favor, describe brevemente la corrección.');
-            document.getElementById('gitLoading').classList.remove('hidden');
-            if (socket) {
-                socket.emit('sincronizar_github', { tipo: tipo, detalle: detalle }, function(res) {
-                    document.getElementById('gitLoading').classList.add('hidden');
-                    if (res && res.success) { alert('✅ ' + res.mensaje); document.getElementById('modal-github').classList.add('hidden'); } else { alert('⚠️ ' + (res.mensaje || 'Error desconocido.')); }
-                });
-            }
-        }
-
-        function aplicarConfiguracionVisual() {
-            var pantalla = document.getElementById('pantalla-bienvenida');
-            if(pantalla) {
-                if(config.fondoPantallaUrl) {
-                    pantalla.style.backgroundImage = 'url(' + encodeURI(config.fondoPantallaUrl) + ')';
-                } else {
-                    pantalla.style.backgroundImage = 'none';
-                }
-            }
-            
-            var divLogoBienvenida = document.getElementById('divLogoBienvenida');
-            var divLogoHeader = document.getElementById('divLogoHeader');
-            if(config.logoUrl) {
-                if(divLogoBienvenida) divLogoBienvenida.innerHTML = '<img src="'+encodeURI(config.logoUrl)+'" id="logoBienvenida" class="mx-auto shadow-2xl rounded-full">';
-                if(divLogoHeader) divLogoHeader.innerHTML = '<img src="'+encodeURI(config.logoUrl)+'" id="headerLogo" class="rounded-full shadow-md">';
-            } else {
-                if(divLogoBienvenida) divLogoBienvenida.innerHTML = '<div class="w-20 h-20 bg-accent rounded-full flex items-center justify-center text-4xl mx-auto shadow-2xl">🍺</div>';
-                if(divLogoHeader) divLogoHeader.innerHTML = '<span class="text-xl">🍺</span>';
-            }
-            
-            var titulo = document.getElementById('tituloBienvenida'); var header = document.getElementById('headerNombreNegocio');
-            if (titulo && config.nombreNegocio) titulo.textContent = config.nombreNegocio; if (header && config.nombreNegocio) header.textContent = config.nombreNegocio;
+            mediaCont.innerHTML = '<div class="text-gray-500 text-sm">Sin publicidad. Añade a public/publicidad/</div>';
         }
 
         window.addEventListener('DOMContentLoaded', function() {
-            var params = new URLSearchParams(window.location.search);
-            var mUrl = params.get('mesa'); var modoUrl = params.get('modo');
-            if (mUrl) {
-                miMesaAsignada = mUrl; var sM = document.getElementById('selectMesa'); var lM = document.getElementById('labelMesaAsignada');
-                if (sM) { sM.innerHTML += '<option value="'+miMesaAsignada+'">'+miMesaAsignada+'</option>'; sM.value = miMesaAsignada; sM.disabled = true; }
-                if (lM) lM.textContent = miMesaAsignada;
-            }
-            if (modoUrl === 'cliente') { entrarModo('cliente'); var btnTop = document.getElementById('btnSalirTop'); if (btnTop) btnTop.classList.add('hidden'); } 
-            else if (modoUrl === 'login') { abrirModalLogin(); }
-
             try {
                 if (typeof io !== 'undefined') {
                     socket = io();
                     socket.on('sincronizar_todo', function(db) {
-                        caja = db.caja || caja; productos = db.productos || productos; comandas = db.comandas || []; historialVentas = db.historialVentas || []; egresos = db.egresos || []; usuariosSistema = db.usuarios || []; archivosPublicidad = db.archivosPublicidad || []; archivosImagenes = db.archivosImagenes || []; mensajesChat = db.mensajesChat || []; mesasData = db.mesas || []; config = db.config || config; listaCompras = db.listaCompras || [];
-                        if (db.ipLocal) ipServidor = db.ipLocal + ':3000';
+                        caja = db.caja || caja; productos = db.productos || productos; comandas = db.comandas || []; historialVentas = db.historialVentas || []; egresos = db.egresos || []; usuariosSistema = db.usuarios || []; archivosPublicidad = db.archivosPublicidad || []; mensajesChat = db.mensajesChat || []; mesasData = db.mesas || []; config = db.config || config;
                         if (config.skinSeleccionada) aplicarSkinGlobal(config.skinSeleccionada, false);
-                        var r = document.documentElement; if (config.tamanoTextoSup) r.style.setProperty('--marquee-size-sup', config.tamanoTextoSup + 'px'); if (config.tamanoTextoInf) r.style.setProperty('--marquee-size-inf', config.tamanoTextoInf + 'px');
-                        
-                        aplicarConfiguracionVisual();
-
                         var vC = document.getElementById('vista-comandas'); if (vC && !vC.classList.contains('hidden')) renderizarMenu();
-                        var vB = document.getElementById('vista-barra'); if (vB && !vB.classList.contains('hidden')) { renderizarBarra(); renderizarInsumos(); }
+                        var vB = document.getElementById('vista-barra'); if (vB && !vB.classList.contains('hidden')) renderizarBarra();
                         var vM = document.getElementById('vista-pantalla-cliente'); if (vM && !vM.classList.contains('hidden')) renderizarMonitor();
-                        var vA = document.getElementById('vista-admin'); if (vA && !vA.classList.contains('hidden')) { renderizarAdmin(); renderizarInsumos(); }
                         var vMap = document.getElementById('vista-mapa'); if (vMap && !vMap.classList.contains('hidden')) renderizarMapa();
                         var vInv = document.getElementById('vista-inventario'); if(vInv && !vInv.classList.contains('hidden')) renderizarInventario();
-                        if(!document.getElementById('panelChatFlotante').classList.contains('hidden')) renderizarChat();
-                        
-                        if(document.getElementById('configFondoPantalla')) {
-                            document.getElementById('configFondoPantalla').value = config.fondoPantallaUrl || "";
-                            document.getElementById('configLogoNegocio').value = config.logoUrl || "";
-                            document.getElementById('checkMostrarYouTube').checked = config.mostrarYouTube || false;
-                        }
-                    });
-                    socket.on('sonido_comanda_nueva', function() { reproducirAlertaSonora('nuevo'); });
-socket.on('notificacion_pedido_listo', function(datos) {
-                        reproducirAlertaSonora('listo'); 
-                        if (navigator.vibrate) { try { navigator.vibrate([200, 100, 200]); } catch(e){} }
-                        
-                        var comandaRef = comandas.find(function(c) { return c.id === datos.id; }) || historialVentas.find(function(c) { return c.id === datos.id; });
-                        var folioStr = (comandaRef && comandaRef.folio) ? ' | Folio: ' + comandaRef.folio : '';
-                        var clienteStr = (comandaRef && comandaRef.cliente && comandaRef.cliente.nombre) ? ' - ' + comandaRef.cliente.nombre : '';
-                        var msj = 'Orden de ' + datos.mesa + clienteStr + folioStr + ' lista para entregar.';
-                        
-                        mostrarToast('¡' + datos.mesa + ' LISTA!', msj, 'normal');
-                        
-                        if (Notification.permission === "granted" && rolActivo !== 'monitor') {
-                            new Notification('¡Orden Lista!', { body: msj, icon: config.logoUrl || '' });
-                        }
-
-                        if (rolActivo === 'cliente' && datos.mesa === miMesaAsignada) { 
-                            document.getElementById('modal-alerta-cliente').classList.remove('hidden'); 
-                            document.getElementById('alertaMesaNombre').textContent = datos.mesa + clienteStr + folioStr; 
-                        }
+                        if(usuarioActivo && usuarioActivo.permisos.admin) renderizarListaUsuarios();
                     });
                     
-                    socket.on('alerta_stock_bajo', function(datos) {
-                        if(usuarioActivo && (usuarioActivo.permisos.admin || usuarioActivo.permisos.barra)) {
-                            reproducirAlertaSonora('chat');
-                            mostrarToast(datos.agotado ? '¡AGOTADO!' : '¡STOCK BAJO!', datos.agotado ? datos.nombre + ' se ha terminado.' : 'Quedan ' + datos.stock + ' de ' + datos.nombre, 'alerta');
+                    socket.on('notificacion_pedido_listo', function(datos) {
+                        reproducirAlertaSonora('listo'); 
+                        var msj = 'Orden de ' + datos.mesa + ' lista para entrega.';
+                        mostrarToast('¡LISTO!', msj, 'normal');
+                        
+                        // Notificación Push para clientes o meseros en background
+                        if (rolActivo === 'cliente' || (usuarioActivo && (usuarioActivo.rol === 'mesero' || usuarioActivo.rol === 'admin'))) {
+                            notificarDispositivo('¡Orden Lista!', msj);
                         }
                     });
                     
                     socket.on('notificacion_chat', function(msg) {
-                        if (rolActivo === 'monitor') return; // Bloquea chat en la pantalla
+                        if (rolActivo === 'cliente' || rolActivo === 'monitor') return;
                         reproducirAlertaSonora('chat');
                         if(document.getElementById('panelChatFlotante').classList.contains('hidden')) { document.getElementById('badgeChatNew').classList.remove('hidden'); }
                     });
@@ -866,42 +504,29 @@ socket.on('notificacion_pedido_listo', function(datos) {
 </head>
 <body class="min-h-screen flex flex-col select-none pb-20">
 
-    <div id="btnActivarAudio" class="bg-accent text-white px-3 py-2 text-center text-xs font-black cursor-pointer shadow-lg tracking-wider" onclick="activarAudioNavegador()">🔊 TOCAR AQUÍ PARA ACTIVAR NOTIFICACIONES</div>
+    <div id="btnActivarAudio" class="bg-accent text-white px-3 py-2 text-center text-xs font-black cursor-pointer shadow-lg" onclick="activarAudioNavegador()">🔊 ACTIVAR NOTIFICACIONES Y SONIDO</div>
     
-    <div id="toastNotificacion" class="fixed top-5 right-5 z-50 hidden bg-green-500 text-black font-black px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-3 border-2 border-white animate-bounce glow-green">
+    <div id="toastNotificacion" class="fixed top-5 right-5 z-[150] hidden bg-green-500 text-black font-black px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-3 border-2 border-white animate-bounce">
         <span class="text-3xl" id="toastIcon">🔔</span>
         <div><h4 class="text-sm uppercase tracking-wide" id="toastTitulo">...</h4><p class="text-xs font-bold" id="toastMensaje">...</p></div>
     </div>
-    
-    <div id="modal-alerta-cliente" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-6 text-center"><div class="bg-card border-2 border-purple-500 p-8 rounded-3xl max-w-sm w-full space-y-5 glow-purple"><div class="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-4xl mx-auto shadow-2xl animate-bounce">🍺</div><h2 class="text-2xl font-black text-white">¡TU PEDIDO ESTÁ LISTO!</h2><p class="text-sm text-purple-300 font-bold" id="alertaMesaNombre">Mesa 1</p><p class="text-xs text-gray-400">La barra acaba de terminar de preparar tus platillos y bebidas. Ya van en camino o puedes recogerlos.</p><button onclick="document.getElementById('modal-alerta-cliente').classList.add('hidden')" class="w-full bg-green-500 text-black font-black py-3 rounded-2xl text-sm">Entendido, ¡gracias!</button></div></div>
 
     <div id="pantalla-bienvenida" class="fixed inset-0 bg-app-base z-50 flex items-center justify-center p-4">
-        <div class="bg-card border border-gray-800 p-8 rounded-3xl max-w-sm w-full text-center space-y-6 shadow-2xl box-glow bg-opacity-90 backdrop-blur-sm">
-            <div id="divLogoBienvenida">
-                <div class="w-20 h-20 bg-accent rounded-full flex items-center justify-center text-4xl mx-auto shadow-2xl">🍺</div>
-            </div>
-            <div><h1 class="text-2xl font-black text-accent tracking-wider" id="tituloBienvenida">LA BARRITA PRO</h1><p class="text-xs text-gray-400 mt-1">Sistema POS & Terminal Digital</p></div>
+        <div class="bg-card border border-gray-800 p-8 rounded-3xl max-w-sm w-full text-center space-y-6 shadow-2xl box-glow">
+            <div class="w-20 h-20 bg-accent rounded-full flex items-center justify-center text-4xl mx-auto shadow-2xl">🍺</div>
+            <div><h1 class="text-2xl font-black text-accent tracking-wider">LA BARRITA PRO</h1><p class="text-xs text-gray-400">Sistema POS & Terminal</p></div>
             <div class="space-y-3">
                 <button onclick="entrarModo('cliente', 'comandas')" type="button" class="w-full bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-extrabold py-3.5 rounded-2xl text-xs transition shadow-lg">📱 SOY CLIENTE (Menú Digital)</button>
-                <button onclick="abrirModalLogin()" type="button" class="w-full bg-accent hover:opacity-90 active:scale-95 text-white font-extrabold py-3.5 rounded-2xl text-xs transition shadow-lg">🔒 INGRESO PERSONAL (Mesero / Barra / Admin)</button>
-                <button onclick="entrarModo('monitor', 'monitor')" type="button" class="w-full bg-app-base hover:bg-gray-900 active:scale-95 text-gray-300 font-bold py-2.5 rounded-2xl text-xs transition border border-gray-800">📺 PANTALLA MONITOR ULTRA</button>
+                <button onclick="abrirModalLogin()" type="button" class="w-full bg-accent hover:opacity-90 active:scale-95 text-white font-extrabold py-3.5 rounded-2xl text-xs transition shadow-lg">🔒 INGRESO PERSONAL (Mesero/Barra/Admin)</button>
+                <button onclick="entrarModo('monitor', 'monitor')" type="button" class="w-full bg-app-base hover:bg-gray-900 active:scale-95 text-gray-300 font-bold py-2.5 rounded-2xl text-xs transition border border-gray-800">📺 PANTALLA MONITOR</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL DE LOGIN ACTUALIZADO -->
+    <!-- MODAL DE LOGIN -->
     <div id="modal-login" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4">
         <div class="bg-card border border-gray-800 p-7 rounded-3xl max-w-xs w-full text-center space-y-4 shadow-2xl">
             <h3 class="font-extrabold text-accent text-sm tracking-wide">Acceso por Credenciales</h3>
-            
-            <div class="space-y-2 mb-4">
-                <p class="text-xs text-gray-400 text-left mb-1">Selecciona tu perfil o escribe tu usuario:</p>
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="document.getElementById('loginUsuario').value='mesero1'; document.getElementById('loginPin').focus();" class="bg-gray-800 text-gray-300 py-1.5 rounded text-xs font-bold hover:bg-gray-700">Mesero 1</button>
-                    <button onclick="document.getElementById('loginUsuario').value='barra1'; document.getElementById('loginPin').focus();" class="bg-gray-800 text-gray-300 py-1.5 rounded text-xs font-bold hover:bg-gray-700">Barra Central</button>
-                </div>
-            </div>
-
             <input type="text" id="loginUsuario" placeholder="Usuario (ej: admin)" class="w-full bg-black border border-gray-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none">
             <input type="password" id="loginPin" placeholder="PIN / Contraseña" class="w-full bg-black border border-gray-800 rounded-xl px-3.5 py-2.5 text-center text-lg tracking-widest text-white outline-none">
             <div class="flex gap-2"><button onclick="procesarLogin()" type="button" class="flex-1 bg-green-500 text-black font-extrabold py-2.5 rounded-xl text-xs">Entrar</button><button onclick="cerrarModalLogin()" type="button" class="flex-1 bg-gray-800 text-gray-300 font-bold py-2.5 rounded-xl text-xs">Cancelar</button></div>
@@ -909,421 +534,170 @@ socket.on('notificacion_pedido_listo', function(datos) {
     </div>
 
     <header id="appTopBar" class="hidden bg-app-panel border-b border-gray-800 px-4 py-3 sticky top-0 z-40 flex justify-between items-center">
-        <div class="flex items-center gap-2">
-            <div id="divLogoHeader"><span class="text-xl">🍺</span></div>
-            <h1 id="headerNombreNegocio" class="text-sm font-black text-accent tracking-wider">LA BARRITA</h1>
-        </div>
-        <button id="btnSalirTop" onclick="cerrarSesion()" type="button" class="text-xs bg-red-900 bg-opacity-60 hover:bg-red-900 text-red-300 px-3 py-1.5 rounded-xl border border-red-900 font-bold">Salir al Inicio</button>
+        <div class="flex items-center gap-2"><span class="text-xl">🍺</span><h1 class="text-sm font-black text-accent tracking-wider">LA BARRITA</h1></div>
+        <button onclick="cerrarSesion()" type="button" class="text-xs bg-red-900 bg-opacity-60 text-red-300 px-3 py-1.5 rounded-xl border border-red-900 font-bold">Salir</button>
     </header>
 
     <main id="vista-mapa" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto space-y-5">
         <div class="flex justify-between items-center border-b border-gray-800 pb-2">
-            <h2 class="text-lg font-black text-white">🗺️ MAPA DE MESAS (COBRO DIRECTO)</h2>
-            <button id="btnEditarMapa" onclick="toggleEdicionMapa()" class="bg-gray-800 text-gray-300 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-gray-700">⚙️ Editar Mapa</button>
+            <h2 class="text-lg font-black text-white">🗺️ MAPA DE MESAS</h2>
+            <button onclick="volverMenuAnterior()" class="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold">⬅ Volver</button>
         </div>
         <div id="mapaContainerWrapper" class="mapa-container"></div>
     </main>
 
- <!-- VISTA COMANDAS EN DOS COLUMNAS ESTILO POS PROFESIONAL -->
-    <main id="vista-comandas" class="hidden flex-1 p-2 w-full mx-auto h-[calc(100vh-64px)] overflow-hidden">
-        <div class="flex flex-col lg:flex-row h-full gap-2">
-            <!-- COLUMNA IZQUIERDA: MENÚ -->
+    <!-- VISTA COMANDAS / CLIENTE -->
+    <main id="vista-comandas" class="hidden flex-1 p-2 w-full mx-auto h-[calc(100vh-64px)] overflow-hidden relative">
+        <button onclick="volverMenuAnterior()" class="absolute top-2 left-4 z-10 bg-gray-800 bg-opacity-70 text-white px-3 py-1.5 rounded-lg text-xs font-bold backdrop-blur-sm border border-gray-700">⬅ Salir</button>
+        <div class="flex flex-col lg:flex-row h-full gap-2 mt-8 lg:mt-0">
             <div class="flex-1 lg:w-[65%] flex flex-col bg-[#121212] rounded-2xl border border-gray-800 overflow-hidden shadow-xl">
                 <div class="bg-[#1a1a1a] p-3 border-b border-gray-800 flex justify-between items-center">
-                    <input type="text" placeholder="🔍 Buscar producto..." class="bg-black text-white px-3 py-1.5 rounded-lg border border-gray-700 outline-none text-xs w-1/3">
-                    <select id="filtroCategoriaComanda" class="bg-black text-xs text-white border border-gray-700 rounded-lg px-3 py-1.5 outline-none font-bold">
-                        <option value="Todos">🍽️ Todas las Categorías</option><option value="Alitas">🍗 Alitas</option><option value="Combos">🍔 Combos</option><option value="Micheladas">🍺 Micheladas</option><option value="Snacks">🍟 Snacks</option>
+                    <select id="filtroCategoriaComanda" onchange="renderizarMenu()" class="bg-black text-xs text-white border border-gray-700 rounded-lg px-3 py-1.5 outline-none font-bold">
+                        <option value="Todos">🍽️ Todas las Categorías</option><option value="Alitas">🍗 Alitas</option><option value="Combos">🍔 Combos</option><option value="Bebidas">🍺 Bebidas</option>
                     </select>
                 </div>
                 <div id="gridProductos" class="flex-1 overflow-y-auto p-3 grid grid-cols-3 md:grid-cols-4 gap-3 no-scrollbar content-start bg-[#0a0a0a]"></div>
             </div>
             
-            <!-- COLUMNA DERECHA: CAJA / COMANDA (FIJA) -->
             <div class="w-full lg:w-[35%] flex flex-col bg-[#1a1a1a] rounded-2xl border border-gray-800 overflow-hidden shadow-xl shrink-0">
                 <div class="bg-[#242424] p-3 border-b border-gray-800 flex justify-between items-center">
-                    <div class="flex items-center gap-2"><span class="bg-red-600 text-white p-1.5 rounded-full text-xs">📝</span><h2 class="font-extrabold text-white text-sm">Comanda</h2></div>
-                    <select id="selectMesa" class="bg-blue-600 text-white font-bold text-xs px-2 py-1.5 rounded-lg border-none outline-none shadow-lg">
-                        <option value="Para Llevar">👜 Para Llevar</option><option value="Mesa 1">🍽️ Mesa 1</option><option value="Mesa 2">🍽️ Mesa 2</option><option value="Mesa 3">🍽️ Mesa 3</option><option value="Barra">🍻 Barra</option>
+                    <div class="flex items-center gap-2"><span class="bg-red-600 text-white p-1.5 rounded-full text-xs">📝</span><h2 class="font-extrabold text-white text-sm">Tu Pedido</h2></div>
+                    <select id="selectMesa" class="bg-blue-600 text-white font-bold text-xs px-2 py-1.5 rounded-lg border-none outline-none">
+                        <option value="Para Llevar">👜 Para Llevar</option><option value="Mesa 1">🍽️ Mesa 1</option><option value="Mesa 2">🍽️ Mesa 2</option>
                     </select>
                 </div>
-                
-                <div class="p-2 space-y-1.5 bg-[#121212] border-b border-gray-800 text-xs">
-                    <input type="text" id="clienteNombre" placeholder="👤 Nombre del cliente..." class="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-3 py-2 text-white outline-none">
-                    <input type="tel" id="clienteTelefono" placeholder="📱 WhatsApp (Opcional)" class="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-3 py-2 text-white outline-none">
-                </div>
-                
-                <div id="listaCarrito" class="flex-1 overflow-y-auto p-2 space-y-1.5 text-xs no-scrollbar bg-[#121212]">
-                    <p class="text-center py-10 text-gray-600 font-bold text-sm">Toca un platillo para agregar a la orden</p>
-                </div>
-                
-                <div class="p-4 bg-[#1a1a1a] border-t border-gray-800 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.5)]">
-                    <div class="flex justify-between items-center mb-3">
-                        <span class="text-gray-400 font-bold text-sm">Total a Pagar:</span>
-                        <span id="totalCarrito" class="text-2xl font-black text-white">$0.00</span>
-                    </div>
-                    <button id="btnEnviarComanda" onclick="procesarEnvioOrden()" type="button" class="w-full bg-green-500 hover:bg-green-400 text-black font-black py-4 rounded-xl text-sm transition shadow-lg flex items-center justify-center gap-2">
-                        <span>🧾</span> ENVIAR ORDEN A BARRA
-                    </button>
+                <div class="p-2 bg-[#121212] border-b border-gray-800"><input type="text" id="clienteNombre" placeholder="👤 Tu nombre (opcional)..." class="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-3 py-2 text-xs text-white outline-none"></div>
+                <div id="listaCarrito" class="flex-1 overflow-y-auto p-2 space-y-1.5 text-xs no-scrollbar bg-[#121212]"></div>
+                <div class="p-4 bg-[#1a1a1a] border-t border-gray-800">
+                    <div class="flex justify-between items-center mb-3"><span class="text-gray-400 font-bold">Total:</span><span id="totalCarrito" class="text-2xl font-black text-white">$0.00</span></div>
+                    <button onclick="procesarEnvioOrden()" type="button" class="w-full bg-green-500 text-black font-black py-4 rounded-xl text-sm shadow-lg">ENVIAR ORDEN</button>
                 </div>
             </div>
         </div>
     </main>
 
+    <!-- MONITOR CLIENTE (DIVIDIDO PUBLICIDAD / ESTADO) -->
+    <main id="vista-pantalla-cliente" class="hidden flex-1 p-4 w-full h-screen relative bg-[#050505]">
+        <button onclick="cerrarSesion()" class="absolute top-6 left-6 z-[110] bg-black bg-opacity-60 border border-gray-700 text-gray-300 px-4 py-2 rounded-xl text-sm font-bold hover:text-white transition backdrop-blur-md">⬅ Salir al Menú</button>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full items-stretch pb-10">
+            <div class="lg:col-span-1 bg-[#111] border border-gray-800 p-5 rounded-3xl shadow-2xl flex flex-col h-full overflow-hidden">
+                <h3 class="text-base font-black text-accent mb-4 flex items-center gap-2 shrink-0"><span>📺</span> ESTADO DE ÓRDENES</h3>
+                <div id="gridPantallaEstado" class="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar"></div>
+            </div>
+            <div class="lg:col-span-3 bg-black border border-gray-800 p-2 rounded-3xl shadow-2xl flex items-center justify-center h-full relative overflow-hidden">
+                <div class="w-full h-full flex items-center justify-center bg-[#0a0a0a] rounded-2xl overflow-hidden relative" id="contenedorMediaCentral"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL DETALLE PRODUCTO -->
     <div id="modal-detalle-producto" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-card border border-gray-800 p-5 rounded-3xl max-w-sm w-full space-y-4 shadow-2xl">
-            <div id="detProdImgContainer"></div>
-            <div>
-                <div class="flex justify-between"><span id="detProdCat" class="text-[10px] text-blue-400 font-bold uppercase"></span><span id="detProdStock" class="text-[10px] text-gray-400"></span></div>
-                <h3 id="detProdNombre" class="font-black text-white text-lg leading-tight"></h3>
-                <p id="detProdDesc" class="text-xs text-gray-400 mt-1"></p>
-                <div id="detProdComponentes" class="hidden mt-2 p-2 bg-black rounded-lg border border-gray-800 text-[10px]">
-                    <span class="font-bold text-yellow-500">Incluye:</span>
-                    <ul id="detProdComponentesLista" class="mt-1 space-y-0.5"></ul>
-                </div>
-            </div>
-            <div class="flex justify-between items-center border-t border-gray-800 pt-3"><span id="detProdPrecio" class="text-green-400 font-black text-xl"></span><button onclick="agregarDesdeDetalle()" class="bg-accent text-white font-black px-4 py-2 rounded-xl text-xs">Agregar al Pedido</button></div>
-            <button onclick="cerrarDetalleProducto()" class="w-full bg-gray-800 text-gray-300 font-bold py-2 rounded-xl text-xs">Cancelar</button>
+        <div class="bg-card border border-gray-800 p-5 rounded-3xl max-w-sm w-full space-y-4 shadow-2xl text-center">
+            <h3 id="detProdNombre" class="font-black text-white text-lg"></h3>
+            <span id="detProdPrecio" class="text-green-400 font-black text-2xl block border-y border-gray-800 py-2"></span>
+            <div class="flex justify-between items-center pt-2"><button onclick="agregarDesdeDetalle()" class="bg-accent text-white font-black px-4 py-3 rounded-xl text-sm flex-1 mr-2">Agregar</button><button onclick="document.getElementById('modal-detalle-producto').classList.add('hidden')" class="bg-gray-800 text-gray-300 font-bold py-3 px-4 rounded-xl text-sm">Cancelar</button></div>
         </div>
     </div>
 
-    <div id="modal-turno-cliente" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white text-black p-6 rounded-3xl max-w-xs w-full text-center space-y-4 shadow-2xl border-2 border-accent">
-            <div class="border-b-2 border-dashed border-gray-300 pb-3"><span class="text-[10px] tracking-widest text-gray-400 font-black block uppercase">TURNO DE PEDIDO</span><div id="ticketFolioGrande" class="text-4xl font-black font-mono tracking-tighter text-purple-700 my-1">M1-204</div><div class="text-xs font-bold text-gray-700" id="ticketMesaNombre">Para Llevar</div><div class="text-[10px] text-gray-400" id="ticketHoraGenerado">18:30</div></div>
-            <div id="ticketListaItems" class="text-xs text-left text-gray-700 max-h-36 overflow-y-auto divide-y divide-gray-100"></div>
-            <div class="flex justify-between items-center text-sm font-black border-t-2 border-dashed border-gray-300 pt-2"><span>Total:</span><span id="ticketTotalPagar" class="text-green-600 text-base">$0.00</span></div>
-            <p class="text-xs text-green-600 font-bold mt-2">¡Tu pedido ha sido enviado a la barra!</p><p class="text-[10px] text-gray-500 leading-tight">Espera a que tu folio o mesa cambie a Listo en el monitor.</p>
-            <div class="flex gap-2 mt-2"><button onclick="document.getElementById('modal-turno-cliente').classList.add('hidden')" type="button" class="w-full bg-green-500 text-black font-extrabold py-2.5 rounded-xl text-xs">Entendido</button></div>
-        </div>
-    </div>
-
+    <!-- VISTA BARRA -->
     <main id="vista-barra" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto space-y-3">
-        <h2 class="text-base font-black text-white">🍻 COMANDAS ACTIVAS EN BARRA</h2>
-        <div id="gridComandasBarra" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
-        
-        <div class="bg-card p-4 rounded-3xl border border-gray-800 shadow-xl mt-6 max-w-lg">
-            <h3 class="font-black text-yellow-400 text-xs uppercase tracking-wide mb-3 flex items-center gap-2"><span>🛒</span> Anotar Insumos Faltantes</h3>
-            <div class="flex gap-2 mb-3">
-                <input type="text" id="inputNuevoInsumoBarra" placeholder="Ej. Faltan servilletas, alitas, gas..." class="flex-1 bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white outline-none">
-                <button onclick="agregarInsumoLista('inputNuevoInsumoBarra')" class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition">Anotar</button>
-            </div>
-            <ul id="listaInsumosBarra" class="space-y-1 text-xs max-h-40 overflow-y-auto no-scrollbar"></ul>
+        <div class="flex justify-between items-center border-b border-gray-800 pb-2">
+            <h2 class="text-base font-black text-white">🍻 COMANDAS ACTIVAS EN BARRA</h2>
+            <button onclick="volverMenuAnterior()" class="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold">⬅ Volver</button>
         </div>
+        <div id="gridComandasBarra" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
     </main>
-    
-    <main id="vista-inventario" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="space-y-4">
-            <div class="bg-card p-4 rounded-3xl border space-y-3 shadow-xl">
-                <h3 class="font-black text-green-400 text-xs uppercase tracking-wide flex justify-between items-center">
-                    <span>➕ Agregar Producto / Combo</span>
-                    <label class="text-[10px] text-yellow-400 flex items-center gap-1 bg-yellow-900 bg-opacity-30 px-2 py-1 rounded"><input type="checkbox" id="checkEsCombo" onchange="toggleModoCombo(this.checked)"> Es Combo</label>
-                </h3>
-                <input type="text" id="prodNombre" placeholder="Nombre platillo / bebida *" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white">
-                <textarea id="prodDesc" placeholder="Descripción de los ingredientes..." class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white h-16 resize-none"></textarea>
-                
-                <div id="panelSubProductos" class="hidden bg-black p-2 rounded-xl border border-gray-800 space-y-2">
-                    <span class="text-[10px] text-gray-400 font-bold">Selecciona los productos que incluye el combo:</span>
-                    <div class="flex gap-2">
-                        <select id="prodComboItems" class="flex-1 bg-app-input border border-gray-700 rounded-lg px-2 py-1 text-[10px] text-white"></select>
-                        <button onclick="agregarComponenteCombo()" class="bg-blue-600 text-white font-bold px-2 py-1 rounded-lg text-[10px]">Añadir</button>
-                    </div>
-                    <div id="listaComponentesTemp" class="max-h-24 overflow-y-auto space-y-1"></div>
-                </div>
 
-                <div class="grid grid-cols-2 gap-2"><input type="number" step="0.01" id="prodCosto" placeholder="Costo insumos ($)" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"><input type="number" step="0.01" id="prodPrecio" placeholder="Venta final ($) *" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"></div>
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="number" id="prodStock" placeholder="Stock límite" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white">
-                    <select id="prodCategoria" class="w-full bg-black border border-gray-800 rounded-xl px-2 py-2 text-xs text-white"><option value="Alitas">Alitas</option><option value="Nachos">Nachos</option><option value="Combos">Combos</option><option value="Micheladas">Micheladas</option><option value="Snacks">Snacks</option><option value="Bebidas">Bebidas</option><option value="Comidas">Comidas</option></select>
-                </div>
-                <select id="prodImagenUrl" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"><option value="">Sin imagen (Cargando local...)</option></select>
-                <p class="text-[9px] text-gray-500">Pon tus fotos .jpg o .png en <b>Pos-Restaurant/public/imagenes/</b></p>
+    <!-- VISTA INVENTARIO -->
+    <main id="vista-inventario" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="space-y-4 relative">
+            <button onclick="volverMenuAnterior()" class="absolute -top-10 left-0 bg-gray-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold">⬅ Volver</button>
+            <div class="bg-card p-4 rounded-3xl border space-y-3 shadow-xl mt-6">
+                <h3 class="font-black text-green-400 text-xs uppercase">➕ Agregar/Editar Producto</h3>
+                <input type="text" id="prodNombre" placeholder="Nombre platillo *" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white">
+                <div class="grid grid-cols-2 gap-2"><input type="number" step="0.01" id="prodCosto" placeholder="Costo ($)" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"><input type="number" step="0.01" id="prodPrecio" placeholder="Venta ($) *" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"></div>
+                <div class="grid grid-cols-2 gap-2"><input type="number" id="prodStock" placeholder="Stock" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"><select id="prodCategoria" class="w-full bg-black border border-gray-800 rounded-xl px-2 py-2 text-xs text-white"><option value="Alitas">Alitas</option><option value="Combos">Combos</option><option value="Bebidas">Bebidas</option></select></div>
                 <button id="btnGuardarProducto" onclick="guardarProducto()" type="button" class="w-full bg-green-500 text-black font-extrabold py-2.5 rounded-xl text-xs">Guardar en Catálogo</button>
                 <button id="btnCancelarEdicion" onclick="limpiarFormProducto()" class="hidden w-full bg-gray-800 text-gray-300 font-bold py-2 rounded-xl text-xs mt-2">Cancelar Edición</button>
             </div>
-            <div class="bg-card p-4 rounded-3xl border space-y-3 shadow-xl">
-                <h3 class="font-black text-accent text-xs uppercase tracking-wide">📥 Entrada de Stock (Compra)</h3>
-                <select id="compraSelectProd" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"></select>
-                <div class="grid grid-cols-2 gap-2"><input type="number" id="compraCantidad" placeholder="Cantidad sumar" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"><input type="number" step="0.01" id="compraNuevoCosto" placeholder="Nuevo costo ($)" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"></div>
-                <button onclick="procesarCompraStock()" type="button" class="w-full bg-accent text-white font-extrabold py-2.5 rounded-xl text-xs">Sumar Existencias</button>
-            </div>
         </div>
-        <div class="lg:col-span-2 bg-card p-4 rounded-3xl border"><h3 class="font-black text-white text-xs mb-3 uppercase tracking-wide">Existencias y Márgenes de Ganancia</h3><div id="listaAdminProductos" class="space-y-2 max-h-inv overflow-y-auto no-scrollbar"></div></div>
+        <div class="lg:col-span-2 bg-card p-4 rounded-3xl border mt-6 lg:mt-0"><h3 class="font-black text-white text-xs mb-3 uppercase">Catálogo de Productos</h3><div id="listaAdminProductos" class="space-y-2 max-h-inv overflow-y-auto no-scrollbar"></div></div>
     </main>
 
+    <!-- VISTA ADMIN -->
     <main id="vista-admin" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto space-y-5">
-        <div class="bg-card p-4 rounded-3xl border flex flex-wrap justify-between items-center gap-3 shadow-xl">
-            <div class="flex items-center gap-3"><h2 class="text-base font-black text-white">💰 ESTADO DE CAJA:</h2><span id="badgeEstadoCaja" class="pill-badge">CERRADA</span></div>
-            <div class="flex flex-wrap gap-2">
-                <button onclick="abrirCajaTurno()" class="bg-green-600 hover:bg-green-500 text-white font-bold px-3.5 py-2 rounded-xl text-xs">💵 Abrir Caja (Fondo)</button>
-                <button onclick="registrarGastoOperativo()" class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold px-3.5 py-2 rounded-xl text-xs">📤 Registrar Egreso / Gasto</button>
-                <button onclick="ejecutarCorteCaja()" class="bg-red-600 hover:bg-red-500 text-white font-bold px-3.5 py-2 rounded-xl text-xs">🔒 Realizar Corte (Cierre)</button>
-                <button onclick="abrirModalGithub()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1 shadow-lg shadow-blue-900/20">☁️ Sync GitHub</button>
+        <div class="bg-card p-5 rounded-3xl border space-y-3 shadow-xl relative mt-4">
+            <button onclick="volverMenuAnterior()" class="absolute -top-12 left-0 bg-gray-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold">⬅ Volver</button>
+            <h3 class="font-black text-accent text-xs uppercase tracking-wide">👥 Gestión de Personal (Jalar Datos)</h3>
+            <div class="space-y-3 border-b border-gray-800 pb-3">
+                <div class="grid grid-cols-2 gap-2"><input type="text" id="nuevoUsuarioNick" placeholder="Usuario" class="bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"><input type="password" id="nuevoUsuarioPin" placeholder="PIN" class="bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"></div>
+                <input type="text" id="nuevoUsuarioNombre" placeholder="Nombre completo" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white">
+                <div class="bg-black p-3 rounded-xl border border-gray-800 text-xs"><div class="grid grid-cols-2 gap-2"><label><input type="checkbox" id="checkPermisoMenu" checked> Menú</label><label><input type="checkbox" id="checkPermisoMapa" checked> Cobrar</label><label><input type="checkbox" id="checkPermisoBarra"> Barra</label><label><input type="checkbox" id="checkPermisoInventario"> Stock</label><label class="col-span-2 text-accent"><input type="checkbox" id="checkPermisoAdmin"> Admin</label></div></div>
+                <button id="btnGuardarNuevoUsuario" onclick="guardarNuevoUsuario()" type="button" class="w-full bg-accent text-white font-black py-2 rounded-xl text-xs">Crear Usuario</button>
             </div>
-        </div>
-        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            <div class="bg-card p-3 rounded-2xl border text-center"><span class="text-xxs text-gray-400 font-bold block">FONDO INICIAL</span><span id="lblFondoInicial" class="text-base font-black text-gray-200">$0.00</span></div>
-            <div class="bg-card p-3 rounded-2xl border text-center"><span class="text-xxs text-gray-400 font-bold block">VENTAS TOTALES</span><span id="lblTotalIngresos" class="text-base font-black text-green-400">$0.00</span></div>
-            <div class="bg-card p-3 rounded-2xl border text-center"><span class="text-xxs text-gray-400 font-bold block">EGRESOS / GASTOS</span><span id="lblTotalEgresos" class="text-base font-black text-red-400">$0.00</span></div>
-            <div class="bg-card p-3 rounded-2xl border text-center"><span class="text-xxs text-gray-400 font-bold block">GANANCIA ESTIMADA</span><span id="lblGananciaNeta" class="text-base font-black text-accent">$0.00</span></div>
-            <div class="bg-card p-3 rounded-2xl border text-center col-span-2 sm:col-span-1"><span class="text-xxs text-gray-400 font-bold block">EFECTIVO EN CAJA</span><span id="lblEfectivoEsperado" class="text-base font-black text-blue-400">$0.00</span></div>
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <div class="lg:col-span-2 bg-card p-4 rounded-3xl border"><h3 class="text-xs font-black uppercase text-gray-300 mb-3 tracking-wide">📈 Balance Operativo del Día</h3><canvas id="chartFinanzas" height="110"></canvas></div>
-            <div class="space-y-4">
-                <div class="bg-card p-4 rounded-3xl border space-y-3"><h3 class="text-xs font-black uppercase text-accent tracking-wide">🤵 Rendimiento por Mesero</h3><div id="listaRendimientoMeseros" class="space-y-2 max-h-52 overflow-y-auto pr-1"></div><div class="border-t border-gray-800 pt-2"><h4 class="text-xxs font-bold text-gray-400 mb-1">Gastos del turno:</h4><div id="listaEgresosCaja" class="space-y-1 max-h-24 overflow-y-auto"></div></div></div>
-                <div class="bg-card p-4 rounded-3xl border space-y-2 border-yellow-900 bg-yellow-900 bg-opacity-10"><h3 class="text-xs font-black uppercase text-yellow-400 tracking-wide flex items-center gap-1">🛒 Insumos Faltantes</h3><ul id="listaInsumosAdmin" class="space-y-1 text-xs max-h-24 overflow-y-auto"></ul></div>
-            </div>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div class="bg-card p-5 rounded-3xl border space-y-4 shadow-xl">
-                <h3 class="font-black text-accent text-xs uppercase tracking-wide">🎨 Selector de Skins del Sistema</h3>
-                <div class="grid grid-cols-2 gap-2.5">
-                    <button onclick="aplicarSkinGlobal('tech-neon', true)" class="p-3 rounded-2xl bg-[#0f0f15] border border-purple-500 border-opacity-60 text-purple-300 font-bold text-xs flex items-center justify-between"><span>Tech Neon</span> <span class="w-3 h-3 rounded-full bg-purple-500"></span></button>
-                    <button onclick="aplicarSkinGlobal('onyx-gold', true)" class="p-3 rounded-2xl bg-gray-900 border border-yellow-500 border-opacity-60 text-yellow-300 font-bold text-xs flex items-center justify-between"><span>Onyx Gold</span> <span class="w-3 h-3 rounded-full bg-yellow-500"></span></button>
-                    <button onclick="aplicarSkinGlobal('cyber-cyan', true)" class="p-3 rounded-2xl bg-gray-900 border border-blue-500 border-opacity-60 text-blue-300 font-bold text-xs flex items-center justify-between"><span>Cyber Cyan</span> <span class="w-3 h-3 rounded-full bg-blue-400"></span></button>
-                    <button onclick="aplicarSkinGlobal('emerald-bar', true)" class="p-3 rounded-2xl bg-green-900 border border-green-500 border-opacity-60 text-green-300 font-bold text-xs flex items-center justify-between"><span>Emerald Bar</span> <span class="w-3 h-3 rounded-full bg-green-500"></span></button>
-                </div>
-            </div>
-            
-            <div class="bg-card p-5 rounded-3xl border space-y-3 shadow-xl">
-                <h3 class="font-black text-accent text-xs uppercase tracking-wide">👥 Gestión de Personal (Permisos)</h3>
-                <div class="space-y-3 border-b border-gray-800 pb-3">
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="text" id="nuevoUsuarioNick" placeholder="Usuario (ej: mesero2)" class="bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white">
-                        <input type="password" id="nuevoUsuarioPin" placeholder="PIN de acceso" class="bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white">
-                    </div>
-                    <input type="text" id="nuevoUsuarioNombre" placeholder="Nombre completo del empleado" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white">
-                    
-                    <div class="bg-black p-3 rounded-xl border border-gray-800 text-xs">
-                        <span class="text-gray-400 font-bold mb-2 block">¿A qué pantallas puede entrar?</span>
-                        <div class="grid grid-cols-2 gap-2">
-                            <label class="flex items-center gap-1.5"><input type="checkbox" id="checkPermisoMenu" checked> Tomar Órdenes (Menú)</label>
-                            <label class="flex items-center gap-1.5"><input type="checkbox" id="checkPermisoMapa" checked> Cobrar (Mapa/Caja)</label>
-                            <label class="flex items-center gap-1.5 text-blue-300"><input type="checkbox" id="checkPermisoBarra"> Ver Barra/Cocina</label>
-                            <label class="flex items-center gap-1.5 text-yellow-300"><input type="checkbox" id="checkPermisoInventario"> Gestionar Inventario</label>
-                            <label class="flex items-center gap-1.5 text-accent col-span-2"><input type="checkbox" id="checkPermisoAdmin"> Acceso Total (Administrador)</label>
-                        </div>
-                    </div>
-                   <button id="btnGuardarNuevoUsuario" onclick="guardarNuevoUsuario()" type="button" class="w-full bg-accent hover:bg-purple-500 transition text-white font-black py-2 rounded-xl text-xs">Crear Usuario</button>
-                </div>
-                <div id="listaUsuariosAdmin" class="space-y-1.5 max-h-32 overflow-y-auto pt-1"></div>
-            </div>
-        </div>
-        
-        <div class="bg-card p-5 rounded-3xl border space-y-3 shadow-xl">
-            <h3 class="font-black text-blue-400 text-xs uppercase tracking-wide">⚙️ Configuraciones de Pantalla e Imagen</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                
-                <div class="space-y-3 bg-black p-3 rounded-xl border border-gray-800">
-                    <h4 class="font-bold text-gray-300 text-sm">Textos y Links</h4>
-                    <div><label class="text-xxs text-gray-400 block mb-1">Nombre del Negocio:</label><input type="text" id="configNombreNegocio" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white"></div>
-                    <div><label class="text-xxs text-gray-400 block mb-1">Link para Código QR (Ej. WhatsApp o Facebook):</label><input type="text" id="configRedes" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white"></div>
-                    <div><div class="flex justify-between items-center mb-1"><label class="text-xxs text-gray-400">Texto Marquesina Superior:</label><span id="lblTamanoSup" class="text-xxs text-purple-400 font-bold">20px</span></div><input type="text" id="configPromo" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white mb-1"><input type="range" id="sliderTextoSup" min="14" max="42" value="20" class="w-full" oninput="cambiarTamanoTexto('sup', this.value)"></div>
-                    <div><div class="flex justify-between items-center mb-1"><label class="text-xxs text-gray-400">Texto Marquesina Inferior:</label><span id="lblTamanoInf" class="text-xxs text-blue-400 font-bold">15px</span></div><input type="text" id="configPromoInferior" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white mb-1"><input type="range" id="sliderTextoInf" min="11" max="32" value="15" class="w-full" oninput="cambiarTamanoTexto('inf', this.value)"></div>
-                </div>
-
-                <div class="space-y-3 bg-black p-3 rounded-xl border border-gray-800">
-                    <h4 class="font-bold text-gray-300 text-sm">Apariencia Visual y Multimedia</h4>
-                    
-                    <div>
-                        <label class="text-xxs text-gray-400 block mb-1">Fondo de Pantalla de Inicio (Login):</label>
-                        <select id="configFondoPantalla" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white"><option value="">Ninguna</option></select>
-                        <p class="text-[9px] text-gray-500 mt-0.5">La imagen debe estar en <b>public/imagenes/</b></p>
-                    </div>
-                    
-                    <div>
-                        <label class="text-xxs text-gray-400 block mb-1">Logo del Negocio:</label>
-                        <select id="configLogoNegocio" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white"><option value="">Ninguna</option></select>
-                        <p class="text-[9px] text-gray-500 mt-0.5">Se mostrará en la pantalla de inicio y cabecera.</p>
-                    </div>
-
-                    <div class="border-t border-gray-800 pt-2 mt-2">
-                        <label class="text-xxs text-gray-400 block mb-1">Link de Video Principal (YouTube):</label>
-                        <input type="text" id="configMedia" placeholder="ej. https://www.youtube.com/watch?v=..." class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white">
-                        
-                        <div class="flex items-center justify-between gap-2 mt-3 bg-gray-900 p-2 rounded-lg border border-gray-700">
-                            <label for="checkMostrarYouTube" class="text-xs font-bold text-white flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" id="checkMostrarYouTube" class="w-4 h-4 rounded text-accent"> 
-                                Mostrar YouTube en el Monitor
-                            </label>
-                        </div>
-                        <div class="flex items-center gap-2 mt-2 ml-1">
-                            <input type="checkbox" id="checkVideoAudio" class="w-3 h-3 rounded">
-                            <label for="checkVideoAudio" class="text-[10px] font-bold text-gray-400">Reproducir YouTube CON audio</label>
-                        </div>
-                        <p class="text-[9px] text-yellow-500 mt-1 italic">Si "Mostrar YouTube" está desmarcado, el monitor rotará automáticamente las imágenes que guardes en <b>public/publicidad/</b>.</p>
-                    </div>
-                </div>
-                
-            </div>
-            <button onclick="guardarConfigGeneral()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-3 px-5 rounded-xl text-xs mt-2 shadow-lg transition active:scale-95">Guardar Configuración General</button>
-            <div class="pt-4 border-t border-gray-800 space-y-2 mt-4">
-                <h4 class="font-bold text-xs text-gray-300">Generar Accesos Directos (QR):</h4>
-                <div class="flex gap-2">
-                    <select id="selectMesaQR" class="bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-xs text-white flex-1"><option value="Para Llevar">Para Llevar</option><option value="Mesa 1">Mesa 1</option><option value="Mesa 2">Mesa 2</option><option value="Mesa 3">Mesa 3</option><option value="Mesa 4">Mesa 4</option><option value="Mesa 5">Mesa 5</option></select>
-                    <button onclick="generarQR('cliente')" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs">QR Menú Cliente</button>
-                </div>
-                <button onclick="generarQR('login')" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 rounded-xl text-xs w-full">QR Ingreso Personal (Trabajadores)</button>
-            </div>
-            <div id="contenedorQR" class="bg-white p-3 rounded-2xl hidden flex flex-col items-center justify-center mt-2 max-w-xs mx-auto text-black"><div id="qrCodeDiv"></div><span id="qrTextoMesa" class="font-black text-xs mt-1"></span></div>
+            <div id="listaUsuariosAdmin" class="space-y-1.5 max-h-40 overflow-y-auto pt-1"></div>
         </div>
     </main>
 
-<select id="filtroCategoriaComanda" onchange="renderizarMenu()" class="bg-black text-xs text-white border border-gray-700 rounded-lg px-3 py-1.5 outline-none font-bold">
-    <button onclick="window.location.reload()" class="absolute top-4 left-4 z-[110] bg-gray-900 border border-gray-700 text-gray-400 px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg opacity-40 hover:opacity-100 transition">⬅ Volver al Menú</button>
-        
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 items-stretch my-2 min-h-0 overflow-hidden">
-            <div class="lg:col-span-1 bg-app-panel border border-gray-900 p-4 rounded-3xl shadow-2xl flex flex-col h-full overflow-hidden">
-                <h3 class="text-sm font-black text-accent mb-4 flex items-center gap-2 shrink-0"><span>📺</span> ENTREGAS EN BARRA</h3>
-                <div id="gridPantallaEstado" class="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar"></div>
-                <div class="mt-4 pt-4 border-t border-gray-800 text-center shrink-0">
-                    <p class="text-[10px] text-gray-400 mb-2">Escanea para ordenar desde tu mesa:</p>
-                    <div id="qrRedesPublico" class="bg-white p-2 rounded-xl shadow-lg inline-block"></div>
+    <!-- MODAL DE COBRO REDISEÑADO (iPad / Touch) -->
+    <div id="modal-cobro" class="fixed inset-0 bg-black bg-opacity-95 z-[100] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#0a0a10] border border-gray-800 p-6 rounded-3xl max-w-4xl w-full shadow-[0_0_40px_rgba(168,85,247,0.15)] grid grid-cols-1 md:grid-cols-12 gap-6 relative">
+            <button onclick="cerrarCobro()" class="absolute -top-4 -right-4 bg-red-600 text-white w-10 h-10 rounded-full font-black text-lg border-2 border-black shadow-lg">X</button>
+            <div class="md:col-span-7 flex flex-col space-y-5">
+                <div class="flex justify-between items-center border-b border-gray-800 pb-3"><h3 class="font-black text-accent text-xl flex items-center gap-2"><span>💳</span> Cobro</h3><span id="cobroMesaLabel" class="bg-gray-800 text-white px-3 py-1 rounded-lg text-xs font-bold">Mesa</span></div>
+                <div class="bg-black p-5 rounded-2xl border border-gray-800 shadow-inner">
+                    <div class="flex justify-between text-gray-400 text-sm mb-3"><span>Subtotal:</span><span id="cobroSubtotal" class="font-bold text-white text-lg">$0.00</span></div>
+                    <div class="flex justify-between items-center mb-4"><span class="text-gray-400 text-sm">Propina ($):</span><input type="number" id="cobroPropina" value="0" oninput="actualizarTotalCobro()" class="w-28 bg-gray-900 border border-gray-700 text-right px-3 py-2 rounded-xl text-white font-bold text-xl outline-none"></div>
+                    <div class="flex justify-between border-t border-gray-800 pt-4"><span class="font-black text-gray-200 text-lg">Total a Pagar:</span><span id="cobroTotalPagar" class="text-4xl font-black text-green-400">$0.00</span></div>
                 </div>
+                <div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <button id="btnPagoEfectivo" onclick="setMetodoPago('Efectivo')" class="py-3 rounded-xl text-sm font-black bg-green-500 text-black">💵 Efectivo</button>
+                        <button id="btnPagoTarjeta" onclick="setMetodoPago('Tarjeta')" class="py-3 rounded-xl text-sm font-black bg-gray-900 text-gray-400 border border-gray-800">💳 Tarjeta</button>
+                        <button id="btnPagoMP" onclick="setMetodoPago('Mercado Pago')" class="py-3 rounded-xl text-sm font-black bg-gray-900 text-gray-400 border border-gray-800">📱 M. Pago</button>
+                    </div>
+                </div>
+                <div id="bloqueEfectivo" class="bg-[#121212] p-4 rounded-2xl border border-gray-800 flex flex-col gap-3">
+                    <div class="flex justify-between items-center"><span class="text-gray-400 font-bold">Monto Recibido ($):</span><input type="number" id="cobroMontoRecibido" oninput="actualizarTotalCobro()" placeholder="0.00" class="w-36 bg-black border border-gray-700 text-right px-3 py-2 rounded-xl text-white font-black text-2xl outline-none"></div>
+                    <div class="flex justify-between items-center border-t border-gray-800 pt-3"><span class="font-black text-gray-400">Cambio:</span><span id="cobroCambio" class="text-3xl font-black text-blue-400">$0.00</span></div>
+                </div>
+                <input type="text" id="cobroMesero" placeholder="Mesero que cobra la mesa" class="w-full bg-black border border-gray-800 text-sm px-4 py-3.5 rounded-xl text-white outline-none">
             </div>
             
-            <div class="lg:col-span-3 bg-black border border-gray-900 p-2 rounded-3xl shadow-2xl flex items-center justify-center h-full overflow-hidden relative">
-                <div class="w-full h-full flex items-center justify-center bg-black rounded-2xl overflow-hidden absolute inset-0 p-2" id="contenedorMediaCentral"></div>
-            </div>
-        </div>
-    </main>
-
-   <div id="modal-cobro" class="fixed inset-0 bg-black bg-opacity-95 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
-    <div class="bg-[#0a0a10] border border-gray-800 p-6 rounded-3xl max-w-4xl w-full shadow-[0_0_40px_rgba(168,85,247,0.15)] grid grid-cols-1 md:grid-cols-12 gap-6">
-        
-        <!-- Columna Izquierda: Detalle de Cuenta (7 columnas) -->
-        <div class="md:col-span-7 flex flex-col space-y-5">
-            <div class="flex justify-between items-center border-b border-gray-800 pb-3">
-                <h3 class="font-black text-accent text-xl flex items-center gap-2"><span>💳</span> Módulo de Cobro</h3>
-                <span id="cobroMesaLabel" class="bg-gray-800 text-white px-3 py-1 rounded-lg text-xs font-bold tracking-widest uppercase">Mesa 1</span>
-            </div>
-            
-            <div class="bg-black p-5 rounded-2xl border border-gray-800 shadow-inner">
-                <div class="flex justify-between items-center text-gray-400 text-sm mb-3">
-                    <span>Subtotal Consumo:</span>
-                    <span id="cobroSubtotal" class="font-bold text-white text-lg">$0.00</span>
+            <div class="md:col-span-5 flex flex-col justify-between space-y-4">
+                <div class="bg-black border border-gray-800 p-5 rounded-2xl flex-1 flex flex-col">
+                    <div class="flex justify-between items-center mb-4"><span class="text-xs text-gray-400 font-bold uppercase">Teclado</span><button onclick="tecladoCobro('limpiar')" class="text-xs text-red-500 font-bold bg-red-900/20 px-3 py-1.5 rounded-lg">Borrar</button></div>
+                    <div class="grid grid-cols-3 gap-3 flex-1 text-2xl font-black">
+                        <button onclick="tecladoCobro('7')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 active:bg-gray-700">7</button><button onclick="tecladoCobro('8')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 active:bg-gray-700">8</button><button onclick="tecladoCobro('9')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 active:bg-gray-700">9</button>
+                        <button onclick="tecladoCobro('4')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 active:bg-gray-700">4</button><button onclick="tecladoCobro('5')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 active:bg-gray-700">5</button><button onclick="tecladoCobro('6')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 active:bg-gray-700">6</button>
+                        <button onclick="tecladoCobro('1')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 active:bg-gray-700">1</button><button onclick="tecladoCobro('2')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 active:bg-gray-700">2</button><button onclick="tecladoCobro('3')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 active:bg-gray-700">3</button>
+                        <button onclick="tecladoCobro('.')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 active:bg-gray-700">.</button><button onclick="tecladoCobro('0')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 active:bg-gray-700">0</button><button onclick="tecladoCobro('del')" class="bg-red-900 text-red-300 rounded-2xl border border-red-800 active:bg-red-700">⌫</button>
+                    </div>
                 </div>
-                <div class="flex justify-between items-center mb-4">
-                    <span class="text-gray-400 text-sm">Propina Sugerida/Libre ($):</span>
-                    <input type="number" id="cobroPropina" value="0" oninput="actualizarTotalCobro()" class="w-28 bg-gray-900 border border-gray-700 focus:border-accent text-right px-3 py-2 rounded-xl text-white font-bold text-xl outline-none transition">
+                <div class="space-y-3 mt-4">
+                    <button onclick="confirmarCobroFinal(true)" type="button" class="w-full bg-green-500 text-black font-black py-4 rounded-2xl text-sm shadow-[0_0_20px_rgba(34,197,94,0.25)]">🧾 COBRAR Y TICKET</button>
+                    <button onclick="confirmarCobroFinal(false)" type="button" class="w-full bg-accent text-white font-bold py-3.5 rounded-2xl text-sm border border-purple-600">Solo Cobrar</button>
                 </div>
-                <div class="flex justify-between items-center border-t border-gray-800 pt-4">
-                    <span class="font-black text-gray-200 text-lg uppercase tracking-wide">Total a Pagar:</span>
-                    <span id="cobroTotalPagar" class="text-4xl font-black text-green-400 tracking-tighter drop-shadow-md">$0.00</span>
-                </div>
-            </div>
-
-            <div>
-                <span class="text-xs text-gray-500 font-bold uppercase mb-2 block tracking-wider">Método de Pago</span>
-                <div class="grid grid-cols-3 gap-3">
-                    <button id="btnPagoEfectivo" onclick="setMetodoPago('Efectivo')" type="button" class="py-3 rounded-xl text-sm font-black bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.3)] transition transform active:scale-95 border border-transparent">💵 Efectivo</button>
-                    <button id="btnPagoTarjeta" onclick="setMetodoPago('Tarjeta')" type="button" class="py-3 rounded-xl text-sm font-black bg-gray-900 text-gray-400 border border-gray-800 hover:bg-gray-800 transition transform active:scale-95">💳 Tarjeta</button>
-                    <button id="btnPagoMP" onclick="setMetodoPago('Mercado Pago')" type="button" class="py-3 rounded-xl text-sm font-black bg-gray-900 text-gray-400 border border-gray-800 hover:bg-gray-800 transition transform active:scale-95">📱 Mercado Pago</button>
-                </div>
-            </div>
-
-            <div id="bloqueEfectivo" class="bg-[#121212] p-4 rounded-2xl border border-gray-800 flex flex-col gap-3">
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-400 font-bold text-sm">Monto Recibido ($):</span>
-                    <input type="number" id="cobroMontoRecibido" oninput="actualizarTotalCobro()" placeholder="0.00" class="w-36 bg-black border border-gray-700 focus:border-blue-500 text-right px-3 py-2 rounded-xl text-white font-black text-2xl outline-none transition placeholder-gray-700">
-                </div>
-                <div class="flex justify-between items-center border-t border-gray-800 pt-3">
-                    <span class="font-black text-gray-400 uppercase text-sm">Cambio a Entregar:</span>
-                    <span id="cobroCambio" class="text-3xl font-black text-blue-400">$0.00</span>
-                </div>
-            </div>
-
-            <div class="relative mt-auto">
-                <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500">👤</span>
-                <input type="text" id="cobroMesero" placeholder="Mesero que cobra la mesa" class="w-full bg-black border border-gray-800 text-sm pl-10 pr-4 py-3.5 rounded-xl text-white outline-none focus:border-accent transition">
-            </div>
-        </div>
-
-        <!-- Columna Derecha: Teclado y Acciones (5 columnas) -->
-        <div class="md:col-span-5 flex flex-col justify-between space-y-4">
-            <div class="bg-black border border-gray-800 p-5 rounded-2xl flex-1 flex flex-col shadow-inner">
-                <div class="flex justify-between items-center mb-4">
-                    <span class="text-xs text-gray-400 font-bold tracking-widest uppercase">Teclado Rápido</span>
-                    <button onclick="tecladoCobro('limpiar')" class="text-xs text-red-500 hover:text-red-400 font-bold bg-red-900/20 px-3 py-1.5 rounded-lg transition">Borrar todo</button>
-                </div>
-                <div class="grid grid-cols-3 gap-3 flex-1 text-2xl font-black">
-                    <button onclick="tecladoCobro('7')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">7</button>
-                    <button onclick="tecladoCobro('8')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">8</button>
-                    <button onclick="tecladoCobro('9')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">9</button>
-                    
-                    <button onclick="tecladoCobro('4')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">4</button>
-                    <button onclick="tecladoCobro('5')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">5</button>
-                    <button onclick="tecladoCobro('6')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">6</button>
-                    
-                    <button onclick="tecladoCobro('1')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">1</button>
-                    <button onclick="tecladoCobro('2')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">2</button>
-                    <button onclick="tecladoCobro('3')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">3</button>
-                    
-                    <button onclick="tecladoCobro('.')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">.</button>
-                    <button onclick="tecladoCobro('0')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">0</button>
-                    <button onclick="tecladoCobro('del')" class="bg-red-900 text-red-300 rounded-2xl border border-red-800 hover:bg-red-800 active:bg-red-700 transition flex items-center justify-center">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 001.414.586H19a2 2 0 002-2V7a2 2 0 00-2-2h-8.172a2 2 0 00-1.414.586L3 12z"></path></svg>
-                    </button>
-                </div>
-            </div>
-
-            <div class="space-y-3 mt-4">
-                <button onclick="confirmarCobroFinal(true)" type="button" class="w-full bg-green-500 hover:bg-green-400 text-black font-black py-4 rounded-2xl text-sm shadow-[0_0_20px_rgba(34,197,94,0.25)] transition transform active:scale-95 flex items-center justify-center gap-2">
-                    <span class="text-xl">🧾</span> COBRAR E IMPRIMIR TICKET
-                </button>
-                <div class="flex gap-3">
-                    <button onclick="confirmarCobroFinal(false)" type="button" class="flex-1 bg-accent hover:bg-purple-500 text-white font-bold py-3.5 rounded-2xl text-sm transition transform active:scale-95 shadow-lg border border-purple-600">Solo Cobrar</button>
-                    <button onclick="cerrarCobro()" type="button" class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-3.5 rounded-2xl text-sm transition transform active:scale-95 border border-gray-700">Cancelar</button>
-                </div>
-            </div>
-        </div>
-        
-    </div>
-</div>
-
-    <!-- MODAL GITHUB SYNC -->
-    <div id="modal-github" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-card border border-gray-800 p-6 rounded-3xl max-w-sm w-full space-y-4 shadow-2xl">
-            <h3 class="font-black text-accent text-sm tracking-wide flex items-center gap-2"><span>☁️</span> Sincronizar Código a la Nube</h3>
-            <p class="text-xs text-gray-400">Guarda tus modificaciones locales y actualiza el repositorio maestro en GitHub.</p>
-            
-            <div class="space-y-3">
-                <select id="gitTipoUpdate" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-blue-500 transition">
-                    <option value="fix">🐛 Corrección de fallo (Fix)</option>
-                    <option value="feat">✨ Nueva función/módulo (Feature)</option>
-                    <option value="chore">📦 Ajuste general / Limpieza (Update)</option>
-                </select>
-                
-                <input type="text" id="gitDetalleUpdate" placeholder="¿Qué cambiaste? (Ej. Precios actualizados)" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-blue-500 transition">
-            </div>
-
-            <div id="gitLoading" class="hidden text-xs text-yellow-400 text-center font-bold animate-pulse py-2">
-                Empaquetando y subiendo... por favor espera.
-            </div>
-
-            <div class="flex justify-end gap-2 pt-3 border-t border-gray-800 mt-2">
-                <button onclick="document.getElementById('modal-github').classList.add('hidden')" class="bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold px-4 py-2.5 rounded-xl text-xs transition">Cancelar</button>
-                <button onclick="ejecutarSyncGithub()" class="bg-blue-600 hover:bg-blue-500 text-white font-extrabold px-4 py-2.5 rounded-xl text-xs shadow-lg transition active:scale-95">🚀 Inyectar Código</button>
             </div>
         </div>
     </div>
 
-    <!-- TICKET DIGITAL Y CHAT FLOTANTE -->
-    <div id="modal-ticket-digital" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4"><div class="bg-white text-black p-5 rounded-3xl max-w-xs w-full space-y-3 shadow-2xl"><div id="cuerpoTicketDigital" class="text-xs font-mono space-y-1"></div><div class="flex gap-2"><button onclick="compartirTicketWhatsApp()" type="button" class="flex-1 bg-green-600 text-white font-bold py-2 rounded-xl text-xs">WhatsApp</button><button onclick="window.print()" type="button" class="bg-gray-800 text-white font-bold px-3 py-2 rounded-xl text-xs">Imprimir</button><button onclick="document.getElementById('modal-ticket-digital').classList.add('hidden')" type="button" class="bg-gray-200 text-black font-bold px-3 py-2 rounded-xl text-xs">Listo</button></div></div></div>
+    <!-- TICKET DIGITAL Y CHAT FLOTANTE (Restringido para clientes en JS) -->
+    <div id="modal-ticket-digital" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4"><div class="bg-white text-black p-5 rounded-3xl max-w-xs w-full space-y-3 shadow-2xl"><div id="cuerpoTicketDigital" class="text-xs font-mono space-y-1"></div><div class="flex gap-2"><button onclick="document.getElementById('modal-ticket-digital').classList.add('hidden')" type="button" class="w-full bg-gray-800 text-white font-bold px-3 py-2 rounded-xl text-xs">Cerrar</button></div></div></div>
 
     <button id="btnChatFlotante" onclick="toggleChat()" class="hidden fixed bottom-16 right-4 z-40 bg-accent text-white p-3 rounded-full shadow-2xl hover:scale-110 transition">
         💬 <span id="badgeChatNew" class="hidden absolute -top-1 -right-1 bg-red-500 w-3 h-3 rounded-full animate-ping"></span>
     </button>
     <div id="panelChatFlotante" class="hidden fixed bottom-32 right-4 z-50 bg-card border border-gray-800 rounded-3xl w-72 h-80 flex flex-col shadow-[0_0_30px_rgba(0,0,0,0.8)]">
-        <div class="bg-gray-900 border-b border-gray-800 p-3 rounded-t-3xl flex justify-between items-center"><h3 class="font-bold text-xs text-white">💬 Chat Personal</h3><button onclick="toggleChat()" class="text-gray-400 hover:text-white px-2">✖</button></div>
+        <div class="bg-gray-900 border-b border-gray-800 p-3 rounded-t-3xl flex justify-between items-center"><h3 class="font-bold text-xs text-white">💬 Radio Personal</h3><button onclick="toggleChat()" class="text-gray-400 hover:text-white px-2">✖</button></div>
         <div id="chatBody" class="flex-1 p-3 overflow-y-auto no-scrollbar space-y-2"></div>
         <div class="p-2 border-t border-gray-800 flex gap-2">
-            <input type="text" id="inputChat" onkeydown="enviarMensajeChat(event)" placeholder="Mensaje..." class="flex-1 bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-xs text-white outline-none">
+            <input type="text" id="inputChat" onkeydown="enviarMensajeChat(event)" placeholder="Mensaje interno..." class="flex-1 bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-xs text-white outline-none">
             <button onclick="enviarMensajeChat({key:'Enter'})" class="bg-accent text-white font-bold px-3 rounded-xl text-xs">▶</button>
         </div>
     </div>
 
-    <nav id="appBottomBar" class="fixed bottom-0 left-0 right-0 bg-app-base bg-opacity-95 backdrop-blur-md border-t border-gray-800 border-opacity-80 z-30 px-3 py-1 hidden"></nav>
+    <nav id="appBottomBar" class="fixed bottom-0 left-0 right-0 bg-app-base bg-opacity-95 border-t border-gray-800 z-30 px-3 py-1 hidden"></nav>
     <div id="area-impresion-ticket"></div>
 </body>
 </html>
