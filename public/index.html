@@ -1188,57 +1188,98 @@ socket.on('notificacion_pedido_listo', function(datos) {
         </div>
     </main>
 
-    <div id="modal-cobro" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-3">
-        <div class="bg-card border border-gray-800 p-5 rounded-3xl max-w-xl w-full shadow-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="space-y-3">
-                <div class="flex justify-between items-center border-b border-gray-800 pb-2"><h3 class="font-black text-green-400 text-sm">Cobrar Cuenta</h3><span id="cobroMesaLabel" class="text-xs font-bold text-white">Mesa 1</span></div>
-                <div class="bg-black p-3 rounded-2xl space-y-1 text-xs border border-gray-800">
-                    <div class="flex justify-between"><span>Consumo:</span><span id="cobroSubtotal">$0.00</span></div>
-                    <div class="flex justify-between items-center"><span>Propina ($):</span><input type="number" id="cobroPropina" value="0" oninput="actualizarTotalCobro()" class="w-16 bg-app-input border border-gray-800 text-right px-2 py-0.5 rounded-lg text-white font-bold"></div>
-                    <div class="flex justify-between font-black text-green-400 border-t border-gray-800 pt-1.5 text-sm"><span>Total a Pagar:</span><span id="cobroTotalPagar">$0.00</span></div>
-                </div>
-                
-                <div class="grid grid-cols-3 gap-2">
-                    <button id="btnPagoEfectivo" onclick="setMetodoPago('Efectivo')" type="button" class="py-2 rounded-xl text-xs font-black bg-green-500 text-black">💵 Efectivo</button>
-                    <button id="btnPagoTarjeta" onclick="setMetodoPago('Tarjeta')" type="button" class="py-2 rounded-xl text-xs font-black bg-gray-900 text-gray-400 border border-gray-800">💳 Tarjeta</button>
-                    <button id="btnPagoMP" onclick="setMetodoPago('Mercado Pago')" type="button" class="py-2 rounded-xl text-xs font-black bg-gray-900 text-gray-400 border border-gray-800">📱 M. Pago</button>
-                </div>
-                
-                <div id="bloqueEfectivo" class="space-y-1.5 text-xs bg-black p-3 rounded-2xl border border-gray-800">
-                    <div class="flex justify-between items-center"><span class="text-gray-400">Recibido ($):</span><input type="number" id="cobroMontoRecibido" oninput="actualizarTotalCobro()" placeholder="0.00" class="w-24 bg-app-input border border-gray-700 text-right px-2 py-1 rounded-lg text-white font-bold text-sm"></div>
-                    <div class="flex justify-between font-black text-blue-400 text-sm"><span>Cambio:</span><span id="cobroCambio">$0.00</span></div>
-                </div>
-                <input type="text" id="cobroMesero" placeholder="Nombre mesero que cobra" class="w-full bg-black border border-gray-800 text-xs px-3 py-2 rounded-xl text-white">
-                <div class="flex gap-2 pt-1"><button onclick="confirmarCobroFinal(true)" type="button" class="flex-1 bg-green-500 text-black font-black py-2.5 rounded-xl text-xs">Cobrar e Imprimir</button><button onclick="confirmarCobroFinal(false)" type="button" class="flex-1 bg-accent text-white font-bold py-2.5 rounded-xl text-xs">Solo Cobrar</button><button onclick="cerrarCobro()" type="button" class="bg-gray-800 text-gray-300 font-bold px-3 py-2.5 rounded-xl text-xs">Cerrar</button></div>
+   <div id="modal-cobro" class="fixed inset-0 bg-black bg-opacity-95 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-[#0a0a10] border border-gray-800 p-6 rounded-3xl max-w-4xl w-full shadow-[0_0_40px_rgba(168,85,247,0.15)] grid grid-cols-1 md:grid-cols-12 gap-6">
+        
+        <!-- Columna Izquierda: Detalle de Cuenta (7 columnas) -->
+        <div class="md:col-span-7 flex flex-col space-y-5">
+            <div class="flex justify-between items-center border-b border-gray-800 pb-3">
+                <h3 class="font-black text-accent text-xl flex items-center gap-2"><span>💳</span> Módulo de Cobro</h3>
+                <span id="cobroMesaLabel" class="bg-gray-800 text-white px-3 py-1 rounded-lg text-xs font-bold tracking-widest uppercase">Mesa 1</span>
             </div>
             
-            <div class="bg-black border border-gray-800 p-3 rounded-2xl flex flex-col justify-between">
-                <div>
-                    <div class="text-xxs text-gray-400 mb-2 flex justify-between font-bold">
-                        <span>TECLADO DE COBRO RÁPIDO</span>
-                        <button onclick="tecladoCobro('limpiar')" class="text-red-400 hover:underline">Borrar todo</button>
-                    </div>
+            <div class="bg-black p-5 rounded-2xl border border-gray-800 shadow-inner">
+                <div class="flex justify-between items-center text-gray-400 text-sm mb-3">
+                    <span>Subtotal Consumo:</span>
+                    <span id="cobroSubtotal" class="font-bold text-white text-lg">$0.00</span>
                 </div>
-                <div class="grid grid-cols-3 gap-2 text-base font-black">
-                    <button onclick="tecladoCobro('7')" class="bg-app-input text-white p-3.5 rounded-xl border border-gray-800 active:bg-gray-700 transition">7</button>
-                    <button onclick="tecladoCobro('8')" class="bg-app-input text-white p-3.5 rounded-xl border border-gray-800 active:bg-gray-700 transition">8</button>
-                    <button onclick="tecladoCobro('9')" class="bg-app-input text-white p-3.5 rounded-xl border border-gray-800 active:bg-gray-700 transition">9</button>
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-gray-400 text-sm">Propina Sugerida/Libre ($):</span>
+                    <input type="number" id="cobroPropina" value="0" oninput="actualizarTotalCobro()" class="w-28 bg-gray-900 border border-gray-700 focus:border-accent text-right px-3 py-2 rounded-xl text-white font-bold text-xl outline-none transition">
+                </div>
+                <div class="flex justify-between items-center border-t border-gray-800 pt-4">
+                    <span class="font-black text-gray-200 text-lg uppercase tracking-wide">Total a Pagar:</span>
+                    <span id="cobroTotalPagar" class="text-4xl font-black text-green-400 tracking-tighter drop-shadow-md">$0.00</span>
+                </div>
+            </div>
+
+            <div>
+                <span class="text-xs text-gray-500 font-bold uppercase mb-2 block tracking-wider">Método de Pago</span>
+                <div class="grid grid-cols-3 gap-3">
+                    <button id="btnPagoEfectivo" onclick="setMetodoPago('Efectivo')" type="button" class="py-3 rounded-xl text-sm font-black bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.3)] transition transform active:scale-95 border border-transparent">💵 Efectivo</button>
+                    <button id="btnPagoTarjeta" onclick="setMetodoPago('Tarjeta')" type="button" class="py-3 rounded-xl text-sm font-black bg-gray-900 text-gray-400 border border-gray-800 hover:bg-gray-800 transition transform active:scale-95">💳 Tarjeta</button>
+                    <button id="btnPagoMP" onclick="setMetodoPago('Mercado Pago')" type="button" class="py-3 rounded-xl text-sm font-black bg-gray-900 text-gray-400 border border-gray-800 hover:bg-gray-800 transition transform active:scale-95">📱 Mercado Pago</button>
+                </div>
+            </div>
+
+            <div id="bloqueEfectivo" class="bg-[#121212] p-4 rounded-2xl border border-gray-800 flex flex-col gap-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-400 font-bold text-sm">Monto Recibido ($):</span>
+                    <input type="number" id="cobroMontoRecibido" oninput="actualizarTotalCobro()" placeholder="0.00" class="w-36 bg-black border border-gray-700 focus:border-blue-500 text-right px-3 py-2 rounded-xl text-white font-black text-2xl outline-none transition placeholder-gray-700">
+                </div>
+                <div class="flex justify-between items-center border-t border-gray-800 pt-3">
+                    <span class="font-black text-gray-400 uppercase text-sm">Cambio a Entregar:</span>
+                    <span id="cobroCambio" class="text-3xl font-black text-blue-400">$0.00</span>
+                </div>
+            </div>
+
+            <div class="relative mt-auto">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500">👤</span>
+                <input type="text" id="cobroMesero" placeholder="Mesero que cobra la mesa" class="w-full bg-black border border-gray-800 text-sm pl-10 pr-4 py-3.5 rounded-xl text-white outline-none focus:border-accent transition">
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Teclado y Acciones (5 columnas) -->
+        <div class="md:col-span-5 flex flex-col justify-between space-y-4">
+            <div class="bg-black border border-gray-800 p-5 rounded-2xl flex-1 flex flex-col shadow-inner">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-xs text-gray-400 font-bold tracking-widest uppercase">Teclado Rápido</span>
+                    <button onclick="tecladoCobro('limpiar')" class="text-xs text-red-500 hover:text-red-400 font-bold bg-red-900/20 px-3 py-1.5 rounded-lg transition">Borrar todo</button>
+                </div>
+                <div class="grid grid-cols-3 gap-3 flex-1 text-2xl font-black">
+                    <button onclick="tecladoCobro('7')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">7</button>
+                    <button onclick="tecladoCobro('8')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">8</button>
+                    <button onclick="tecladoCobro('9')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">9</button>
                     
-                    <button onclick="tecladoCobro('4')" class="bg-app-input text-white p-3.5 rounded-xl border border-gray-800 active:bg-gray-700 transition">4</button>
-                    <button onclick="tecladoCobro('5')" class="bg-app-input text-white p-3.5 rounded-xl border border-gray-800 active:bg-gray-700 transition">5</button>
-                    <button onclick="tecladoCobro('6')" class="bg-app-input text-white p-3.5 rounded-xl border border-gray-800 active:bg-gray-700 transition">6</button>
+                    <button onclick="tecladoCobro('4')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">4</button>
+                    <button onclick="tecladoCobro('5')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">5</button>
+                    <button onclick="tecladoCobro('6')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">6</button>
                     
-                    <button onclick="tecladoCobro('1')" class="bg-app-input text-white p-3.5 rounded-xl border border-gray-800 active:bg-gray-700 transition">1</button>
-                    <button onclick="tecladoCobro('2')" class="bg-app-input text-white p-3.5 rounded-xl border border-gray-800 active:bg-gray-700 transition">2</button>
-                    <button onclick="tecladoCobro('3')" class="bg-app-input text-white p-3.5 rounded-xl border border-gray-800 active:bg-gray-700 transition">3</button>
+                    <button onclick="tecladoCobro('1')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">1</button>
+                    <button onclick="tecladoCobro('2')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">2</button>
+                    <button onclick="tecladoCobro('3')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">3</button>
                     
-                    <button onclick="tecladoCobro('.')" class="bg-app-input text-white p-3.5 rounded-xl border border-gray-800 active:bg-gray-700 transition">.</button>
-                    <button onclick="tecladoCobro('0')" class="bg-app-input text-white p-3.5 rounded-xl border border-gray-800 active:bg-gray-700 transition">0</button>
-                    <button onclick="tecladoCobro('del')" class="bg-red-900 text-red-300 p-3.5 rounded-xl active:bg-red-800 transition">⌫</button>
+                    <button onclick="tecladoCobro('.')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">.</button>
+                    <button onclick="tecladoCobro('0')" class="bg-[#16161e] text-white rounded-2xl border border-gray-800 hover:bg-gray-800 active:bg-gray-700 transition">0</button>
+                    <button onclick="tecladoCobro('del')" class="bg-red-900 text-red-300 rounded-2xl border border-red-800 hover:bg-red-800 active:bg-red-700 transition flex items-center justify-center">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 001.414.586H19a2 2 0 002-2V7a2 2 0 00-2-2h-8.172a2 2 0 00-1.414.586L3 12z"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="space-y-3 mt-4">
+                <button onclick="confirmarCobroFinal(true)" type="button" class="w-full bg-green-500 hover:bg-green-400 text-black font-black py-4 rounded-2xl text-sm shadow-[0_0_20px_rgba(34,197,94,0.25)] transition transform active:scale-95 flex items-center justify-center gap-2">
+                    <span class="text-xl">🧾</span> COBRAR E IMPRIMIR TICKET
+                </button>
+                <div class="flex gap-3">
+                    <button onclick="confirmarCobroFinal(false)" type="button" class="flex-1 bg-accent hover:bg-purple-500 text-white font-bold py-3.5 rounded-2xl text-sm transition transform active:scale-95 shadow-lg border border-purple-600">Solo Cobrar</button>
+                    <button onclick="cerrarCobro()" type="button" class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-3.5 rounded-2xl text-sm transition transform active:scale-95 border border-gray-700">Cancelar</button>
                 </div>
             </div>
         </div>
+        
     </div>
+</div>
 
     <!-- MODAL GITHUB SYNC -->
     <div id="modal-github" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4">
