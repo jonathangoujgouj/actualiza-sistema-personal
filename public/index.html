@@ -289,19 +289,49 @@
 
         function getImagenUrl(imgName) { return imgName ? encodeURI(imgName) : ''; }
 
-        function renderizarMenu() {
+     function renderizarMenu() {
             var grid = document.getElementById('gridProductos'); if (!grid) return;
-            grid.innerHTML = productos.map(function(p) {
-                var imgUrl = getImagenUrl(p.imagen);
-                var imgHtml = imgUrl ? '<img src="'+imgUrl+'" class="prod-img">' : '<span class="prod-img-placeholder">🍲</span>';
-                return '<div onclick="abrirDetalleProducto(' + p.id + ')" class="card-press bg-card p-3 rounded-2xl border cursor-pointer hover:border-accent transition flex flex-col justify-between shadow-xl">' +
-                    '<div class="prod-img-container">' + imgHtml + '</div>' +
-                    '<div><div class="flex justify-between items-start"><span class="text-[10px] text-blue-400 font-extrabold uppercase tracking-wider">' + escapeHTML(p.categoria) + '</span>' +
-                    '<span class="text-[9px] ' + (p.stock > 0 ? 'text-gray-300 bg-black bg-opacity-60' : 'text-red-300 bg-red-900') + ' px-2 py-0.5 rounded-full">' + (p.stock > 0 ? 'Stock: ' + p.stock : 'Agotado') + '</span></div>' +
-                    '<h4 class="font-extrabold text-white text-xs mt-1 leading-tight">' + escapeHTML(p.nombre) + '</h4></div>' +
-                    '<div class="flex justify-between items-center pt-2 mt-2 border-t border-gray-800"><span class="text-green-400 font-black text-sm">$' + Number(p.precio).toFixed(2) + '</span>' +
-                    '<span class="text-xxs px-2.5 py-1 rounded-xl font-bold border border-accent text-accent">Ver</span></div></div>';
-            }).join('');
+            var filtro = document.getElementById('filtroCategoriaComanda');
+            var catSeleccionada = filtro ? filtro.value : 'Todos';
+            
+            // Filtrar productos según el menú desplegable
+            var prodFiltrados = catSeleccionada === 'Todos' ? productos : productos.filter(function(p) { return p.categoria === catSeleccionada; });
+            
+            if (prodFiltrados.length === 0) {
+                grid.innerHTML = '<p class="text-gray-500 col-span-full text-center mt-10">No hay productos en esta categoría</p>';
+                return;
+            }
+
+            var html = '';
+            // Obtener las categorías únicas para agrupar (como en el volante)
+            var categoriasUnicas = [];
+            prodFiltrados.forEach(function(p) { if(categoriasUnicas.indexOf(p.categoria) === -1) categoriasUnicas.push(p.categoria); });
+
+            // Dibujar cada categoría y sus productos
+            categoriasUnicas.forEach(function(cat) {
+                // TÍTULO DE CATEGORÍA (Estilo letras de fuego/rojas del volante)
+                html += '<div class="col-span-full mt-4 mb-2 border-b-2 border-red-600 pb-1 text-center"><h3 class="text-2xl font-black text-white italic tracking-widest uppercase transform -skew-x-6 drop-shadow-[0_2px_4px_rgba(220,38,38,0.8)]">' + escapeHTML(cat) + '</h3></div>';
+                
+                var prodsDeCat = prodFiltrados.filter(function(p) { return p.categoria === cat; });
+                prodsDeCat.forEach(function(p) {
+                    var imgUrl = getImagenUrl(p.imagen);
+                    var imgHtml = imgUrl ? '<img src="'+imgUrl+'" class="w-full h-full object-cover">' : '<span class="text-4xl opacity-20">🔥</span>';
+                    
+                    // TARJETA DE PRODUCTO (Fondo negro, texto amarillo, precio en cuadro rojo)
+                    html += '<div onclick="abrirDetalleProducto(' + p.id + ')" class="cursor-pointer flex flex-col bg-black rounded-xl border-2 border-gray-800 overflow-hidden shadow-2xl hover:border-red-500 transition transform hover:scale-105 active:scale-95">' +
+                        '<div class="h-24 w-full bg-gray-900 flex items-center justify-center relative">' + imgHtml + 
+                        (p.stock <= 0 ? '<div class="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center"><span class="text-red-500 font-black border-2 border-red-500 p-1 transform -rotate-12 bg-black">AGOTADO</span></div>' : '') +
+                        '</div>' +
+                        '<div class="p-2 flex-1 flex flex-col justify-between bg-gradient-to-b from-gray-900 to-black text-center">' +
+                        '<h4 class="font-black text-yellow-400 text-xs leading-tight uppercase drop-shadow-md mb-2">' + escapeHTML(p.nombre) + '</h4>' +
+                        '<div class="flex justify-center mt-auto">' +
+                        '<span class="bg-red-600 text-white font-black px-3 py-1 rounded text-sm shadow-[0_4px_6px_-1px_rgba(0,0,0,0.8)] border border-red-700">$' + Number(p.precio).toFixed(0) + '</span>' +
+                        '</div>' +
+                        '</div></div>';
+                });
+            });
+            
+            grid.innerHTML = html;
         }
 
         function abrirDetalleProducto(id) {
@@ -1139,8 +1169,8 @@ socket.on('notificacion_pedido_listo', function(datos) {
         </div>
     </main>
 
-<main id="vista-pantalla-cliente" class="hidden fixed inset-0 z-[100] flex flex-col justify-between p-4 bg-black w-full h-full overflow-hidden">
-        <button onclick="window.location.reload()" class="absolute top-4 left-4 z-[110] bg-gray-900 border border-gray-700 text-gray-400 px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg opacity-40 hover:opacity-100 transition">⬅ Volver al Menú</button>
+<select id="filtroCategoriaComanda" onchange="renderizarMenu()" class="bg-black text-xs text-white border border-gray-700 rounded-lg px-3 py-1.5 outline-none font-bold">
+    <button onclick="window.location.reload()" class="absolute top-4 left-4 z-[110] bg-gray-900 border border-gray-700 text-gray-400 px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg opacity-40 hover:opacity-100 transition">⬅ Volver al Menú</button>
         
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 items-stretch my-2 min-h-0 overflow-hidden">
             <div class="lg:col-span-1 bg-app-panel border border-gray-900 p-4 rounded-3xl shadow-2xl flex flex-col h-full overflow-hidden">
