@@ -119,7 +119,11 @@
                 }
             } catch (e) {}
         }
-        function activarAudioNavegador() { reproducirAlertaSonora('nuevo'); var btn = document.getElementById('btnActivarAudio'); if (btn) btn.classList.add('hidden'); }
+ function activarAudioNavegador() { 
+            reproducirAlertaSonora('nuevo'); 
+            if (typeof Notification !== 'undefined' && Notification.permission !== "granted") { Notification.requestPermission(); }
+            var btn = document.getElementById('btnActivarAudio'); if (btn) btn.classList.add('hidden'); 
+        }
 
         function entrarModo(modo, vistaInicial = 'comandas') {
             rolActivo = modo; document.getElementById('pantalla-bienvenida').classList.add('hidden');
@@ -514,14 +518,50 @@
             mediaCont.innerHTML = '<div class="text-center p-8 text-sm text-gray-500">Activa YouTube en la configuración o guarda videos/imágenes en <strong>public/publicidad/</strong></div>';
         }
 
-        function renderizarListaUsuarios() {
+    function renderizarListaUsuarios() {
             var lista = document.getElementById('listaUsuariosAdmin'); if (!lista) return;
             lista.innerHTML = usuariosSistema.map(function(u) {
                 var isSuper = u.permisos && u.permisos.admin;
                 return '<div class="flex justify-between items-center bg-app-base p-2.5 rounded-xl border border-gray-800 text-xs"><div><span class="font-bold text-white">' + escapeHTML(u.nombre) + ' (' + escapeHTML(u.usuario) + ')</span>' +
                     '<span class="ml-2 pill-badge bg-accent text-white uppercase">' + (isSuper ? 'ADMIN' : 'PERSONAL') + '</span></div>' +
-                    (usuariosSistema.length > 1 && u.usuario !== 'admin' ? '<button onclick="eliminarUsuario(' + u.id + ')" class="text-red-400 font-bold px-2 py-0.5">Eliminar</button>' : '') + '</div>';
+                    '<div><button onclick="editarUsuario(' + u.id + ')" class="text-blue-400 font-bold px-2 py-0.5 mr-2">Editar</button>' +
+                    (usuariosSistema.length > 1 && u.usuario !== 'admin' ? '<button onclick="eliminarUsuario(' + u.id + ')" class="text-red-400 font-bold px-2 py-0.5">Eliminar</button>' : '') + '</div></div>';
             }).join('');
+        }
+
+        function editarUsuario(id) {
+            var u = usuariosSistema.find(function(x) { return x.id === id; }); if (!u) return;
+            document.getElementById('nuevoUsuarioNick').value = u.usuario;
+            document.getElementById('nuevoUsuarioNombre').value = u.nombre;
+            document.getElementById('nuevoUsuarioPin').value = u.pin;
+            document.getElementById('checkPermisoMenu').checked = u.permisos.menu;
+            document.getElementById('checkPermisoMapa').checked = u.permisos.mapa;
+            document.getElementById('checkPermisoBarra').checked = u.permisos.barra;
+            document.getElementById('checkPermisoInventario').checked = u.permisos.inventario;
+            document.getElementById('checkPermisoAdmin').checked = u.permisos.admin;
+            var btnGuardar = document.getElementById('btnGuardarNuevoUsuario');
+            btnGuardar.textContent = "Actualizar Usuario"; btnGuardar.setAttribute("data-edit-id", u.id);
+        }
+
+        function guardarNuevoUsuario() {
+            var idEdicion = document.getElementById('btnGuardarNuevoUsuario').getAttribute('data-edit-id');
+            var usuario = document.getElementById('nuevoUsuarioNick').value.trim(); var nombre = document.getElementById('nuevoUsuarioNombre').value.trim(); var pin = document.getElementById('nuevoUsuarioPin').value.trim(); 
+            var permisos = { 
+                menu: document.getElementById('checkPermisoMenu').checked, mapa: document.getElementById('checkPermisoMapa').checked, 
+                barra: document.getElementById('checkPermisoBarra').checked, inventario: document.getElementById('checkPermisoInventario').checked, admin: document.getElementById('checkPermisoAdmin').checked 
+            };
+            if (!usuario || !nombre || !pin) return alert('Todos los campos son requeridos');
+            
+            var payload = { usuario: usuario, nombre: nombre, pin: pin, permisos: permisos };
+            if (idEdicion) payload.id = parseInt(idEdicion);
+            
+            if (socket) socket.emit('guardar_usuario', payload);
+            
+            document.getElementById('nuevoUsuarioNick').value = ''; document.getElementById('nuevoUsuarioNombre').value = ''; document.getElementById('nuevoUsuarioPin').value = '';
+            document.getElementById('checkPermisoMenu').checked = true; document.getElementById('checkPermisoMapa').checked = true; document.getElementById('checkPermisoBarra').checked = false; document.getElementById('checkPermisoInventario').checked = false; document.getElementById('checkPermisoAdmin').checked = false;
+            var btnGuardar = document.getElementById('btnGuardarNuevoUsuario');
+            btnGuardar.textContent = "Crear Usuario" ; btnGuardar.removeAttribute("data-edit-id");
+            alert(idEdicion ? 'Usuario actualizado.' : 'Usuario registrado.');
         }
         function guardarNuevoUsuario() {
             var usuario = document.getElementById('nuevoUsuarioNick').value.trim(); var nombre = document.getElementById('nuevoUsuarioNombre').value.trim(); var pin = document.getElementById('nuevoUsuarioPin').value.trim(); 
@@ -756,18 +796,36 @@
                         }
                     });
                     socket.on('sonido_comanda_nueva', function() { reproducirAlertaSonora('nuevo'); });
-                    socket.on('notificacion_pedido_listo', function(datos) {
-                        reproducirAlertaSonora('listo'); if (navigator.vibrate) { try { navigator.vibrate([200, 100, 200]); } catch(e){} }
-                        mostrarToast('¡' + datos.mesa + ' LISTA!', 'Orden preparada para servir.', 'normal');
-                        if (rolActivo === 'cliente' && datos.mesa === miMesaAsignada) { document.getElementById('modal-alerta-cliente').classList.remove('hidden'); document.getElementById('alertaMesaNombre').textContent = datos.mesa; }
+socket.on('notificacion_pedido_listo', function(datos) {
+                        reproducirAlertaSonora('listo'); 
+                        if (navigator.vibrate) { try { navigator.vibrate([200, 100, 200]); } catch(e){} }
+                        
+                        var comandaRef = comandas.find(function(c) { return c.id === datos.id; }) || historialVentas.find(function(c) { return c.id === datos.id; });
+                        var folioStr = (comandaRef && comandaRef.folio) ? ' | Folio: ' + comandaRef.folio : '';
+                        var clienteStr = (comandaRef && comandaRef.cliente && comandaRef.cliente.nombre) ? ' - ' + comandaRef.cliente.nombre : '';
+                        var msj = 'Orden de ' + datos.mesa + clienteStr + folioStr + ' lista para entregar.';
+                        
+                        mostrarToast('¡' + datos.mesa + ' LISTA!', msj, 'normal');
+                        
+                        if (Notification.permission === "granted" && rolActivo !== 'monitor') {
+                            new Notification('¡Orden Lista!', { body: msj, icon: config.logoUrl || '' });
+                        }
+
+                        if (rolActivo === 'cliente' && datos.mesa === miMesaAsignada) { 
+                            document.getElementById('modal-alerta-cliente').classList.remove('hidden'); 
+                            document.getElementById('alertaMesaNombre').textContent = datos.mesa + clienteStr + folioStr; 
+                        }
                     });
+                    
                     socket.on('alerta_stock_bajo', function(datos) {
                         if(usuarioActivo && (usuarioActivo.permisos.admin || usuarioActivo.permisos.barra)) {
                             reproducirAlertaSonora('chat');
                             mostrarToast(datos.agotado ? '¡AGOTADO!' : '¡STOCK BAJO!', datos.agotado ? datos.nombre + ' se ha terminado.' : 'Quedan ' + datos.stock + ' de ' + datos.nombre, 'alerta');
                         }
                     });
+                    
                     socket.on('notificacion_chat', function(msg) {
+                        if (rolActivo === 'monitor') return; // Bloquea chat en la pantalla
                         reproducirAlertaSonora('chat');
                         if(document.getElementById('panelChatFlotante').classList.contains('hidden')) { document.getElementById('badgeChatNew').classList.remove('hidden'); }
                     });
@@ -836,46 +894,46 @@
         <div id="mapaContainerWrapper" class="mapa-container"></div>
     </main>
 
-    <!-- VISTA COMANDAS EN DOS COLUMNAS ESTILO POS PROFESIONAL -->
+ <!-- VISTA COMANDAS EN DOS COLUMNAS ESTILO POS PROFESIONAL -->
     <main id="vista-comandas" class="hidden flex-1 p-2 w-full mx-auto h-[calc(100vh-64px)] overflow-hidden">
         <div class="flex flex-col lg:flex-row h-full gap-2">
             <!-- COLUMNA IZQUIERDA: MENÚ -->
-            <div class="flex-1 lg:w-2/3 flex flex-col bg-card rounded-2xl border border-gray-800 overflow-hidden shadow-xl">
-                <div class="bg-app-panel p-3 border-b border-gray-800 flex justify-between items-center">
-                    <h2 class="font-black text-white text-sm">Menú de Productos</h2>
-                    <select id="filtroCategoriaComanda" class="bg-black text-xs text-white border border-gray-700 rounded-lg px-2 py-1 outline-none">
-                        <option value="Todos">Todas las Categorías</option>
-                        <option value="Alitas">Alitas</option>
-                        <option value="Combos">Combos</option>
-                        <option value="Micheladas">Micheladas</option>
-                        <option value="Snacks">Snacks</option>
-                        <option value="Bebidas">Bebidas</option>
+            <div class="flex-1 lg:w-[65%] flex flex-col bg-[#121212] rounded-2xl border border-gray-800 overflow-hidden shadow-xl">
+                <div class="bg-[#1a1a1a] p-3 border-b border-gray-800 flex justify-between items-center">
+                    <input type="text" placeholder="🔍 Buscar producto..." class="bg-black text-white px-3 py-1.5 rounded-lg border border-gray-700 outline-none text-xs w-1/3">
+                    <select id="filtroCategoriaComanda" class="bg-black text-xs text-white border border-gray-700 rounded-lg px-3 py-1.5 outline-none font-bold">
+                        <option value="Todos">🍽️ Todas las Categorías</option><option value="Alitas">🍗 Alitas</option><option value="Combos">🍔 Combos</option><option value="Micheladas">🍺 Micheladas</option><option value="Snacks">🍟 Snacks</option>
                     </select>
                 </div>
-                <div id="gridProductos" class="flex-1 overflow-y-auto p-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 no-scrollbar content-start"></div>
+                <div id="gridProductos" class="flex-1 overflow-y-auto p-3 grid grid-cols-3 md:grid-cols-4 gap-3 no-scrollbar content-start bg-[#0a0a0a]"></div>
             </div>
             
             <!-- COLUMNA DERECHA: CAJA / COMANDA (FIJA) -->
-            <div class="w-full lg:w-1/3 flex flex-col bg-card rounded-2xl border border-gray-800 overflow-hidden shadow-xl shrink-0">
-                <div class="bg-app-panel p-3 border-b border-gray-800 flex justify-between items-center">
-                    <h2 class="font-extrabold text-accent text-sm">Caja / Orden</h2>
-                    <select id="selectMesa" class="bg-black text-white font-bold text-xs px-2 py-1 rounded-lg border border-gray-700 outline-none">
-                        <option value="Para Llevar">Para Llevar</option><option value="Mesa 1">Mesa 1</option><option value="Mesa 2">Mesa 2</option><option value="Mesa 3">Mesa 3</option><option value="Mesa 4">Mesa 4</option><option value="Mesa 5">Mesa 5</option><option value="Mesa 6">Mesa 6</option><option value="Barra">Barra</option>
+            <div class="w-full lg:w-[35%] flex flex-col bg-[#1a1a1a] rounded-2xl border border-gray-800 overflow-hidden shadow-xl shrink-0">
+                <div class="bg-[#242424] p-3 border-b border-gray-800 flex justify-between items-center">
+                    <div class="flex items-center gap-2"><span class="bg-red-600 text-white p-1.5 rounded-full text-xs">📝</span><h2 class="font-extrabold text-white text-sm">Comanda</h2></div>
+                    <select id="selectMesa" class="bg-blue-600 text-white font-bold text-xs px-2 py-1.5 rounded-lg border-none outline-none shadow-lg">
+                        <option value="Para Llevar">👜 Para Llevar</option><option value="Mesa 1">🍽️ Mesa 1</option><option value="Mesa 2">🍽️ Mesa 2</option><option value="Mesa 3">🍽️ Mesa 3</option><option value="Barra">🍻 Barra</option>
                     </select>
                 </div>
                 
-                <div class="p-2 space-y-1.5 bg-black border-b border-gray-800 text-xs">
-                    <input type="text" id="clienteNombre" placeholder="Nombre cliente (opcional)" class="w-full bg-app-input border border-gray-800 rounded-lg px-2.5 py-1.5 text-white outline-none">
-                    <input type="tel" id="clienteTelefono" placeholder="WhatsApp para tickets" class="w-full bg-app-input border border-gray-800 rounded-lg px-2.5 py-1.5 text-white outline-none">
+                <div class="p-2 space-y-1.5 bg-[#121212] border-b border-gray-800 text-xs">
+                    <input type="text" id="clienteNombre" placeholder="👤 Nombre del cliente..." class="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-3 py-2 text-white outline-none">
+                    <input type="tel" id="clienteTelefono" placeholder="📱 WhatsApp (Opcional)" class="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-3 py-2 text-white outline-none">
                 </div>
                 
-                <div id="listaCarrito" class="flex-1 overflow-y-auto p-2 space-y-1.5 text-xs no-scrollbar">
-                    <p class="text-center py-6 text-gray-500">Toca un platillo para agregar</p>
+                <div id="listaCarrito" class="flex-1 overflow-y-auto p-2 space-y-1.5 text-xs no-scrollbar bg-[#121212]">
+                    <p class="text-center py-10 text-gray-600 font-bold text-sm">Toca un platillo para agregar a la orden</p>
                 </div>
                 
-                <div class="p-3 bg-app-panel border-t border-gray-800 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.3)]">
-                    <div class="flex justify-between mb-2 text-base font-black text-green-400"><span>Total:</span><span id="totalCarrito">$0.00</span></div>
-                    <button id="btnEnviarComanda" onclick="procesarEnvioOrden()" type="button" class="w-full bg-green-500 hover:bg-green-400 text-black font-black py-3 rounded-xl text-xs transition shadow-lg">🚀 ENVIAR ORDEN A BARRA</button>
+                <div class="p-4 bg-[#1a1a1a] border-t border-gray-800 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.5)]">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-gray-400 font-bold text-sm">Total a Pagar:</span>
+                        <span id="totalCarrito" class="text-2xl font-black text-white">$0.00</span>
+                    </div>
+                    <button id="btnEnviarComanda" onclick="procesarEnvioOrden()" type="button" class="w-full bg-green-500 hover:bg-green-400 text-black font-black py-4 rounded-xl text-sm transition shadow-lg flex items-center justify-center gap-2">
+                        <span>🧾</span> ENVIAR ORDEN A BARRA
+                    </button>
                 </div>
             </div>
         </div>
@@ -1081,15 +1139,23 @@
         </div>
     </main>
 
-    <main id="vista-pantalla-cliente" class="hidden fixed inset-0 z-[100] flex flex-col justify-between p-4 bg-black w-full h-full overflow-hidden">
-        <button onclick="window.location.reload()" class="absolute top-4 left-4 z-[110] bg-gray-900 border border-gray-700 text-gray-400 px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg opacity-20 hover:opacity-100 transition">⬅ Salir</button>
-        <div class="bg-accent text-white font-black py-3 px-4 rounded-2xl shadow-2xl marquee-container uppercase tracking-wider border border-white border-opacity-10 w-full shrink-0"><div id="marqueePromoSuperior" class="marquee-content font-black w-full">¡BIENVENIDOS!</div></div>
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 items-stretch my-4 min-h-0 overflow-hidden">
-            <div class="bg-app-panel border border-gray-900 p-4 rounded-3xl shadow-2xl flex flex-col h-full overflow-hidden"><h3 class="text-sm font-black text-accent mb-4 flex items-center gap-2 shrink-0"><span>📺</span> PEDIDOS EN BARRA</h3><div id="gridPantallaEstado" class="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar"></div></div>
-            <div class="lg:col-span-2 bg-black border border-gray-900 p-2 rounded-3xl shadow-2xl flex items-center justify-center h-full overflow-hidden relative"><div class="w-full h-full flex items-center justify-center bg-black rounded-2xl overflow-hidden absolute inset-0 p-2" id="contenedorMediaCentral"></div></div>
-            <div class="bg-app-panel border border-gray-900 p-5 rounded-3xl text-center flex flex-col items-center justify-center shadow-2xl h-full shrink-0"><h4 class="font-black text-blue-400 text-base mb-2">🎉 DINÁMICAS</h4><p class="text-xs text-gray-400 mb-6">Escanea para menús y promociones:</p><div id="qrRedesPublico" class="bg-white p-4 rounded-3xl shadow-lg inline-block"></div></div>
+<main id="vista-pantalla-cliente" class="hidden fixed inset-0 z-[100] flex flex-col justify-between p-4 bg-black w-full h-full overflow-hidden">
+        <button onclick="window.location.reload()" class="absolute top-4 left-4 z-[110] bg-gray-900 border border-gray-700 text-gray-400 px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg opacity-40 hover:opacity-100 transition">⬅ Volver al Menú</button>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 items-stretch my-2 min-h-0 overflow-hidden">
+            <div class="lg:col-span-1 bg-app-panel border border-gray-900 p-4 rounded-3xl shadow-2xl flex flex-col h-full overflow-hidden">
+                <h3 class="text-sm font-black text-accent mb-4 flex items-center gap-2 shrink-0"><span>📺</span> ENTREGAS EN BARRA</h3>
+                <div id="gridPantallaEstado" class="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar"></div>
+                <div class="mt-4 pt-4 border-t border-gray-800 text-center shrink-0">
+                    <p class="text-[10px] text-gray-400 mb-2">Escanea para ordenar desde tu mesa:</p>
+                    <div id="qrRedesPublico" class="bg-white p-2 rounded-xl shadow-lg inline-block"></div>
+                </div>
+            </div>
+            
+            <div class="lg:col-span-3 bg-black border border-gray-900 p-2 rounded-3xl shadow-2xl flex items-center justify-center h-full overflow-hidden relative">
+                <div class="w-full h-full flex items-center justify-center bg-black rounded-2xl overflow-hidden absolute inset-0 p-2" id="contenedorMediaCentral"></div>
+            </div>
         </div>
-        <div class="bg-app-panel border border-gray-900 text-blue-400 font-black py-2.5 px-4 rounded-2xl shadow-lg marquee-container uppercase w-full shrink-0"><div id="marqueePromoInferior" class="marquee-content-reverse font-bold w-full">CONSULTA NUESTRAS PROMOCIONES DE LA CASA</div></div>
     </main>
 
     <div id="modal-cobro" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-3">
