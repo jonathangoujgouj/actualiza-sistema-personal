@@ -23,9 +23,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 const estadoInicial = {
     caja: { abierta: false, fondoInicial: 0, horaApertura: null, fechaApertura: null },
     usuarios: [
-        { id: 1, usuario: "admin", pin: "1234", rol: "admin", nombre: "Administrador" },
-        { id: 2, usuario: "mesero1", pin: "1111", rol: "mesero", nombre: "Mesero Turno 1" },
-        { id: 3, usuario: "barra1", pin: "2222", rol: "barra", nombre: "Barra Central" }
+        { id: 1, usuario: "admin", pin: "1234", nombre: "Administrador", permisos: { menu: true, mapa: true, barra: true, inventario: true, admin: true } },
+        { id: 2, usuario: "mesero1", pin: "1111", nombre: "Mesero Turno 1", permisos: { menu: true, mapa: true, barra: false, inventario: false, admin: false } },
+        { id: 3, usuario: "barra1", pin: "2222", nombre: "Barra Central", permisos: { menu: false, mapa: false, barra: true, inventario: false, admin: false } }
     ],
     productos: [
         { id: 1, nombre: "Alitas BBQ (10 pz)", descripcion: "Alitas bañadas en salsa BBQ.", imagen: "", costo: 60, precio: 110, categoria: "Alitas", stock: 50, tipo: "individual" },
@@ -68,6 +68,17 @@ function leerDB() {
         if (!data.mesas) data.mesas = estadoInicial.mesas;
         if (!data.mensajesChat) data.mensajesChat = [];
         if (!data.listaCompras) data.listaCompras = [];
+        // Migración de roles antiguos a permisos
+        if (data.usuarios && data.usuarios.length > 0 && !data.usuarios[0].permisos) {
+            data.usuarios = data.usuarios.map(u => {
+                if (u.rol === 'admin') u.permisos = { menu: true, mapa: true, barra: true, inventario: true, admin: true };
+                else if (u.rol === 'mesero') u.permisos = { menu: true, mapa: true, barra: false, inventario: false, admin: false };
+                else if (u.rol === 'barra') u.permisos = { menu: false, mapa: false, barra: true, inventario: false, admin: false };
+                else u.permisos = { menu: true, mapa: true, barra: false, inventario: false, admin: false };
+                delete u.rol;
+                return u;
+            });
+        }
         data.productos.forEach(p => { 
             if(!p.imagen) p.imagen = ""; 
             if(!p.descripcion) p.descripcion = ""; 
@@ -124,7 +135,9 @@ io.on('connection', (socket) => {
         const user = actual.usuarios.find(u => String(u.usuario).toLowerCase() === String(usuario).trim().toLowerCase() && String(u.pin) === String(pin).trim());
         if (user) {
             socket.data.usuario = user.usuario;
-            callback({ success: true, rol: user.rol, nombre: user.nombre, usuario: user.usuario });
+            // Para mantener compatibilidad con el frontend antiguo durante el login
+            const isSuperAdmin = user.permisos.admin;
+            callback({ success: true, rol: isSuperAdmin ? 'admin' : 'usuario', nombre: user.nombre, usuario: user.usuario, permisos: user.permisos });
         } else {
             callback({ success: false, mensaje: 'Credenciales inválidas' });
         }
