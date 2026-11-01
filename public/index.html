@@ -26,28 +26,25 @@
         #area-impresion-ticket { display: none; }
         @media print { body * { visibility: hidden !important; } #area-impresion-ticket, #area-impresion-ticket * { visibility: visible !important; } #area-impresion-ticket { display: block !important; position: absolute; left: 0; top: 0; width: 100%; max-width: 58mm; margin: 0; padding: 4px; color: #000 !important; background: #fff !important; font-family: 'Courier New', Courier, monospace; font-size: 11px; } @page { margin: 0; size: auto; } }
         
-        /* Estilos Mapa Drag & Drop */
         .mapa-container { position: relative; width: 100%; height: 60vh; min-height: 400px; background-color: #0d0d14; border-radius: 1.5rem; border: 1px solid #1f1f2e; overflow: hidden; }
         .mesa-node { position: absolute; width: 100px; height: 100px; border-radius: 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; user-select: none; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5); z-index: 10; border: 2px solid; }
         .mesa-node.edit-mode { cursor: grab; animation: wiggle 1s infinite; z-index: 20; }
         .mesa-node.edit-mode:active { cursor: grabbing; opacity: 0.8; transform: scale(1.05); }
         @keyframes wiggle { 0% { transform: rotate(0deg); } 25% { transform: rotate(-2deg); } 50% { transform: rotate(0deg); } 75% { transform: rotate(2deg); } 100% { transform: rotate(0deg); } }
         
-        /* Estilos Imágenes Menú */
         .prod-img-container { width: 100%; height: 120px; background-color: #07070a; border-radius: 0.75rem; overflow: hidden; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: center; border: 1px solid #1f1f2e; }
         .prod-img { width: 100%; height: 100%; object-fit: cover; }
         .prod-img-placeholder { font-size: 2rem; opacity: 0.3; }
-        
-        /* Ocultar barra de desplazamiento en listas */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
     <script>
         var socket = null; var usuarioActivo = null; var rolActivo = 'cliente'; var miMesaAsignada = 'Para Llevar';
         var caja = { abierta: false, fondoInicial: 0 }; var productos = []; var comandas = []; var historialVentas = []; var egresos = []; var usuariosSistema = []; var archivosPublicidad = []; var archivosImagenes = []; var mensajesChat = [];
+        var listaCompras = [];
         var config = { nombreNegocio: "LA BARRITA PRO", promoTexto: "🔥 2x1 EN MICHELADAS Y ALITAS HASTA LAS 9:00 PM 🍺", promoTextoInferior: "📲 Wi-Fi: LaBarrita_VIP", tamanoTextoSup: 20, tamanoTextoInf: 15, redesUrl: "", mediaUrl: "", videoConAudio: false, skinSeleccionada: "tech-neon" };
         var mesasData = []; 
-        var ipServidor = window.location.host; var carrito = []; var comandaCobroActiva = null; var metodoPago = 'Efectivo'; var timerPublicidad = null; var chartVentas = null;
+        var ipServidor = window.location.host; var carrito = []; var indexPublicidad = -1; var comandaCobroActiva = null; var metodoPago = 'Efectivo'; var timerPublicidad = null; var chartVentas = null;
         var calcDisplay = '0'; var calcPrevio = null; var calcOperacion = null; var calcReset = false;
         var modoEdicionMapa = false;
         var modalProductoActivo = null;
@@ -58,6 +55,20 @@
             "cyber-cyan": { bgMain: "#030712", cardBg: "#0b1329", border: "#1e293b", accent: "#06b6d4", glow: "rgba(6, 182, 212, 0.35)" },
             "emerald-bar": { bgMain: "#040d0a", cardBg: "#081c15", border: "#14382c", accent: "#10b981", glow: "rgba(16, 185, 129, 0.35)" }
         };
+
+        function mostrarToast(titulo, mensaje, tipo) {
+            var toast = document.getElementById('toastNotificacion'); if (!toast) return;
+            document.getElementById('toastTitulo').textContent = titulo;
+            document.getElementById('toastMensaje').textContent = mensaje;
+            if (tipo === 'alerta') {
+                toast.className = 'fixed top-5 right-5 z-50 flex bg-red-600 text-white font-black px-6 py-4 rounded-3xl shadow-2xl items-center gap-3 border-2 border-red-300 animate-pulse';
+                document.getElementById('toastIcon').textContent = '⚠️';
+            } else {
+                toast.className = 'fixed top-5 right-5 z-50 flex bg-green-500 text-black font-black px-6 py-4 rounded-3xl shadow-2xl items-center gap-3 border-2 border-white animate-bounce';
+                document.getElementById('toastIcon').textContent = '🔔';
+            }
+            setTimeout(function() { toast.classList.replace('flex', 'hidden'); }, 7000);
+        }
 
         function aplicarSkinGlobal(nombre, emitir) {
             var s = SKINS[nombre] || SKINS["tech-neon"]; config.skinSeleccionada = nombre; var r = document.documentElement;
@@ -99,8 +110,8 @@
             document.getElementById('appTopBar').classList.remove('hidden'); configurarAppBottomBar(modo);
             if (modo === 'cliente') { cambiarVista('comandas'); renderizarMenu(); } 
             else if (modo === 'mesero') { cambiarVista('mapa'); renderizarMapa(); if(document.getElementById('btnChatFlotante')) document.getElementById('btnChatFlotante').classList.remove('hidden'); } 
-            else if (modo === 'barra') { cambiarVista('barra'); renderizarBarra(); if(document.getElementById('btnChatFlotante')) document.getElementById('btnChatFlotante').classList.remove('hidden'); } 
-            else if (modo === 'admin') { cambiarVista('admin'); renderizarAdmin(); if(document.getElementById('btnChatFlotante')) document.getElementById('btnChatFlotante').classList.remove('hidden'); }
+            else if (modo === 'barra') { cambiarVista('barra'); renderizarBarra(); renderizarInsumos(); if(document.getElementById('btnChatFlotante')) document.getElementById('btnChatFlotante').classList.remove('hidden'); } 
+            else if (modo === 'admin') { cambiarVista('admin'); renderizarAdmin(); renderizarInsumos(); if(document.getElementById('btnChatFlotante')) document.getElementById('btnChatFlotante').classList.remove('hidden'); }
         }
 
         function abrirModalLogin() { document.getElementById('modal-login').classList.remove('hidden'); document.getElementById('loginUsuario').value = ''; document.getElementById('loginPin').value = ''; document.getElementById('loginUsuario').focus(); }
@@ -123,7 +134,7 @@
         function cambiarVista(v) {
             ['comandas', 'barra', 'inventario', 'admin', 'pantalla-cliente', 'mapa'].forEach(function(x) { var el = document.getElementById('vista-' + x); if (el) el.classList.add('hidden'); });
             var vActiva = document.getElementById('vista-' + v); if (vActiva) vActiva.classList.remove('hidden');
-            if (v === 'inventario') renderizarInventario(); if (v === 'barra') renderizarBarra(); if (v === 'admin') renderizarAdmin(); if (v === 'mapa') { modoEdicionMapa=false; renderizarMapa(); }
+            if (v === 'inventario') renderizarInventario(); if (v === 'barra') { renderizarBarra(); renderizarInsumos(); } if (v === 'admin') { renderizarAdmin(); renderizarInsumos(); } if (v === 'mapa') { modoEdicionMapa=false; renderizarMapa(); }
             if (v === 'pantalla-cliente') { renderizarMonitor(); iniciarCarruselPublicidad(); } else clearInterval(timerPublicidad);
         }
 
@@ -135,7 +146,6 @@
             else if (rol === 'admin') { bar.innerHTML = '<div class="flex justify-around items-center w-full max-w-2xl mx-auto py-2"><button onclick="cambiarVista(\'admin\')" class="flex flex-col items-center text-accent text-xs font-bold transition"><span class="text-xl">📊</span><span>Dashboard</span></button><button onclick="cambiarVista(\'mapa\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">🗺️</span><span>Mapa / Caja</span></button><button onclick="cambiarVista(\'comandas\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">📝</span><span>Menú</span></button><button onclick="cambiarVista(\'barra\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">🍻</span><span>Barra</span></button><button onclick="cambiarVista(\'inventario\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">📦</span><span>Stock</span></button></div>'; }
         }
 
-        // ======================= DRAG & DROP MAPA DE MESAS =======================
         function toggleEdicionMapa() {
             if(rolActivo !== 'admin') return alert('Solo el administrador puede editar el mapa.');
             modoEdicionMapa = !modoEdicionMapa;
@@ -194,7 +204,6 @@
             else { abrirCobro(activas[0].id); }
         }
 
-        // ======================= CHAT INTERNO =======================
         function toggleChat() {
             var chat = document.getElementById('panelChatFlotante');
             if(chat.classList.contains('hidden')) { chat.classList.remove('hidden'); renderizarChat(); document.getElementById('inputChat').focus(); document.getElementById('badgeChatNew').classList.add('hidden'); }
@@ -221,7 +230,6 @@
             body.scrollTop = body.scrollHeight;
         }
 
-        // ======================= MENÚ GRÁFICO (CON IMÁGENES Y DESCRIPCIÓN) =======================
         function getImagenUrl(imgName) { return imgName ? encodeURI(imgName) : ''; }
 
         function renderizarMenu() {
@@ -312,7 +320,6 @@
             modal.classList.remove('hidden');
         }
 
-        // ================== BARRA Y COBRO ==================
         function renderizarBarra() {
             var grid = document.getElementById('gridComandasBarra'); if (!grid) return;
             grid.innerHTML = comandas.length === 0 ? '<p class="text-gray-500 col-span-full py-12 text-center text-xs">Sin comandas activas</p>' :
@@ -375,7 +382,6 @@
         function calcUsarMontoRecibido() { var input = document.getElementById('cobroMontoRecibido'); if (input) { input.value = calcDisplay; actualizarTotalCobro(); } }
         function actualizarCalcDisplay() { var el = document.getElementById('calcPantalla'); if (el) el.textContent = calcDisplay; }
 
-        // ================== ADMIN ==================
         function abrirCajaTurno() { var m = prompt("Fondo inicial ($):", "500"); if (m !== null && !isNaN(parseFloat(m))) { if (socket) socket.emit('abrir_caja', parseFloat(m)); } }
         function registrarGastoOperativo() { var c = prompt("Concepto:"); var m = prompt("Monto ($):"); if (c && m && !isNaN(parseFloat(m))) { if (socket) socket.emit('registrar_egreso', { concepto: c, monto: parseFloat(m) }); } }
         function ejecutarCorteCaja() { if (confirm("¿Cerrar caja y reiniciar registros?")) { if (socket) socket.emit('cerrar_corte_caja', function(res) { if (res && res.success) alert("Caja cerrada exitosamente."); }); } }
@@ -430,20 +436,32 @@
             if (qrCont && typeof QRCode !== 'undefined') { qrCont.innerHTML = ''; new QRCode(qrCont, { text: config.redesUrl || ('http://' + ipServidor), width: 140, height: 140 }); }
         }
 
-        function iniciarCarruselPublicidad() { clearInterval(timerPublicidad); mostrarMediaPublicidad(); timerPublicidad = setInterval(function() { mostrarMediaPublicidad(); }, 8500); }
-        function mostrarMediaPublicidad() {
-            var mediaCont = document.getElementById('contenedorMediaCentral'); if (!mediaCont) return; var muteAttr = config.videoConAudio ? '' : 'muted';
+        function iniciarCarruselPublicidad() { 
+            clearInterval(timerPublicidad); 
             if (config.mediaUrl && (config.mediaUrl.indexOf('youtube.com') !== -1 || config.mediaUrl.indexOf('youtu.be') !== -1)) {
-                var videoId = ""; if (config.mediaUrl.indexOf('v=') !== -1) videoId = config.mediaUrl.split('v=')[1].split('&')[0]; else if (config.mediaUrl.indexOf('youtu.be/') !== -1) videoId = config.mediaUrl.split('youtu.be/')[1].split('?')[0];
-                if (videoId) { var muteParam = config.videoConAudio ? '0' : '1'; mediaCont.innerHTML = '<iframe class="w-full h-full rounded-2xl pointer-events-none" src="https://www.youtube.com/embed/' + videoId + '?autoplay=1&mute=' + muteParam + '&loop=1&playlist=' + videoId + '&controls=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>'; return; }
+                mostrarMediaPublicidad(); return; 
+            }
+            mostrarMediaPublicidad(); 
+            timerPublicidad = setInterval(function() { mostrarMediaPublicidad(); }, 8500); 
+        }
+
+        function mostrarMediaPublicidad() {
+            var mediaCont = document.getElementById('contenedorMediaCentral'); if (!mediaCont) return; 
+            var muteAttr = config.videoConAudio ? '' : 'muted';
+            
+            if (config.mediaUrl && (config.mediaUrl.indexOf('youtube.com') !== -1 || config.mediaUrl.indexOf('youtu.be') !== -1)) {
+                var videoId = ""; 
+                if (config.mediaUrl.indexOf('v=') !== -1) videoId = config.mediaUrl.split('v=')[1].split('&')[0]; 
+                else if (config.mediaUrl.indexOf('youtu.be/') !== -1) videoId = config.mediaUrl.split('youtu.be/')[1].split('?')[0];
+                if (videoId) { 
+                    var muteParam = config.videoConAudio ? '0' : '1'; 
+                    mediaCont.innerHTML = '<iframe class="w-full h-full pointer-events-none" src="https://www.youtube.com/embed/' + videoId + '?autoplay=1&mute=' + muteParam + '&loop=1&playlist=' + videoId + '&controls=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>'; 
+                    return; 
+                }
             }
             if (archivosPublicidad && archivosPublicidad.length > 0) {
                 indexPublicidad = (indexPublicidad + 1) % archivosPublicidad.length; var ruta = encodeURI(archivosPublicidad[indexPublicidad]);
-                if (ruta.toLowerCase().indexOf('.mp4') !== -1 || ruta.toLowerCase().indexOf('.webm') !== -1) { mediaCont.innerHTML = '<video src="' + ruta + '" autoplay ' + muteAttr + ' loop playsinline class="media-asset"></video>'; } else { mediaCont.innerHTML = '<img src="' + ruta + '" class="media-asset">'; } return;
-            }
-            if (config.mediaUrl) {
-                var urlEnc = encodeURI(config.mediaUrl);
-                if (urlEnc.toLowerCase().indexOf('.mp4') !== -1) { mediaCont.innerHTML = '<video src="' + urlEnc + '" autoplay ' + muteAttr + ' loop playsinline class="media-asset"></video>'; } else { mediaCont.innerHTML = '<img src="' + urlEnc + '" class="media-asset">'; } return;
+                if (ruta.toLowerCase().indexOf('.mp4') !== -1 || ruta.toLowerCase().indexOf('.webm') !== -1) { mediaCont.innerHTML = '<video src="' + ruta + '" autoplay ' + muteAttr + ' loop playsinline class="media-asset max-w-full max-h-full object-contain"></video>'; } else { mediaCont.innerHTML = '<img src="' + ruta + '" class="media-asset max-w-full max-h-full object-contain rounded-2xl">'; } return;
             }
             mediaCont.innerHTML = '<div class="text-center p-8 text-sm text-gray-500">Agrega un link de YouTube en la configuración o guarda videos en <strong>public/publicidad/</strong></div>';
         }
@@ -479,10 +497,53 @@
             new QRCode(div, { text: finalUrl, width: 140, height: 140 });
         }
 
-        // ======================= INVENTARIO Y CREACIÓN DE COMBOS =======================
+        // ================== NUEVO: LISTA DE COMPRAS ==================
+        function agregarInsumoLista(idElemento) {
+            var el = document.getElementById(idElemento);
+            var txt = el ? el.value.trim() : '';
+            if(!txt) return;
+            if(socket) socket.emit('agregar_insumo', txt);
+            if(el) el.value = '';
+        }
+        function eliminarInsumoLista(id) { if(socket) socket.emit('eliminar_insumo', id); }
+        function renderizarInsumos() {
+            var html = listaCompras.length === 0 ? '<p class="text-xs text-gray-500 text-center py-4">Lista limpia</p>' : listaCompras.map(function(i) {
+                return '<li class="flex justify-between items-center bg-black p-2 rounded-lg text-xs border border-gray-800"><span class="text-gray-300">' + escapeHTML(i.texto) + '</span><button onclick="eliminarInsumoLista('+i.id+')" class="text-red-400 hover:text-red-300 font-black px-2 text-sm">X</button></li>';
+            }).join('');
+            var ulBarra = document.getElementById('listaInsumosBarra'); if(ulBarra) ulBarra.innerHTML = html;
+            var ulAdmin = document.getElementById('listaInsumosAdmin'); if(ulAdmin) ulAdmin.innerHTML = html;
+        }
+
         function toggleModoCombo(isCombo) {
             if(isCombo) { document.getElementById('panelSubProductos').classList.remove('hidden'); } else { document.getElementById('panelSubProductos').classList.add('hidden'); }
         }
+        
+        // ================== NUEVO: EDICIÓN DE PRODUCTOS ==================
+        function limpiarFormProducto() {
+            document.getElementById('prodNombre').value = ''; document.getElementById('prodPrecio').value = ''; document.getElementById('prodCosto').value = ''; document.getElementById('prodStock').value = ''; document.getElementById('prodDesc').value = ''; 
+            document.getElementById('checkEsCombo').checked = false; componentesComboTemp = []; toggleModoCombo(false); renderizarListaComponentes();
+            var btnGuardar = document.getElementById('btnGuardarProducto');
+            btnGuardar.textContent = "Guardar en Catálogo";
+            btnGuardar.removeAttribute("data-edit-id");
+            btnGuardar.className = "w-full bg-green-500 text-black font-extrabold py-2.5 rounded-xl text-xs";
+            document.getElementById('btnCancelarEdicion').classList.add('hidden');
+        }
+
+        function editarProducto(id) {
+            var p = productos.find(function(x) { return x.id === id; }); if (!p) return;
+            document.getElementById('prodNombre').value = p.nombre; document.getElementById('prodDesc').value = p.descripcion || ''; document.getElementById('prodCosto').value = p.costo || 0;
+            document.getElementById('prodPrecio').value = p.precio; document.getElementById('prodStock').value = p.stock || 0; document.getElementById('prodCategoria').value = p.categoria; document.getElementById('prodImagenUrl').value = p.imagen || '';
+            var esCombo = (p.tipo === 'combo'); document.getElementById('checkEsCombo').checked = esCombo; toggleModoCombo(esCombo);
+            if(esCombo) { componentesComboTemp = JSON.parse(JSON.stringify(p.componentes || [])); renderizarListaComponentes(); } else { componentesComboTemp = []; }
+            
+            var btnGuardar = document.getElementById('btnGuardarProducto');
+            btnGuardar.textContent = "Actualizar Producto";
+            btnGuardar.setAttribute("data-edit-id", p.id);
+            btnGuardar.className = "w-full bg-blue-500 text-white font-extrabold py-2.5 rounded-xl text-xs shadow-[0_0_15px_rgba(59,130,246,0.5)]";
+            document.getElementById('btnCancelarEdicion').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
         function renderizarInventario() {
             var selectCompra = document.getElementById('compraSelectProd'); var lista = document.getElementById('listaAdminProductos'); var selCombo = document.getElementById('prodComboItems');
             if (!lista || !selectCompra) return;
@@ -495,7 +556,7 @@
                 var tagCombo = p.tipo === 'combo' ? '<span class="text-[9px] bg-yellow-900 text-yellow-300 px-1.5 py-0.5 rounded ml-2">COMBO</span>' : '';
                 return '<div class="flex justify-between items-center bg-app-base p-3 rounded-2xl border border-gray-800 text-xs"><div><div class="font-extrabold text-white">' + escapeHTML(p.nombre) + tagCombo + ' <span class="text-blue-400 font-normal">(' + escapeHTML(p.categoria) + ')</span></div>' +
                     '<div class="text-gray-400 mt-1 space-x-2"><span>Costo: $' + costo.toFixed(2) + '</span><span>Venta: $' + Number(p.precio).toFixed(2) + '</span><span class="text-green-400 font-bold">Margen: ' + margen + '%</span><span>Stock: ' + p.stock + '</span></div></div>' +
-                    '<button onclick="eliminarProducto(' + p.id + ')" class="text-red-400 hover:text-red-300 font-bold px-2 py-1">Eliminar</button></div>';
+                    '<div><button onclick="editarProducto(' + p.id + ')" class="text-blue-400 hover:text-blue-300 font-bold px-2 py-1 mr-2">Editar</button><button onclick="eliminarProducto(' + p.id + ')" class="text-red-400 hover:text-red-300 font-bold px-2 py-1">Eliminar</button></div></div>';
             }).join('');
             
             var selImg = document.getElementById('prodImagenUrl');
@@ -518,17 +579,24 @@
             }).join('');
         }
         function guardarProducto() {
+            var idEdicion = document.getElementById('btnGuardarProducto').getAttribute('data-edit-id');
             var nombre = document.getElementById('prodNombre').value.trim(); var costo = parseFloat(document.getElementById('prodCosto').value) || 0;
             var precio = parseFloat(document.getElementById('prodPrecio').value); var stock = parseInt(document.getElementById('prodStock').value, 10) || 0; 
             var categoria = document.getElementById('prodCategoria').value; var desc = document.getElementById('prodDesc').value.trim();
             var img = document.getElementById('prodImagenUrl').value; var esCombo = document.getElementById('checkEsCombo').checked;
+            
             if (!nombre || isNaN(precio)) return alert('Nombre y precio son obligatorios');
             
-            var nuevoProd = { id: Date.now(), nombre: nombre, descripcion: desc, imagen: img, costo: costo, precio: precio, stock: stock, categoria: categoria, tipo: esCombo ? 'combo' : 'individual' };
+            var nuevoProd = { id: idEdicion ? parseInt(idEdicion) : Date.now(), nombre: nombre, descripcion: desc, imagen: img, costo: costo, precio: precio, stock: stock, categoria: categoria, tipo: esCombo ? 'combo' : 'individual' };
             if(esCombo) { if(componentesComboTemp.length === 0) return alert('Un combo debe tener productos.'); nuevoProd.componentes = componentesComboTemp; }
             
-            productos.push(nuevoProd); if (socket) socket.emit('actualizar_productos', productos);
-            document.getElementById('prodNombre').value = ''; document.getElementById('prodPrecio').value = ''; document.getElementById('prodCosto').value = ''; document.getElementById('prodStock').value = ''; document.getElementById('prodDesc').value = ''; document.getElementById('checkEsCombo').checked = false; componentesComboTemp = []; toggleModoCombo(false); renderizarListaComponentes(); renderizarInventario();
+            if (idEdicion) {
+                var idx = productos.findIndex(function(p) { return p.id === parseInt(idEdicion); });
+                if(idx !== -1) productos[idx] = nuevoProd;
+            } else { productos.push(nuevoProd); }
+            
+            if (socket) socket.emit('actualizar_productos', productos);
+            limpiarFormProducto(); renderizarInventario(); alert(idEdicion ? 'Producto actualizado' : 'Producto nuevo guardado');
         }
         function procesarCompraStock() {
             var idProducto = document.getElementById('compraSelectProd').value; var cant = parseInt(document.getElementById('compraCantidad').value, 10); var nCosto = document.getElementById('compraNuevoCosto').value;
@@ -538,36 +606,22 @@
         }
         function eliminarProducto(id) { if (confirm('¿Eliminar producto?')) { productos = productos.filter(function(p) { return p.id !== id; }); if (socket) socket.emit('actualizar_productos', productos); renderizarInventario(); } }
 
-        // ======================= MODAL Y FUNCIÓN GITHUB =======================
         function abrirModalGithub() {
             if (rolActivo !== 'admin') return alert('Solo administradores pueden modificar el sistema.');
-            document.getElementById('modal-github').classList.remove('hidden');
-            document.getElementById('gitDetalleUpdate').value = '';
-            document.getElementById('gitLoading').classList.add('hidden');
+            document.getElementById('modal-github').classList.remove('hidden'); document.getElementById('gitDetalleUpdate').value = ''; document.getElementById('gitLoading').classList.add('hidden');
         }
-
         function ejecutarSyncGithub() {
-            var tipo = document.getElementById('gitTipoUpdate').value;
-            var detalle = document.getElementById('gitDetalleUpdate').value.trim();
-            
+            var tipo = document.getElementById('gitTipoUpdate').value; var detalle = document.getElementById('gitDetalleUpdate').value.trim();
             if (!detalle) return alert('Por favor, describe brevemente la corrección.');
-            
             document.getElementById('gitLoading').classList.remove('hidden');
-            
             if (socket) {
                 socket.emit('sincronizar_github', { tipo: tipo, detalle: detalle }, function(res) {
                     document.getElementById('gitLoading').classList.add('hidden');
-                    if (res && res.success) {
-                        alert('✅ ' + res.mensaje);
-                        document.getElementById('modal-github').classList.add('hidden');
-                    } else {
-                        alert('⚠️ ' + (res.mensaje || 'Error desconocido.'));
-                    }
+                    if (res && res.success) { alert('✅ ' + res.mensaje); document.getElementById('modal-github').classList.add('hidden'); } else { alert('⚠️ ' + (res.mensaje || 'Error desconocido.')); }
                 });
             }
         }
 
-        // ======================= SOCKETS =======================
         window.addEventListener('DOMContentLoaded', function() {
             var params = new URLSearchParams(window.location.search);
             var mUrl = params.get('mesa'); var modoUrl = params.get('modo');
@@ -576,15 +630,14 @@
                 if (sM) { sM.innerHTML += '<option value="'+miMesaAsignada+'">'+miMesaAsignada+'</option>'; sM.value = miMesaAsignada; sM.disabled = true; }
                 if (lM) lM.textContent = miMesaAsignada;
             }
-            if (modoUrl === 'cliente') {
-                entrarModo('cliente'); var btnTop = document.getElementById('btnSalirTop'); if (btnTop) btnTop.classList.add('hidden');
-            } else if (modoUrl === 'login') { abrirModalLogin(); }
+            if (modoUrl === 'cliente') { entrarModo('cliente'); var btnTop = document.getElementById('btnSalirTop'); if (btnTop) btnTop.classList.add('hidden'); } 
+            else if (modoUrl === 'login') { abrirModalLogin(); }
 
             try {
                 if (typeof io !== 'undefined') {
                     socket = io();
                     socket.on('sincronizar_todo', function(db) {
-                        caja = db.caja || caja; productos = db.productos || productos; comandas = db.comandas || []; historialVentas = db.historialVentas || []; egresos = db.egresos || []; usuariosSistema = db.usuarios || []; archivosPublicidad = db.archivosPublicidad || []; archivosImagenes = db.archivosImagenes || []; mensajesChat = db.mensajesChat || []; mesasData = db.mesas || []; config = db.config || config;
+                        caja = db.caja || caja; productos = db.productos || productos; comandas = db.comandas || []; historialVentas = db.historialVentas || []; egresos = db.egresos || []; usuariosSistema = db.usuarios || []; archivosPublicidad = db.archivosPublicidad || []; archivosImagenes = db.archivosImagenes || []; mensajesChat = db.mensajesChat || []; mesasData = db.mesas || []; config = db.config || config; listaCompras = db.listaCompras || [];
                         if (db.ipLocal) ipServidor = db.ipLocal + ':3000';
                         if (config.skinSeleccionada) aplicarSkinGlobal(config.skinSeleccionada, false);
                         var r = document.documentElement; if (config.tamanoTextoSup) r.style.setProperty('--marquee-size-sup', config.tamanoTextoSup + 'px'); if (config.tamanoTextoInf) r.style.setProperty('--marquee-size-inf', config.tamanoTextoInf + 'px');
@@ -592,9 +645,9 @@
                         if (titulo && config.nombreNegocio) titulo.textContent = config.nombreNegocio; if (header && config.nombreNegocio) header.textContent = config.nombreNegocio;
 
                         var vC = document.getElementById('vista-comandas'); if (vC && !vC.classList.contains('hidden')) renderizarMenu();
-                        var vB = document.getElementById('vista-barra'); if (vB && !vB.classList.contains('hidden')) renderizarBarra();
+                        var vB = document.getElementById('vista-barra'); if (vB && !vB.classList.contains('hidden')) { renderizarBarra(); renderizarInsumos(); }
                         var vM = document.getElementById('vista-pantalla-cliente'); if (vM && !vM.classList.contains('hidden')) renderizarMonitor();
-                        var vA = document.getElementById('vista-admin'); if (vA && !vA.classList.contains('hidden')) renderizarAdmin();
+                        var vA = document.getElementById('vista-admin'); if (vA && !vA.classList.contains('hidden')) { renderizarAdmin(); renderizarInsumos(); }
                         var vMap = document.getElementById('vista-mapa'); if (vMap && !vMap.classList.contains('hidden')) renderizarMapa();
                         var vInv = document.getElementById('vista-inventario'); if(vInv && !vInv.classList.contains('hidden')) renderizarInventario();
                         if(!document.getElementById('panelChatFlotante').classList.contains('hidden')) renderizarChat();
@@ -602,9 +655,14 @@
                     socket.on('sonido_comanda_nueva', function() { reproducirAlertaSonora('nuevo'); });
                     socket.on('notificacion_pedido_listo', function(datos) {
                         reproducirAlertaSonora('listo'); if (navigator.vibrate) { try { navigator.vibrate([200, 100, 200]); } catch(e){} }
-                        var toast = document.getElementById('toastNotificacion');
-                        if (toast) { document.getElementById('toastTitulo').textContent = '🔔 ¡' + datos.mesa + ' LISTA!'; document.getElementById('toastMensaje').textContent = 'Orden preparada para servir.'; toast.classList.remove('hidden'); setTimeout(function() { toast.classList.add('hidden'); }, 7000); }
+                        mostrarToast('¡' + datos.mesa + ' LISTA!', 'Orden preparada para servir.', 'normal');
                         if (rolActivo === 'cliente' && datos.mesa === miMesaAsignada) { document.getElementById('modal-alerta-cliente').classList.remove('hidden'); document.getElementById('alertaMesaNombre').textContent = datos.mesa; }
+                    });
+                    socket.on('alerta_stock_bajo', function(datos) {
+                        if(rolActivo === 'admin' || rolActivo === 'barra') {
+                            reproducirAlertaSonora('chat');
+                            mostrarToast(datos.agotado ? '¡AGOTADO!' : '¡STOCK BAJO!', datos.agotado ? datos.nombre + ' se ha terminado.' : 'Quedan ' + datos.stock + ' de ' + datos.nombre, 'alerta');
+                        }
                     });
                     socket.on('notificacion_chat', function(msg) {
                         reproducirAlertaSonora('chat');
@@ -618,7 +676,12 @@
 <body class="min-h-screen flex flex-col select-none pb-20">
 
     <div id="btnActivarAudio" class="bg-accent text-white px-3 py-2 text-center text-xs font-black cursor-pointer shadow-lg tracking-wider" onclick="activarAudioNavegador()">🔊 TOCAR AQUÍ PARA ACTIVAR NOTIFICACIONES</div>
-    <div id="toastNotificacion" class="fixed top-5 right-5 z-50 hidden bg-green-500 text-black font-black px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-3 border-2 border-white animate-bounce glow-green"><span class="text-3xl">🔔</span><div><h4 class="text-sm uppercase tracking-wide" id="toastTitulo">¡PEDIDO LISTO!</h4><p class="text-xs font-bold" id="toastMensaje">Mesa lista para entregar</p></div></div>
+    
+    <div id="toastNotificacion" class="fixed top-5 right-5 z-50 hidden bg-green-500 text-black font-black px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-3 border-2 border-white animate-bounce glow-green">
+        <span class="text-3xl" id="toastIcon">🔔</span>
+        <div><h4 class="text-sm uppercase tracking-wide" id="toastTitulo">...</h4><p class="text-xs font-bold" id="toastMensaje">...</p></div>
+    </div>
+    
     <div id="modal-alerta-cliente" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-6 text-center"><div class="bg-card border-2 border-purple-500 p-8 rounded-3xl max-w-sm w-full space-y-5 glow-purple"><div class="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-4xl mx-auto shadow-2xl animate-bounce">🍺</div><h2 class="text-2xl font-black text-white">¡TU PEDIDO ESTÁ LISTO!</h2><p class="text-sm text-purple-300 font-bold" id="alertaMesaNombre">Mesa 1</p><p class="text-xs text-gray-400">La barra acaba de terminar de preparar tus platillos y bebidas. Ya van en camino o puedes recogerlos.</p><button onclick="document.getElementById('modal-alerta-cliente').classList.add('hidden')" class="w-full bg-green-500 text-black font-black py-3 rounded-2xl text-sm">Entendido, ¡gracias!</button></div></div>
 
     <div id="pantalla-bienvenida" class="fixed inset-0 bg-app-base z-50 flex items-center justify-center p-4">
@@ -692,7 +755,20 @@
         </div>
     </div>
 
-    <main id="vista-barra" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto space-y-3"><h2 class="text-base font-black text-white">🍻 COMANDAS ACTIVAS EN BARRA</h2><div id="gridComandasBarra" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div></main>
+    <!-- VISTA BARRA Y LISTA DE COMPRAS -->
+    <main id="vista-barra" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto space-y-3">
+        <h2 class="text-base font-black text-white">🍻 COMANDAS ACTIVAS EN BARRA</h2>
+        <div id="gridComandasBarra" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+        
+        <div class="bg-card p-4 rounded-3xl border border-gray-800 shadow-xl mt-6 max-w-lg">
+            <h3 class="font-black text-yellow-400 text-xs uppercase tracking-wide mb-3 flex items-center gap-2"><span>🛒</span> Anotar Insumos Faltantes</h3>
+            <div class="flex gap-2 mb-3">
+                <input type="text" id="inputNuevoInsumoBarra" placeholder="Ej. Faltan servilletas, alitas, gas..." class="flex-1 bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white outline-none">
+                <button onclick="agregarInsumoLista('inputNuevoInsumoBarra')" class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition">Anotar</button>
+            </div>
+            <ul id="listaInsumosBarra" class="space-y-1 text-xs max-h-40 overflow-y-auto no-scrollbar"></ul>
+        </div>
+    </main>
     
     <main id="vista-inventario" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="space-y-4">
@@ -720,7 +796,8 @@
                 </div>
                 <select id="prodImagenUrl" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"><option value="">Sin imagen (Cargando local...)</option></select>
                 <p class="text-[9px] text-gray-500">Pon tus fotos .jpg o .png en <b>Pos-Restaurant/public/imagenes/</b></p>
-                <button onclick="guardarProducto()" type="button" class="w-full bg-green-500 text-black font-extrabold py-2.5 rounded-xl text-xs">Guardar en Catálogo</button>
+                <button id="btnGuardarProducto" onclick="guardarProducto()" type="button" class="w-full bg-green-500 text-black font-extrabold py-2.5 rounded-xl text-xs">Guardar en Catálogo</button>
+                <button id="btnCancelarEdicion" onclick="limpiarFormProducto()" class="hidden w-full bg-gray-800 text-gray-300 font-bold py-2 rounded-xl text-xs mt-2">Cancelar Edición</button>
             </div>
             <div class="bg-card p-4 rounded-3xl border space-y-3 shadow-xl">
                 <h3 class="font-black text-accent text-xs uppercase tracking-wide">📥 Entrada de Stock (Compra)</h3>
@@ -751,7 +828,10 @@
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div class="lg:col-span-2 bg-card p-4 rounded-3xl border"><h3 class="text-xs font-black uppercase text-gray-300 mb-3 tracking-wide">📈 Balance Operativo del Día</h3><canvas id="chartFinanzas" height="110"></canvas></div>
-            <div class="bg-card p-4 rounded-3xl border space-y-3"><h3 class="text-xs font-black uppercase text-accent tracking-wide">🤵 Rendimiento por Mesero</h3><div id="listaRendimientoMeseros" class="space-y-2 max-h-52 overflow-y-auto pr-1"></div><div class="border-t border-gray-800 pt-2"><h4 class="text-xxs font-bold text-gray-400 mb-1">Gastos del turno:</h4><div id="listaEgresosCaja" class="space-y-1 max-h-24 overflow-y-auto"></div></div></div>
+            <div class="space-y-4">
+                <div class="bg-card p-4 rounded-3xl border space-y-3"><h3 class="text-xs font-black uppercase text-accent tracking-wide">🤵 Rendimiento por Mesero</h3><div id="listaRendimientoMeseros" class="space-y-2 max-h-52 overflow-y-auto pr-1"></div><div class="border-t border-gray-800 pt-2"><h4 class="text-xxs font-bold text-gray-400 mb-1">Gastos del turno:</h4><div id="listaEgresosCaja" class="space-y-1 max-h-24 overflow-y-auto"></div></div></div>
+                <div class="bg-card p-4 rounded-3xl border space-y-2 border-yellow-900 bg-yellow-900 bg-opacity-10"><h3 class="text-xs font-black uppercase text-yellow-400 tracking-wide flex items-center gap-1">🛒 Insumos Faltantes</h3><ul id="listaInsumosAdmin" class="space-y-1 text-xs max-h-24 overflow-y-auto"></ul></div>
+            </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div class="bg-card p-5 rounded-3xl border space-y-4 shadow-xl">
@@ -798,15 +878,16 @@
         </div>
     </main>
 
-    <main id="vista-pantalla-cliente" class="hidden flex-1 flex flex-col justify-between p-3 w-full mx-auto space-y-2 bg-black min-h-screen relative">
-        <button onclick="cerrarSesion()" class="absolute top-3 left-4 z-50 bg-gray-900 border border-gray-700 text-gray-400 px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg opacity-40 hover:opacity-100 transition">⬅ Volver al Inicio</button>
-        <div class="bg-accent text-white font-black py-2.5 px-4 rounded-2xl shadow-2xl marquee-container uppercase tracking-wider border border-white border-opacity-10"><div id="marqueePromoSuperior" class="marquee-content font-black">¡BIENVENIDOS!</div></div>
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-3 flex-1 items-stretch my-1">
-            <div class="bg-app-panel border border-gray-900 p-4 rounded-3xl shadow-2xl flex flex-col"><h3 class="text-xs font-black text-accent mb-3 flex items-center gap-2"><span>📺</span> PEDIDOS EN BARRA</h3><div id="gridPantallaEstado" class="space-y-2.5 max-h-panel overflow-y-auto flex-1 pr-1"></div></div>
-            <div class="lg:col-span-2 bg-black border border-gray-900 p-2 rounded-3xl shadow-2xl flex items-center justify-center min-h-stage overflow-hidden"><div class="stage-media-wrapper" id="contenedorMediaCentral"></div></div>
-            <div class="bg-app-panel border border-gray-900 p-5 rounded-3xl text-center flex flex-col items-center justify-center shadow-2xl"><h4 class="font-black text-blue-400 text-sm mb-2">🎉 PARTICIPA EN DINÁMICAS</h4><p class="text-xs text-gray-400 mb-4">Escanea para seguir eventos y promociones:</p><div id="qrRedesPublico" class="bg-white p-3 rounded-2xl shadow-lg"></div></div>
+    <!-- MONITOR ULTRA DARK -->
+    <main id="vista-pantalla-cliente" class="hidden fixed inset-0 z-[100] flex flex-col justify-between p-4 bg-black w-full h-full overflow-hidden">
+        <button onclick="window.location.reload()" class="absolute top-4 left-4 z-[110] bg-gray-900 border border-gray-700 text-gray-400 px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg opacity-20 hover:opacity-100 transition">⬅ Salir</button>
+        <div class="bg-accent text-white font-black py-3 px-4 rounded-2xl shadow-2xl marquee-container uppercase tracking-wider border border-white border-opacity-10 w-full shrink-0"><div id="marqueePromoSuperior" class="marquee-content font-black w-full">¡BIENVENIDOS!</div></div>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 items-stretch my-4 min-h-0 overflow-hidden">
+            <div class="bg-app-panel border border-gray-900 p-4 rounded-3xl shadow-2xl flex flex-col h-full overflow-hidden"><h3 class="text-sm font-black text-accent mb-4 flex items-center gap-2 shrink-0"><span>📺</span> PEDIDOS EN BARRA</h3><div id="gridPantallaEstado" class="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar"></div></div>
+            <div class="lg:col-span-2 bg-black border border-gray-900 p-2 rounded-3xl shadow-2xl flex items-center justify-center h-full overflow-hidden relative"><div class="w-full h-full flex items-center justify-center bg-black rounded-2xl overflow-hidden absolute inset-0 p-2" id="contenedorMediaCentral"></div></div>
+            <div class="bg-app-panel border border-gray-900 p-5 rounded-3xl text-center flex flex-col items-center justify-center shadow-2xl h-full shrink-0"><h4 class="font-black text-blue-400 text-base mb-2">🎉 DINÁMICAS</h4><p class="text-xs text-gray-400 mb-6">Escanea para menús y promociones:</p><div id="qrRedesPublico" class="bg-white p-4 rounded-3xl shadow-lg inline-block"></div></div>
         </div>
-        <div class="bg-app-panel border border-gray-900 text-blue-400 font-black py-2 px-4 rounded-2xl shadow-lg marquee-container uppercase"><div id="marqueePromoInferior" class="marquee-content-reverse font-bold">CONSULTA NUESTRAS PROMOCIONES DE LA CASA</div></div>
+        <div class="bg-app-panel border border-gray-900 text-blue-400 font-black py-2.5 px-4 rounded-2xl shadow-lg marquee-container uppercase w-full shrink-0"><div id="marqueePromoInferior" class="marquee-content-reverse font-bold w-full">CONSULTA NUESTRAS PROMOCIONES DE LA CASA</div></div>
     </main>
 
     <div id="modal-cobro" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-3">
