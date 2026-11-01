@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>La Barrita - Sistema POS Pro</title>
+    <!-- Etiquetas para modo App / Pantalla Completa en dispositivos portátiles -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0b0f19">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root { --bg-main: #0b0f19; --accent: #f59e0b; --text-main: #f3f4f6; }
+        body { background-color: var(--bg-main); color: var(--text-main); font-family: system-ui, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .card-product:active { transform: scale(0.97); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-gray-950 text-white">
+
+    <!-- PANTALLA DE BIENVENIDA -->
+    <div id="pantalla-bienvenida" class="fixed inset-0 bg-gray-950 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-800 p-8 rounded-3xl max-w-md w-full text-center shadow-2xl space-y-6">
+            <div class="w-20 h-20 bg-amber-500 rounded-full flex items-center justify-center text-4xl mx-auto shadow-lg">🍺</div>
+            <div>
+                <h1 class="text-2xl font-black text-amber-400">LA BARRITA POS</h1>
+                <p class="text-xs text-gray-400 mt-1">Selecciona tu modo de ingreso</p>
+            </div>
+            <div class="space-y-3">
+                <button onclick="entrarModo('cliente')" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl shadow-lg transition">📱 SOY CLIENTE (Menú / Pedir)</button>
+                <button onclick="pedirPinTrabajador()" class="w-full bg-amber-500 hover:bg-amber-400 text-gray-950 font-black py-3 rounded-xl shadow-lg transition">🔒 SOY TRABAJADOR / ADMIN</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE PIN PARA TRABAJADORES -->
+    <div id="modal-pin" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-800 p-6 rounded-2xl max-w-xs w-full text-center space-y-4">
+            <h3 class="font-black text-amber-400">Ingresa PIN de Acceso</h3>
+            <input type="password" id="inputPin" placeholder="PIN (por defecto 1234)" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-center text-xl tracking-widest text-white">
+            <div class="flex gap-2">
+                <button onclick="validarPin()" class="flex-1 bg-emerald-500 text-gray-950 font-black py-2 rounded-lg">Entrar</button>
+                <button onclick="cerrarPin()" class="flex-1 bg-gray-800 text-gray-300 font-bold py-2 rounded-lg">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ENCABEZADO Y NAVEGACIÓN -->
+    <header id="appHeader" class="hidden bg-gray-900 border-b border-gray-800 px-4 py-3 sticky top-0 z-40 flex flex-wrap justify-between items-center shadow-lg gap-2">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-gray-950 font-black text-xl">🍺</div>
+            <h1 class="text-lg font-extrabold text-amber-400">LA BARRITA</h1>
+        </div>
+        <nav id="navMenu" class="flex bg-gray-950 p-1 rounded-xl border border-gray-800 overflow-x-auto gap-1">
+            <!-- Se llena por rol -->
+        </nav>
+    </header>
+
+    <!-- VISTA 1: COMANDAS -->
+    <main id="vista-comandas" class="hidden flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 max-w-7xl w-full mx-auto">
+        <div class="lg:col-span-2 flex flex-col gap-4">
+            <div id="gridProductos" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+        </div>
+        <div class="bg-gray-900 rounded-2xl border border-gray-800 p-4 flex flex-col h-fit sticky top-20 shadow-xl">
+            <div class="flex justify-between border-b border-gray-800 pb-3 mb-3 items-center">
+                <h2 class="font-black text-amber-400">COMANDA - <span id="labelMesaAsignada" class="text-white">Mesa 1</span></h2>
+                <select id="selectMesa" class="bg-gray-800 text-white font-bold text-sm px-2 py-1 rounded-lg border border-gray-700">
+                    <option value="Mesa 1">Mesa 1</option><option value="Mesa 2">Mesa 2</option><option value="Mesa 3">Mesa 3</option><option value="Mesa 4">Mesa 4</option><option value="Mesa 5">Mesa 5</option><option value="Barra">En Barra</option><option value="Para Llevar">Para Llevar</option>
+                </select>
+            </div>
+            <div id="listaCarrito" class="flex-1 space-y-2 max-h-60 overflow-y-auto mb-3 text-sm text-gray-400 text-center py-6">Toca un producto del menú</div>
+            <div class="border-t border-gray-800 pt-3">
+                <div class="flex justify-between mb-3 text-lg font-black text-emerald-400"><span>Total:</span><span id="totalCarrito">$0.00</span></div>
+                <button onclick="enviarOrden()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black py-3 rounded-xl shadow-lg transition">🚀 ENVIAR ORDEN</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- VISTA 2: BARRA Y COBRO -->
+    <main id="vista-barra" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto">
+        <h2 class="text-xl font-black text-white mb-4">🍻 CONTROL DE COMANDAS Y COBRO</h2>
+        <div id="gridComandasBarra" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+    </main>
+
+    <!-- VISTA 3: INVENTARIO -->
+    <main id="vista-inventario" class="hidden flex-1 p-4 max-w-6xl w-full mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-gray-900 p-4 rounded-2xl border border-gray-800 h-fit">
+            <h3 id="tituloFormProd" class="font-black text-emerald-400 text-sm uppercase mb-3">➕ Nuevo Producto / Platillo</h3>
+            <input type="hidden" id="editProdId" value="">
+            <div class="space-y-3">
+                <input type="text" id="prodNombre" placeholder="Nombre del producto *" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white">
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="number" id="prodPrecio" placeholder="Precio ($) *" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white">
+                    <input type="number" id="prodStock" placeholder="Stock/Cant *" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white">
+                </div>
+                <select id="prodCategoria" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-2 py-2 text-sm text-white">
+                    <option value="Alitas">Alitas</option><option value="Nachos">Nachos</option><option value="Micheladas">Micheladas</option><option value="Snacks">Snacks</option><option value="Bebidas">Bebidas</option><option value="Comidas">Comidas</option>
+                </select>
+                <button onclick="guardarProducto()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black py-2.5 rounded-lg text-sm">💾 Guardar en Inventario</button>
+            </div>
+        </div>
+        <div class="md:col-span-2 bg-gray-900 p-4 rounded-2xl border border-gray-800">
+            <h3 class="font-black text-white text-base mb-1">📋 Inventario y Catálogo (Clic para editar)</h3>
+            <div id="listaAdminProductos" class="space-y-2 max-h-[500px] overflow-y-auto pr-1"></div>
+        </div>
+    </main>
+
+    <!-- VISTA 4: ADMIN (Config, Cambiar PIN, QRs, Caja) -->
+    <main id="vista-admin" class="hidden flex-1 p-4 max-w-6xl w-full mx-auto space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-gray-900 p-4 rounded-2xl border border-gray-800 space-y-3">
+                <h3 class="font-black text-amber-400 text-sm uppercase">⚙️ Configuración y Seguridad</h3>
+                <input type="text" id="configPromo" placeholder="Texto de la promoción..." class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white">
+                <input type="text" id="configRedes" placeholder="Enlace de Redes Sociales / Dinámicas..." class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white">
+                <input type="password" id="configPin" placeholder="Nuevo PIN de Administrador (opcional)" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white">
+                <button onclick="guardarConfig()" class="w-full bg-amber-500 hover:bg-amber-400 text-gray-950 font-black py-2 rounded-lg text-sm">Guardar Cambios y PIN</button>
+            </div>
+            <div class="bg-gray-900 p-4 rounded-2xl border border-gray-800 space-y-3">
+                <h3 class="font-black text-amber-400 text-sm uppercase">🖨️ Generador de QRs por Mesa</h3>
+                <select id="selectMesaQR" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white font-bold">
+                    <option value="1">Mesa 1</option><option value="2">Mesa 2</option><option value="3">Mesa 3</option><option value="4">Mesa 4</option><option value="5">Mesa 5</option>
+                </select>
+                <button onclick="generarQR()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-2 rounded-lg text-sm">Crear Código QR</button>
+                <div id="contenedorQR" class="bg-white p-3 rounded-xl flex flex-col items-center justify-center hidden">
+                    <div id="qrCodeDiv"></div>
+                    <span id="qrTextoMesa" class="text-gray-950 font-black text-xs mt-2"></span>
+                </div>
+            </div>
+        </div>
+        <div class="bg-gray-900 p-4 rounded-2xl border border-gray-800">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-black text-emerald-400 text-base">💰 Corte de Caja y Propinas del Día</h3>
+                <button onclick="hacerCorteCaja()" class="bg-red-600 hover:bg-red-500 text-white text-xs font-bold px-3 py-2 rounded-lg">🔄 Realizar Corte (Reiniciar)</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-gray-950 p-3 rounded-xl border border-gray-800">
+                    <h4 class="font-bold text-xs text-gray-400 mb-2">Ventas Registradas Hoy</h4>
+                    <div id="listaVentasCaja" class="space-y-1 text-xs max-h-40 overflow-y-auto"></div>
+                </div>
+                <div class="bg-gray-950 p-3 rounded-xl border border-gray-800">
+                    <h4 class="font-bold text-xs text-gray-400 mb-2">Propinas por Mesero</h4>
+                    <div id="listaPropinasCaja" class="space-y-1 text-xs max-h-40 overflow-y-auto"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- VISTA 5: PANTALLA CLIENTE -->
+    <main id="vista-cliente" class="hidden flex-1 p-6 max-w-7xl w-full mx-auto flex flex-col justify-between space-y-6">
+        <div class="text-center py-6 bg-gradient-to-r from-amber-600 to-red-600 rounded-3xl shadow-2xl">
+            <h2 id="bannerPromoTexto" class="text-3xl font-black tracking-wider text-white">🔥 ¡PROMOCIÓN DE LA CASA! 🔥</h2>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1">
+            <div class="md:col-span-2">
+                <h3 class="text-xl font-black text-amber-400 mb-4">📺 Estado de Pedidos en Preparación</h3>
+                <div id="gridPantallaCliente" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+            </div>
+            <div class="bg-gray-900 border border-gray-800 p-5 rounded-2xl flex flex-col items-center justify-center text-center">
+                <h4 class="font-black text-amber-400 mb-3">🎉 ¡ÚNETE A NUESTRAS DINÁMICAS!</h4>
+                <p class="text-xs text-gray-400 mb-4">Escanea el código para ver fotos, eventos y participar:</p>
+                <div id="qrRedesDiv" class="bg-white p-2 rounded-xl"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const socket = io();
+        let productos = [];
+        let comandas = [];
+        let historialVentas = [];
+        let propinas = [];
+        let config = { promoTexto: "", redesUrl: "", pinAdmin: "1234" };
+        let ipServidor = "localhost:3000";
+        let carrito = [];
+        let rolActual = '';
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const paramsURL = new URLSearchParams(window.location.search);
+            const mesaURL = paramsURL.get('mesa');
+            if (mesaURL) {
+                rolActual = 'cliente';
+                document.getElementById('pantalla-bienvenida').classList.add('hidden');
+                document.getElementById('appHeader').classList.remove('hidden');
+                configurarNavCliente();
+                cambiarVista('comandas');
+                const sel = document.getElementById('selectMesa');
+                const lbl = document.getElementById('labelMesaAsignada');
+                if (sel) { sel.value = 'Mesa ' + mesaURL; sel.disabled = true; }
+                if (lbl) lbl.textContent = 'Mesa ' + mesaURL;
+            }
+        });
+
+        function entrarModo(modo) {
+            rolActual = modo;
+            document.getElementById('pantalla-bienvenida').classList.add('hidden');
+            document.getElementById('appHeader').classList.remove('hidden');
+            if (modo === 'cliente') {
+                configurarNavCliente();
+                cambiarVista('comandas');
+            } else {
+                configurarNavTrabajador();
+                cambiarVista('barra');
+            }
+        }
+
+        function pedirPinTrabajador() {
+            document.getElementById('modal-pin').classList.remove('hidden');
+            document.getElementById('inputPin').value = '';
+            document.getElementById('inputPin').focus();
+        }
+
+        function cerrarPin() {
+            document.getElementById('modal-pin').classList.add('hidden');
+        }
+
+        function validarPin() {
+            const pin = document.getElementById('inputPin').value;
+            const pinReal = config.pinAdmin || "1234";
+            if (pin === pinReal) {
+                cerrarPin();
+                entrarModo('trabajador');
+            } else {
+                alert('PIN incorrecto.');
+            }
+        }
+
+        function configurarNavCliente() {
+            document.getElementById('navMenu').innerHTML = `
+                <button onclick="cambiarVista('comandas')" id="tab-comandas" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-gray-950 whitespace-nowrap">📝 Menú / Pedir</button>
+                <button onclick="cambiarVista('cliente')" id="tab-cliente" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 whitespace-nowrap">📺 Pantalla y Promos</button>
+            `;
+        }
+
+        function configurarNavTrabajador() {
+            document.getElementById('navMenu').innerHTML = `
+                <button onclick="cambiarVista('comandas')" id="tab-comandas" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-gray-950 whitespace-nowrap">📝 Tomar Orden</button>
+                <button onclick="cambiarVista('barra')" id="tab-barra" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 whitespace-nowrap">🍻 Barra / Cobro</button>
+                <button onclick="cambiarVista('inventario')" id="tab-inventario" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 whitespace-nowrap">📦 Inventario</button>
+                <button onclick="cambiarVista('admin')" id="tab-admin" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 whitespace-nowrap">⚙️ Admin & Caja</button>
+                <button onclick="cambiarVista('cliente')" id="tab-cliente" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 whitespace-nowrap">📺 Pantalla Cliente</button>
+            `;
+        }
+
+        socket.on('sincronizar_todo', (db) => {
+            productos = db.productos;
+            comandas = db.comandas;
+            historialVentas = db.historialVentas || [];
+            propinas = db.propinas || [];
+            config = db.config || config;
+            if (db.ipLocal) {
+                ipServidor = db.ipLocal + ':3000';
+            }
+            
+            renderizarMenu();
+            renderizarBarra();
+            renderizarInventario();
+            renderizarAdminCaja();
+            renderizarPantallaCliente();
+        });
+
+        function cambiarVista(v) {
+            ['comandas', 'barra', 'inventario', 'admin', 'cliente'].forEach(x => {
+                const vista = document.getElementById('vista-' + x);
+                const tab = document.getElementById('tab-' + x);
+                if (vista) vista.classList.add('hidden');
+                if (tab) tab.className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 whitespace-nowrap';
+            });
+            const vActiva = document.getElementById('vista-' + v);
+            const tActivo = document.getElementById('tab-' + v);
+            if (vActiva) vActiva.classList.remove('hidden');
+            if (tActivo) tActivo.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-gray-950 whitespace-nowrap';
+        }
+
+        function renderizarMenu() {
+            const grid = document.getElementById('gridProductos');
+            if (!grid) return;
+            grid.innerHTML = productos.map(p => `
+                <div onclick="agregarAlCarrito(${p.id})" class="card-product bg-gray-900 p-3 rounded-2xl border border-gray-800 cursor-pointer hover:border-amber-500 transition flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-start">
+                            <span class="text-[10px] text-amber-400 font-bold uppercase">${p.categoria}</span>
+                            <span class="text-[10px] bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">Stock: ${p.stock}</span>
+                        </div>
+                        <h4 class="font-bold text-white mt-1">${p.nombre}</h4>
+                    </div>
+                    <div class="flex justify-between items-center pt-2 mt-2 border-t border-gray-800">
+                        <span class="text-emerald-400 font-black">$${p.precio}</span>
+                        <span class="bg-amber-500/20 text-amber-400 text-xs px-2 py-1 rounded-lg font-bold">+ Agregar</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function agregarAlCarrito(id) {
+            const p = productos.find(x => x.id === id);
+            if (!p || p.stock <= 0) return alert('Producto agotado');
+            const i = carrito.find(x => x.id === id);
+            if (i) {
+                if (i.cantidad >= p.stock) return alert('No hay más stock disponible');
+                i.cantidad++;
+            } else {
+                carrito.push({...p, cantidad: 1});
+            }
+            renderizarCarrito();
+        }
+
+        function renderizarCarrito() {
+            const lista = document.getElementById('listaCarrito');
+            const totalEl = document.getElementById('totalCarrito');
+            if (!lista || !totalEl) return;
+            let total = 0;
+            if (carrito.length === 0) { lista.innerHTML = 'Toca un producto del menú'; totalEl.textContent = '$0.00'; return; }
+            lista.innerHTML = carrito.map(i => {
+                total += i.precio * i.cantidad;
+                return `<div class="flex justify-between bg-gray-950 p-2 rounded text-xs mb-1"><span>${i.cantidad}x ${i.nombre}</span><span class="text-emerald-400">$${i.precio * i.cantidad}</span></div>`;
+            }).join('');
+            totalEl.textContent = '$' + total.toFixed(2);
+        }
+
+        function enviarOrden() {
+            if (carrito.length === 0) return alert('Agrega platillos');
+            const mesaEl = document.getElementById('selectMesa');
+            const nueva = { 
+                id: Date.now(), 
+                mesa: mesaEl ? mesaEl.value : 'Mesa 1', 
+                items: [...carrito], 
+                total: carrito.reduce((a,b)=>a+(b.precio*b.cantidad),0), 
+                estado: 'Preparando...', 
+                hora: new Date().toLocaleTimeString() 
+            };
+            socket.emit('nueva_orden', nueva);
+            carrito = []; 
+            renderizarCarrito(); 
+            alert('¡Orden enviada con éxito!');
+        }
+
+        function renderizarBarra() {
+            const grid = document.getElementById('gridComandasBarra');
+            if (!grid) return;
+            if (comandas.length === 0) { grid.innerHTML = '<p class="text-gray-500">Sin comandas pendientes</p>'; return; }
+            grid.innerHTML = comandas.map(c => `
+                <div class="bg-gray-900 p-4 rounded-2xl border border-gray-800 flex flex-col justify-between space-y-3">
+                    <div>
+                        <h3 class="font-black text-amber-400 mb-2">${c.mesa} - <span class="text-xs text-gray-400">${c.hora}</span></h3>
+                        <ul class="text-xs space-y-1 mb-2">${c.items.map(i=>`<li>${i.cantidad}x ${i.nombre}</li>`).join('')}</ul>
+                        <div class="text-emerald-400 font-black text-sm">Total: $${c.total}</div>
+                    </div>
+                    <div class="space-y-2 pt-2 border-t border-gray-800">
+                        <input type="text" id="mesero-${c.id}" placeholder="Nombre Mesero" class="w-full bg-gray-950 text-xs px-2 py-1 rounded border border-gray-800 text-white">
+                        <input type="number" id="propina-${c.id}" placeholder="Propina ($)" class="w-full bg-gray-950 text-xs px-2 py-1 rounded border border-gray-800 text-white">
+                        <button onclick="cobrarOrden(${c.id})" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-xl w-full">💲 Cobrar y Cerrar Mesa</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function cobrarOrden(idComanda) {
+            const mesero = document.getElementById(`mesero-${idComanda}`).value || 'General';
+            const propina = document.getElementById(`propina-${idComanda}`).value || 0;
+            socket.emit('cobrar_orden', { idComanda, propina, mesero });
+        }
+
+        function renderizarInventario() {
+            const lista = document.getElementById('listaAdminProductos');
+            if (!lista) return;
+            lista.innerHTML = productos.map(p => `
+                <div onclick="cargarParaEditar(${p.id})" class="flex justify-between items-center bg-gray-950 p-3 rounded-xl border border-gray-800 cursor-pointer hover:border-amber-500 transition">
+                    <div>
+                        <h4 class="font-bold text-sm text-white">${p.nombre}</h4>
+                        <span class="text-xs text-amber-400">${p.categoria}</span> • <span class="text-xs text-emerald-400 font-bold">$${p.precio}</span> • <span class="text-xs text-gray-400">Stock: ${p.stock}</span>
+                    </div>
+                    <button onclick="event.stopPropagation(); eliminarProd(${p.id})" class="bg-red-950 text-red-300 text-xs px-2 py-1 rounded">Eliminar</button>
+                </div>
+            `).join('');
+        }
+
+        function cargarParaEditar(id) {
+            const p = productos.find(x => x.id === id);
+            if (!p) return;
+            document.getElementById('editProdId').value = p.id;
+            document.getElementById('prodNombre').value = p.nombre;
+            document.getElementById('prodPrecio').value = p.precio;
+            document.getElementById('prodStock').value = p.stock;
+            document.getElementById('prodCategoria').value = p.categoria;
+            document.getElementById('tituloFormProd').textContent = "✏️ Editando: " + p.nombre;
+        }
+
+        function guardarProducto() {
+            const id = document.getElementById('editProdId').value;
+            const nombre = document.getElementById('prodNombre').value.trim();
+            const precio = parseFloat(document.getElementById('prodPrecio').value);
+            const stock = parseInt(document.getElementById('prodStock').value);
+            const categoria = document.getElementById('prodCategoria').value;
+            if (!nombre || isNaN(precio) || isNaN(stock)) return alert('Llena todos los campos correctamente');
+
+            if (id) {
+                const p = productos.find(x => x.id == id);
+                if (p) { p.nombre = nombre; p.precio = precio; p.stock = stock; p.categoria = categoria; }
+            } else {
+                productos.push({ id: Date.now(), nombre, precio, stock, categoria, desc: '' });
+            }
+            socket.emit('actualizar_productos', productos);
+            document.getElementById('editProdId').value = '';
+            document.getElementById('prodNombre').value = '';
+            document.getElementById('prodPrecio').value = '';
+            document.getElementById('prodStock').value = '';
+            document.getElementById('tituloFormProd').textContent = "➕ Nuevo Producto / Platillo";
+        }
+
+        function eliminarProd(id) {
+            if (confirm('¿Eliminar producto?')) {
+                productos = productos.filter(x => x.id !== id);
+                socket.emit('actualizar_productos', productos);
+            }
+        }
+
+        function guardarConfig() {
+            const promoTexto = document.getElementById('configPromo').value;
+            const redesUrl = document.getElementById('configRedes').value;
+            const pinAdmin = document.getElementById('configPin').value.trim();
+            
+            const nuevaConfig = { promoTexto, redesUrl };
+            if (pinAdmin.length > 0) {
+                nuevaConfig.pinAdmin = pinAdmin;
+            } else {
+                nuevaConfig.pinAdmin = config.pinAdmin;
+            }
+
+            socket.emit('actualizar_config', nuevaConfig);
+            alert('Configuración y PIN actualizados con éxito');
+            document.getElementById('configPin').value = '';
+        }
+
+        function renderizarAdminCaja() {
+            document.getElementById('configPromo').value = config.promoTexto || '';
+            document.getElementById('configRedes').value = config.redesUrl || '';
+
+            const ventasDiv = document.getElementById('listaVentasCaja');
+            const propinasDiv = document.getElementById('listaPropinasCaja');
+
+            ventasDiv.innerHTML = historialVentas.length === 0 ? '<p class="text-gray-500">Sin ventas registradas hoy</p>' : 
+                historialVentas.map(v => `<div>${v.horaCobro} - ${v.mesa}: <strong>$${v.total}</strong> (Mesero: ${v.mesero})</div>`).join('');
+
+            propinasDiv.innerHTML = propinas.length === 0 ? '<p class="text-gray-500">Sin propinas registradas</p>' : 
+                propinas.map(prop => `<div>${prop.hora} - ${prop.mesero}: <strong class="text-amber-400">+$${prop.monto}</strong></div>`).join('');
+        }
+
+        function hacerCorteCaja() {
+            if (confirm('¿Deseas realizar el corte de caja y reiniciar los registros de hoy?')) {
+                socket.emit('hacer_corte');
+            }
+        }
+
+        function renderizarPantallaCliente() {
+            document.getElementById('bannerPromoTexto').textContent = config.promoTexto || '¡PROMOCIÓN DE LA CASA!';
+            
+            const grid = document.getElementById('gridPantallaCliente');
+            if (grid) {
+                grid.innerHTML = comandas.length === 0 ? '<p class="text-gray-500 col-span-full text-center py-10">Esperando nuevas órdenes...</p>' : 
+                    comandas.map(c => `
+                        <div class="bg-gray-900 border-2 border-amber-500/50 p-6 rounded-2xl text-center shadow-xl">
+                            <h4 class="text-3xl font-black text-amber-400 mb-2">${c.mesa}</h4>
+                            <p class="text-sm text-emerald-400 font-bold uppercase tracking-wider animate-pulse">🔥 PREPARANDO EN BARRA</p>
+                        </div>
+                    `).join('');
+            }
+
+            const qrDiv = document.getElementById('qrRedesDiv');
+            if (qrDiv) {
+                qrDiv.innerHTML = '';
+                new QRCode(qrDiv, { text: config.redesUrl || `http://${ipServidor}`, width: 130, height: 130 });
+            }
+        }
+
+        function generarQR() {
+            const m = document.getElementById('selectMesaQR').value;
+            const div = document.getElementById('qrCodeDiv');
+            div.innerHTML = '';
+            document.getElementById('contenedorQR').classList.remove('hidden');
+            document.getElementById('qrTextoMesa').textContent = 'MESA ' + m;
+            const urlFinal = `http://${ipServidor}/?mesa=${m}`;
+            new QRCode(div, { text: urlFinal, width: 150, height: 150 });
+        }
+    </script>
+</body>
+</html>

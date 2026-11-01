@@ -1,0 +1,282 @@
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { maxHttpBufferSize: 1e7 });
+
+const PORT = 3000;
+const DB_FILE = path.join(__dirname, 'datos.json');
+const PUBLICIDAD_DIR = path.join(__dirname, 'public', 'publicidad');
+
+if (!fs.existsSync(PUBLICIDAD_DIR)) {
+    fs.mkdirSync(PUBLICIDAD_DIR, { recursive: true });
+}
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+const estadoInicial = {
+    caja: { abierta: false, fondoInicial: 0, horaApertura: null, fechaApertura: null },
+    usuarios: [
+        { id: 1, usuario: "admin", pin: "1234", rol: "admin", nombre: "Administrador" },
+        { id: 2, usuario: "mesero1", pin: "1111", rol: "mesero", nombre: "Mesero Turno 1" },
+        { id: 3, usuario: "barra1", pin: "2222", rol: "barra", nombre: "Barra Central" }
+    ],
+    productos: [
+        { id: 1, nombre: "Alitas BBQ (10 pz)", costo: 60, precio: 110, categoria: "Alitas", stock: 50 },
+        { id: 2, nombre: "Nachos Especiales", costo: 30, precio: 65, categoria: "Nachos", stock: 40 },
+        { id: 3, nombre: "Michelada Familiar", costo: 45, precio: 95, categoria: "Micheladas", stock: 60 },
+        { id: 4, nombre: "Papas a la Francesa", costo: 25, precio: 65, categoria: "Snacks", stock: 50 }
+    ],
+    comandas: [],
+    historialVentas: [],
+    egresos: [],
+    propinas: [],
+    config: {
+        nombreNegocio: "LA BARRITA PRO",
+        promoTexto: "🔥 PROMOCIÓN ESTELAR: 2x1 EN MICHELADAS Y ALITAS HASTA LAS 9:00 PM 🍺",
+        promoTextoInferior: "📲 Wi-Fi: LaBarrita_VIP • Pide desde tu móvil y muestra tu folio al mesero",
+        tamanoTextoSup: 20,
+        tamanoTextoInf: 15,
+        redesUrl: "",
+        mediaUrl: "",
+        videoConAudio: false,
+        skinSeleccionada: "tech-neon"
+    }
+};
+
+function leerDB() {
+    try {
+        if (!fs.existsSync(DB_FILE)) {
+            fs.writeFileSync(DB_FILE, JSON.stringify(estadoInicial, null, 2), 'utf-8');
+            return JSON.parse(JSON.stringify(estadoInicial));
+        }
+        const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
+        if (!data.caja) data.caja = estadoInicial.caja;
+        if (!data.usuarios) data.usuarios = estadoInicial.usuarios;
+        if (!data.config) data.config = estadoInicial.config;
+        if (!data.config.skinSeleccionada) data.config.skinSeleccionada = "tech-neon";
+        if (!data.historialVentas) data.historialVentas = [];
+        if (!data.egresos) data.egresos = [];
+        if (!data.propinas) data.propinas = [];
+        if (!data.productos) data.productos = estadoInicial.productos;
+        if (!data.comandas) data.comandas = [];
+        return data;
+    } catch (err) {
+        return JSON.parse(JSON.stringify(estadoInicial));
+    }
+}
+
+function guardarDB(data) {
+    fs.writeFile(DB_FILE, JSON.stringify(data, null, 2), 'utf-8', (err) => {
+        if (err) console.error('Error guardando DB:', err);
+    });
+}
+
+function obtenerIPLocal() {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return 'localhost';
+}
+
+function obtenerArchivosPublicidad() {
+    try {
+        if (!fs.existsSync(PUBLICIDAD_DIR)) return [];
+        const archivos = fs.readdirSync(PUBLICIDAD_DIR);
+        const formatosValidos = ['.jpg', '.jpeg', '.png', '.webp', '.mp4', '.webm'];
+        return archivos.filter(f => formatosValidos.includes(path.extname(f).toLowerCase()))
+                       .map(f => `/publicidad/${f}`);
+    } catch (err) {
+        return [];
+    }
+}
+
+function filtrarDatosParaCliente(db) {
+    const copia = JSON.parse(JSON.stringify(db));
+    return {
+        ...copia,
+        ipLocal: obtenerIPLocal(),
+        archivosPublicidad: obtenerArchivosPublicidad()
+    };
+}
+
+io.on('connection', (socket) => {
+    const db = leerDB();
+    socket.emit('sincronizar_todo', filtrarDatosParaCliente(db));
+
+    socket.on('login_usuario', ({ usuario, pin }, callback) => {
+        const actual = leerDB();
+        const user = actual.usuarios.find(u => String(u.usuario).toLowerCase() === String(usuario).trim().toLowerCase() && String(u.pin) === String(pin).trim());
+        if (user) {
+            callback({ success: true, rol: user.rol, nombre: user.nombre });
+        } else {
+            callback({ success: false, mensaje: 'Credenciales inválidas' });
+        }
+    });
+
+    socket.on('abrir_caja', (montoInicial) => {
+        const actual = leerDB();
+        actual.caja = {
+            abierta: true,
+            fondoInicial: parseFloat(montoInicial) || 0,
+            horaApertura: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            fechaApertura: new Date().toLocaleDateString()
+        };
+        guardarDB(actual);
+        io.emit('sincronizar_todo', filtrarDatosParaCliente(actual));
+    });
+
+    socket.on('registrar_egreso', ({ concepto, monto }) => {
+        const actual = leerDB();
+        if (!actual.egresos) actual.egresos = [];
+        actual.egresos.unshift({
+            id: Date.now(),
+            concepto: concepto || 'Gasto de operación',
+            monto: parseFloat(monto) || 0,
+            hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+        guardarDB(actual);
+        io.emit('sincronizar_todo', filtrarDatosParaCliente(actual));
+    });
+
+    socket.on('cerrar_corte_caja', (callback) => {
+        const actual = leerDB();
+        const resumenCierre = {
+            fondoInicial: actual.caja.fondoInicial || 0,
+            ventas: actual.historialVentas.slice(),
+            egresos: actual.egresos.slice(),
+            propinas: actual.propinas.slice()
+        };
+        actual.caja = { abierta: false, fondoInicial: 0, horaApertura: null, fechaApertura: null };
+        actual.historialVentas = [];
+        actual.egresos = [];
+        actual.propinas = [];
+        guardarDB(actual);
+        io.emit('sincronizar_todo', filtrarDatosParaCliente(actual));
+        if (typeof callback === 'function') callback({ success: true, resumen: resumenCierre });
+    });
+
+    socket.on('guardar_usuario', (nuevoUser) => {
+        const actual = leerDB();
+        if (nuevoUser.id) {
+            const idx = actual.usuarios.findIndex(u => u.id === nuevoUser.id);
+            if (idx !== -1) actual.usuarios[idx] = nuevoUser;
+        } else {
+            nuevoUser.id = Date.now();
+            actual.usuarios.push(nuevoUser);
+        }
+        guardarDB(actual);
+        io.emit('sincronizar_todo', filtrarDatosParaCliente(actual));
+    });
+
+    socket.on('eliminar_usuario', (idUser) => {
+        const actual = leerDB();
+        if (actual.usuarios.length <= 1) return;
+        actual.usuarios = actual.usuarios.filter(u => u.id !== idUser);
+        guardarDB(actual);
+        io.emit('sincronizar_todo', filtrarDatosParaCliente(actual));
+    });
+
+    socket.on('nueva_orden', (nuevaComanda) => {
+        const actual = leerDB();
+        if (Array.isArray(nuevaComanda.items)) {
+            for (let item of nuevaComanda.items) {
+                const prod = actual.productos.find(p => p.id === item.id);
+                if (prod) prod.stock = Math.max(0, prod.stock - (parseInt(item.cantidad, 10) || 0));
+            }
+        }
+        actual.comandas.unshift(nuevaComanda);
+        guardarDB(actual);
+        io.emit('sincronizar_todo', filtrarDatosParaCliente(actual));
+        io.emit('sonido_comanda_nueva', { mesa: nuevaComanda.mesa });
+    });
+
+    socket.on('pedido_listo', (idComanda) => {
+        const actual = leerDB();
+        const comanda = actual.comandas.find(c => c.id === idComanda);
+        if (comanda) {
+            comanda.estado = 'Listo';
+            guardarDB(actual);
+            io.emit('sincronizar_todo', filtrarDatosParaCliente(actual));
+            io.emit('notificacion_pedido_listo', {
+                id: comanda.id,
+                mesa: comanda.mesa,
+                mesero: comanda.mesero || 'General'
+            });
+        }
+    });
+
+    socket.on('cobrar_orden', (datosCobro) => {
+        const actual = leerDB();
+        const idx = actual.comandas.findIndex(c => c.id === datosCobro.idComanda);
+        if (idx !== -1) {
+            const cobrada = actual.comandas.splice(idx, 1)[0];
+            cobrada.propina = parseFloat(datosCobro.propina) || 0;
+            cobrada.mesero = datosCobro.mesero || 'General';
+            cobrada.metodoPago = datosCobro.metodoPago || 'Efectivo';
+            cobrada.montoRecibido = parseFloat(datosCobro.montoRecibido) || cobrada.total;
+            cobrada.cambio = parseFloat(datosCobro.cambio) || 0;
+            cobrada.horaCobro = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            let costoTotalOrden = 0;
+            if (Array.isArray(cobrada.items)) {
+                for (let it of cobrada.items) {
+                    const refProd = actual.productos.find(p => p.id === it.id);
+                    const costoUnit = refProd && refProd.costo ? refProd.costo : 0;
+                    costoTotalOrden += costoUnit * it.cantidad;
+                }
+            }
+            cobrada.costoInsumos = costoTotalOrden;
+            cobrada.gananciaNeta = Math.max(0, cobrada.total - costoTotalOrden);
+
+            actual.historialVentas.unshift(cobrada);
+            if (cobrada.propina > 0) {
+                actual.propinas.unshift({ mesero: cobrada.mesero, monto: cobrada.propina, hora: cobrada.horaCobro, mesa: cobrada.mesa });
+            }
+            guardarDB(actual);
+            io.emit('sincronizar_todo', filtrarDatosParaCliente(actual));
+        }
+    });
+
+    socket.on('actualizar_productos', (nuevosProductos) => {
+        const actual = leerDB();
+        actual.productos = nuevosProductos;
+        guardarDB(actual);
+        io.emit('sincronizar_todo', filtrarDatosParaCliente(actual));
+    });
+
+    socket.on('registrar_compra_stock', ({ idProducto, cantidadSumar, nuevoCosto }) => {
+        const actual = leerDB();
+        const p = actual.productos.find(x => x.id === parseInt(idProducto, 10));
+        if (p) {
+            p.stock = (parseInt(p.stock, 10) || 0) + parseInt(cantidadSumar, 10);
+            if (nuevoCosto && !isNaN(parseFloat(nuevoCosto))) {
+                p.costo = parseFloat(nuevoCosto);
+            }
+            guardarDB(actual);
+            io.emit('sincronizar_todo', filtrarDatosParaCliente(actual));
+        }
+    });
+
+    socket.on('actualizar_config', (nuevaConfig) => {
+        const actual = leerDB();
+        actual.config = Object.assign({}, actual.config, nuevaConfig);
+        guardarDB(actual);
+        io.emit('sincronizar_todo', filtrarDatosParaCliente(actual));
+    });
+});
+
+server.listen(PORT, '0.0.0.0', () => {
+    const ip = obtenerIPLocal();
+    console.log(` 🍻 SERVIDOR POS ACTIVO en http://${ip}:${PORT}`);
+});
