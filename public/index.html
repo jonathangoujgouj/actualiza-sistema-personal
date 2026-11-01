@@ -1160,9 +1160,13 @@
         </div>
     </main>
 
-    <!-- VISTA 6: MONITOR ULTRA DARK -->
-    <main id="vista-pantalla-cliente" class="hidden flex-1 flex flex-col justify-between p-3 w-full w-full mx-auto space-y-2 bg-black min-h-screen">
-        <div class="bg-accent text-white font-black py-2.5 px-4 rounded-2xl shadow-2xl marquee-container uppercase tracking-wider border border-white border-opacity-10">
+  <!-- VISTA 6: MONITOR ULTRA DARK -->
+<main id="vista-pantalla-cliente" class="hidden flex-1 flex flex-col justify-between p-3 w-full mx-auto space-y-2 bg-black min-h-screen relative">
+    
+    <!-- BOTÓN FLOTANTE DE REGRESO -->
+    <button onclick="cerrarSesion()" class="absolute top-4 left-4 z-50 bg-gray-900 border border-gray-700 text-gray-400 px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg opacity-40 hover:opacity-100 transition">
+        ⬅ Volver
+    </button>
             <div id="marqueePromoSuperior" class="marquee-content font-black">¡BIENVENIDOS!</div>
         </div>
 
