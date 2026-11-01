@@ -27,7 +27,7 @@
         @media print { body * { visibility: hidden !important; } #area-impresion-ticket, #area-impresion-ticket * { visibility: visible !important; } #area-impresion-ticket { display: block !important; position: absolute; left: 0; top: 0; width: 100%; max-width: 58mm; margin: 0; padding: 4px; color: #000 !important; background: #fff !important; font-family: 'Courier New', Courier, monospace; font-size: 11px; } @page { margin: 0; size: auto; } }
     </style>
     <script>
-        var socket = null; var usuarioActivo = null; var rolActivo = 'cliente'; var miMesaAsignada = 'Mesa 1';
+        var socket = null; var usuarioActivo = null; var rolActivo = 'cliente'; var miMesaAsignada = 'Para Llevar';
         var caja = { abierta: false, fondoInicial: 0 }; var productos = []; var comandas = []; var historialVentas = []; var egresos = []; var usuariosSistema = []; var archivosPublicidad = [];
         var config = { nombreNegocio: "LA BARRITA PRO", promoTexto: "🔥 2x1 EN MICHELADAS Y ALITAS HASTA LAS 9:00 PM 🍺", promoTextoInferior: "📲 Wi-Fi: LaBarrita_VIP", tamanoTextoSup: 20, tamanoTextoInf: 15, redesUrl: "", mediaUrl: "", videoConAudio: false, skinSeleccionada: "tech-neon" };
         var ipServidor = window.location.host; var carrito = []; var comandaCobroActiva = null; var metodoPago = 'Efectivo'; var timerPublicidad = null; var chartVentas = null;
@@ -55,6 +55,7 @@
             if (socket) socket.emit('actualizar_config', { tamanoTextoSup: config.tamanoTextoSup, tamanoTextoInf: config.tamanoTextoInf });
         }
         function escapeHTML(s) { return !s ? '' : String(s).replace(/[&<>'"]/g, function(t) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[t] || t; }); }
+        
         function reproducirAlertaSonora(tipo) {
             try {
                 var AudioContextClass = window.AudioContext || window.webkitAudioContext; if (!AudioContextClass) return;
@@ -79,7 +80,7 @@
             if (modo === 'cliente') { cambiarVista('comandas'); renderizarMenu(); } 
             else if (modo === 'mesero') { cambiarVista('mapa'); renderizarMapa(); } 
             else if (modo === 'barra') { cambiarVista('barra'); renderizarBarra(); } 
-            else if (modo === 'admin') { cambiarVista('admin'); renderizarAdmin(); }
+            else if (modo === 'admin') { cambiarVista('mapa'); renderizarMapa(); renderizarAdmin(); }
         }
 
         function abrirModalLogin() { document.getElementById('modal-login').classList.remove('hidden'); document.getElementById('loginUsuario').value = ''; document.getElementById('loginPin').value = ''; document.getElementById('loginUsuario').focus(); }
@@ -100,13 +101,13 @@
 
         function cerrarSesion() {
             usuarioActivo = null; rolActivo = 'cliente'; clearInterval(timerPublicidad); document.getElementById('pantalla-bienvenida').classList.remove('hidden'); document.getElementById('appTopBar').classList.add('hidden');
-            ['comandas', 'barra', 'mesero-cobro', 'inventario', 'admin', 'pantalla-cliente', 'mapa'].forEach(function(x) { var el = document.getElementById('vista-' + x); if (el) el.classList.add('hidden'); });
+            ['comandas', 'barra', 'inventario', 'admin', 'pantalla-cliente', 'mapa'].forEach(function(x) { var el = document.getElementById('vista-' + x); if (el) el.classList.add('hidden'); });
         }
 
         function cambiarVista(v) {
-            ['comandas', 'barra', 'mesero-cobro', 'inventario', 'admin', 'pantalla-cliente', 'mapa'].forEach(function(x) { var el = document.getElementById('vista-' + x); if (el) el.classList.add('hidden'); });
+            ['comandas', 'barra', 'inventario', 'admin', 'pantalla-cliente', 'mapa'].forEach(function(x) { var el = document.getElementById('vista-' + x); if (el) el.classList.add('hidden'); });
             var vActiva = document.getElementById('vista-' + v); if (vActiva) vActiva.classList.remove('hidden');
-            if (v === 'inventario') renderizarInventario(); if (v === 'mesero-cobro') renderizarMeseroCobro(); if (v === 'barra') renderizarBarra();
+            if (v === 'inventario') renderizarInventario(); if (v === 'barra') renderizarBarra();
             if (v === 'admin') renderizarAdmin(); if (v === 'mapa') renderizarMapa();
             if (v === 'pantalla-cliente') { renderizarMonitor(); iniciarCarruselPublicidad(); } else clearInterval(timerPublicidad);
         }
@@ -117,9 +118,8 @@
                 bar.innerHTML = '<div class="flex justify-around items-center w-full max-w-md mx-auto py-2"><button onclick="cambiarVista(\'comandas\')" class="flex flex-col items-center text-accent text-xs font-bold transition"><span class="text-xl">🍕</span><span>Menú</span></button></div>';
             } else if (rol === 'mesero') {
                 bar.innerHTML = '<div class="flex justify-around items-center w-full max-w-lg mx-auto py-2">' +
-                    '<button onclick="cambiarVista(\'mapa\')" class="flex flex-col items-center text-accent text-xs font-bold transition"><span class="text-xl">🗺️</span><span>Mapa</span></button>' +
-                    '<button onclick="cambiarVista(\'comandas\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">📝</span><span>Menú</span></button>' +
-                    '<button onclick="cambiarVista(\'mesero-cobro\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">💳</span><span>Cobros</span></button>' +
+                    '<button onclick="cambiarVista(\'mapa\')" class="flex flex-col items-center text-accent text-xs font-bold transition"><span class="text-xl">🗺️</span><span>Mapa / Caja</span></button>' +
+                    '<button onclick="cambiarVista(\'comandas\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">📝</span><span>Levantar Orden</span></button>' +
                     '<button onclick="cambiarVista(\'pantalla-cliente\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">📺</span><span>Monitor</span></button></div>';
             } else if (rol === 'barra') {
                 bar.innerHTML = '<div class="flex justify-around items-center w-full max-w-sm mx-auto py-2">' +
@@ -127,23 +127,26 @@
                     '<button onclick="cambiarVista(\'pantalla-cliente\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">📺</span><span>Monitor</span></button></div>';
             } else if (rol === 'admin') {
                 bar.innerHTML = '<div class="flex justify-around items-center w-full max-w-2xl mx-auto py-2">' +
-                    '<button onclick="cambiarVista(\'admin\')" class="flex flex-col items-center text-accent text-xs font-bold transition"><span class="text-xl">📊</span><span>Caja</span></button>' +
-                    '<button onclick="cambiarVista(\'mapa\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">🗺️</span><span>Mapa</span></button>' +
+                    '<button onclick="cambiarVista(\'mapa\')" class="flex flex-col items-center text-accent text-xs font-bold transition"><span class="text-xl">🗺️</span><span>Mapa / Caja</span></button>' +
+                    '<button onclick="cambiarVista(\'admin\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">📊</span><span>Dashboard</span></button>' +
                     '<button onclick="cambiarVista(\'comandas\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">📝</span><span>Menú</span></button>' +
                     '<button onclick="cambiarVista(\'barra\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">🍻</span><span>Barra</span></button>' +
                     '<button onclick="cambiarVista(\'inventario\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">📦</span><span>Stock</span></button></div>';
             }
         }
 
-        // ======================= MAPA DE MESAS =======================
+        // ======================= NUEVO: MAPA DE MESAS Y COBRO INTEGRADO =======================
         function renderizarMapa() {
             var grid = document.getElementById('gridMapaMesas');
             if (!grid) return;
-            var mesasTotales = ['Mesa 1', 'Mesa 2', 'Mesa 3', 'Mesa 4', 'Mesa 5', 'Barra', 'Para Llevar'];
+            // Configuración de lugares físicos
+            var mesasConfiguradas = ['Mesa 1', 'Mesa 2', 'Mesa 3', 'Mesa 4', 'Mesa 5', 'Mesa 6', 'Barra', 'Para Llevar'];
             
-            grid.innerHTML = mesasTotales.map(function(mesa) {
+            grid.innerHTML = mesasConfiguradas.map(function(mesa) {
                 var activas = comandas.filter(function(c) { return c.mesa === mesa; });
-                var colorClase = 'bg-green-900 border-green-500 text-green-300'; 
+                var totalMesa = activas.reduce(function(acc, c) { return acc + c.total; }, 0);
+                
+                var colorClase = 'bg-gray-900 border-gray-700 hover:border-gray-500'; 
                 var estadoTexto = 'Mesa Libre';
                 var icono = '🍽️';
                 var animacion = '';
@@ -151,26 +154,42 @@
                 if (activas.length > 0) {
                     var hayListas = activas.some(function(c) { return c.estado === 'Listo'; });
                     if (hayListas) {
-                        colorClase = 'bg-blue-900 border-blue-500 text-blue-200';
-                        estadoTexto = 'Por Entregar';
+                        colorClase = 'bg-blue-900 border-blue-400 text-blue-100 shadow-[0_0_15px_rgba(59,130,246,0.5)]';
+                        estadoTexto = '¡Entregar Pedido!';
                         icono = '🔔';
                         animacion = 'animate-pulse';
                     } else {
-                        colorClase = 'bg-red-900 border-red-500 text-red-200';
-                        estadoTexto = 'Ocupada';
+                        colorClase = 'bg-red-900 border-red-500 text-red-100 shadow-[0_0_15px_rgba(239,68,68,0.3)]';
+                        estadoTexto = 'Ocupada / Esperando';
                         icono = '🔥';
                     }
                 }
                 
-                return '<div onclick="cambiarVista(\'barra\')" class="p-4 rounded-3xl border-2 flex flex-col items-center justify-center text-center shadow-xl cursor-pointer transition transform hover:scale-105 ' + colorClase + ' ' + animacion + '">' +
-                    '<span class="text-4xl mb-1">' + icono + '</span>' +
-                    '<h3 class="font-black text-sm uppercase">' + mesa + '</h3>' +
-                    '<span class="text-[10px] font-bold px-2 py-0.5 bg-black bg-opacity-50 rounded-lg mt-2">' + estadoTexto + '</span>' +
-                    (activas.length > 0 ? '<span class="text-[11px] mt-1 text-white font-bold">' + activas.length + ' orden(es)</span>' : '') +
+                return '<div onclick="gestionarClicMesa(\'' + mesa + '\')" class="p-5 rounded-3xl border-2 cursor-pointer transition transform hover:scale-105 flex flex-col items-center justify-center text-center ' + colorClase + ' ' + animacion + '">' +
+                    '<span class="text-4xl mb-2 drop-shadow-md">' + icono + '</span>' +
+                    '<h3 class="font-black text-sm uppercase tracking-wide">' + mesa + '</h3>' +
+                    '<span class="text-[10px] font-bold px-2 py-0.5 bg-black bg-opacity-50 rounded-lg mt-1">' + estadoTexto + '</span>' +
+                    (activas.length > 0 ? '<span class="text-xs mt-2 text-green-400 font-black bg-black bg-opacity-40 px-3 py-1 rounded-xl">Por Cobrar: $' + totalMesa.toFixed(2) + '</span>' : '') +
                     '</div>';
             }).join('');
         }
 
+        function gestionarClicMesa(mesa) {
+            var activas = comandas.filter(function(c) { return c.mesa === mesa; });
+            if (activas.length === 0) {
+                // Mesa libre: ir a tomar orden
+                miMesaAsignada = mesa;
+                var sm = document.getElementById('selectMesa');
+                if(sm) sm.value = mesa;
+                document.getElementById('labelMesaAsignada').textContent = mesa;
+                cambiarVista('comandas');
+            } else {
+                // Mesa ocupada: Abrir modal de COBRO directo (tomando la primera comanda activa para simplificar)
+                abrirCobro(activas[0].id);
+            }
+        }
+
+        // ======================= CALCULADORA =======================
         function calcNum(n) { if (calcReset || calcDisplay === '0') { calcDisplay = String(n); calcReset = false; } else { calcDisplay += String(n); } actualizarCalcDisplay(); }
         function calcPunto() { if (calcReset) { calcDisplay = '0.'; calcReset = false; } else if (calcDisplay.indexOf('.') === -1) { calcDisplay += '.'; } actualizarCalcDisplay(); }
         function calcOp(op) { calcPrevio = parseFloat(calcDisplay); calcOperacion = op; calcReset = true; }
@@ -194,7 +213,9 @@
             var totalEgresos = egresos.reduce(function(a, b) { return a + (b.monto || 0); }, 0);
             var totalGanancia = historialVentas.reduce(function(a, b) { return a + (b.gananciaNeta || (b.total * 0.45)); }, 0);
             var fondo = caja.fondoInicial || 0;
-            var dineroEsperadoEfectivo = fondo + historialVentas.filter(function(v){ return v.metodoPago === 'Efectivo'; }).reduce(function(a,b){ return a + b.total; }, 0) - totalEgresos;
+            // El efectivo esperado solo suma las ventas que se pagaron en "Efectivo"
+            var ventasEfectivo = historialVentas.filter(function(v){ return v.metodoPago === 'Efectivo'; }).reduce(function(a,b){ return a + b.total; }, 0);
+            var dineroEsperadoEfectivo = fondo + ventasEfectivo - totalEgresos;
 
             document.getElementById('lblFondoInicial').textContent = '$' + fondo.toFixed(2); document.getElementById('lblTotalIngresos').textContent = '$' + totalVentas.toFixed(2);
             document.getElementById('lblTotalEgresos').textContent = '$' + totalEgresos.toFixed(2); document.getElementById('lblGananciaNeta').textContent = '$' + totalGanancia.toFixed(2); document.getElementById('lblEfectivoEsperado').textContent = '$' + dineroEsperadoEfectivo.toFixed(2);
@@ -239,460 +260,3 @@
             }
             var qrCont = document.getElementById('qrRedesPublico');
             if (qrCont && typeof QRCode !== 'undefined') { qrCont.innerHTML = ''; new QRCode(qrCont, { text: config.redesUrl || ('http://' + ipServidor), width: 140, height: 140 }); }
-        }
-
-        function iniciarCarruselPublicidad() { clearInterval(timerPublicidad); mostrarMediaPublicidad(); timerPublicidad = setInterval(function() { mostrarMediaPublicidad(); }, 8500); }
-
-        function mostrarMediaPublicidad() {
-            var mediaCont = document.getElementById('contenedorMediaCentral'); if (!mediaCont) return; var muteAttr = config.videoConAudio ? '' : 'muted';
-            if (archivosPublicidad && archivosPublicidad.length > 0) {
-                indexPublicidad = (indexPublicidad + 1) % archivosPublicidad.length; var ruta = archivosPublicidad[indexPublicidad];
-                if (ruta.indexOf('.mp4') !== -1 || ruta.indexOf('.webm') !== -1) { mediaCont.innerHTML = '<video src="' + ruta + '" autoplay ' + muteAttr + ' loop playsinline class="media-asset"></video>'; } 
-                else { mediaCont.innerHTML = '<img src="' + ruta + '" class="media-asset">'; }
-                return;
-            }
-            mediaCont.innerHTML = '<div class="text-center p-8 text-sm text-gray-500">Coloca imágenes o videos en <strong>public/publicidad/</strong></div>';
-        }
-
-        function renderizarMenu() {
-            var grid = document.getElementById('gridProductos'); if (!grid) return;
-            grid.innerHTML = productos.map(function(p) {
-                return '<div onclick="agregarAlCarrito(' + p.id + ')" class="card-press bg-card p-3 rounded-2xl border cursor-pointer hover:border-accent transition flex flex-col justify-between shadow-xl">' +
-                    '<div><div class="flex justify-between items-start"><span class="text-xxs text-blue-400 font-extrabold uppercase tracking-wider">' + escapeHTML(p.categoria) + '</span>' +
-                    '<span class="text-xxs ' + (p.stock > 0 ? 'text-gray-300 bg-black bg-opacity-60' : 'text-red-300 bg-red-900') + ' px-2 py-0.5 rounded-full">' + (p.stock > 0 ? 'Stock: ' + p.stock : 'Agotado') + '</span></div>' +
-                    '<h4 class="font-extrabold text-white text-xs mt-2">' + escapeHTML(p.nombre) + '</h4></div>' +
-                    '<div class="flex justify-between items-center pt-2 mt-2 border-t border-gray-800"><span class="text-green-400 font-black text-sm">$' + Number(p.precio).toFixed(2) + '</span>' +
-                    '<span class="text-xxs px-2.5 py-1 rounded-xl font-bold border border-accent text-accent">+ Agregar</span></div></div>';
-            }).join('');
-        }
-
-        function agregarAlCarrito(id) {
-            var prod = productos.find(function(x) { return x.id === id; }); if (!prod || prod.stock <= 0) return alert('Producto sin existencias');
-            var item = carrito.find(function(x) { return x.id === id; }); if (item) { item.cantidad++; } else { carrito.push(Object.assign({}, prod, { cantidad: 1 })); } renderizarCarrito();
-        }
-
-        function ajustarCantidad(id, delta) {
-            var item = carrito.find(function(x) { return x.id === id; }); var p = productos.find(function(x) { return x.id === id; }); if (!item) return;
-            item.cantidad += delta; if (p && item.cantidad > p.stock) item.cantidad = p.stock;
-            if (item.cantidad <= 0) { carrito = carrito.filter(function(x) { return x.id !== id; }); } renderizarCarrito();
-        }
-
-        function renderizarCarrito() {
-            var lista = document.getElementById('listaCarrito'); var totalEl = document.getElementById('totalCarrito'); var btnEnvio = document.getElementById('btnEnviarComanda');
-            if (!lista || !totalEl) return;
-            
-            if (carrito.length === 0) { lista.innerHTML = '<p class="text-center py-6 text-gray-500 text-xs">Toca un platillo del menú para agregar</p>'; totalEl.textContent = '$0.00'; return; }
-            var total = 0;
-            lista.innerHTML = carrito.map(function(i) {
-                var sub = i.precio * i.cantidad; total += sub;
-                return '<div class="flex justify-between items-center bg-app-base p-2 rounded-xl text-xs border border-gray-800">' +
-                    '<span class="truncate mr-2 font-bold text-gray-200">' + escapeHTML(i.nombre) + '</span><div class="flex items-center gap-1.5"><button onclick="ajustarCantidad(' + i.id + ', -1)" class="px-2 py-0.5 bg-gray-800 rounded text-gray-300">-</button>' +
-                    '<span class="font-bold text-accent">' + i.cantidad + '</span><button onclick="ajustarCantidad(' + i.id + ', 1)" class="px-2 py-0.5 bg-gray-800 rounded text-gray-300">+</button>' +
-                    '<span class="text-green-400 font-bold ml-1">$' + sub.toFixed(2) + '</span></div></div>';
-            }).join('');
-            totalEl.textContent = '$' + total.toFixed(2);
-        }
-
-        function procesarEnvioOrden() {
-            if (carrito.length === 0) return alert('El carrito está vacío');
-            var mesaEl = document.getElementById('selectMesa'); var mesa = mesaEl ? mesaEl.value : miMesaAsignada;
-            var nom = document.getElementById('clienteNombre').value.trim(); var tel = document.getElementById('clienteTelefono').value.trim();
-            var letraFolio = mesa.replace(/[^0-9]/g, '') || '1'; var numAzar = Math.floor(100 + Math.random() * 900); var folioLegible = 'M' + letraFolio + '-' + numAzar;
-
-            var orden = {
-                id: Date.now(), folio: folioLegible, mesa: mesa, items: carrito.slice(), total: carrito.reduce(function(a, b) { return a + (b.precio * b.cantidad); }, 0),
-                estado: 'Preparando...', hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), cliente: tel ? { nombre: nom || 'Cliente', telefono: tel } : null
-            };
-
-            // EMITIR SIEMPRE AL SERVIDOR
-            if (socket) socket.emit('nueva_orden', orden);
-
-            if (rolActivo === 'cliente') {
-                mostrarFichaTurnoCliente(orden);
-            } else {
-                alert('¡Orden enviada a Barra con éxito!');
-            }
-            carrito = []; renderizarCarrito();
-        }
-
-        function mostrarFichaTurnoCliente(orden) {
-            var modal = document.getElementById('modal-turno-cliente');
-            document.getElementById('ticketFolioGrande').textContent = orden.folio; document.getElementById('ticketMesaNombre').textContent = orden.mesa;
-            document.getElementById('ticketHoraGenerado').textContent = orden.hora; document.getElementById('ticketTotalPagar').textContent = '$' + Number(orden.total).toFixed(2);
-            var itemsCont = document.getElementById('ticketListaItems');
-            itemsCont.innerHTML = orden.items.map(function(i) { return '<div class="flex justify-between py-0.5"><span>' + i.cantidad + 'x ' + escapeHTML(i.nombre) + '</span><span>$' + (i.precio * i.cantidad).toFixed(2) + '</span></div>'; }).join('');
-            modal.classList.remove('hidden');
-        }
-
-        function renderizarBarra() {
-            var grid = document.getElementById('gridComandasBarra'); if (!grid) return;
-            grid.innerHTML = comandas.length === 0 ? '<p class="text-gray-500 col-span-full py-12 text-center text-xs">Sin comandas activas</p>' :
-                comandas.map(function(c) {
-                    return '<div class="bg-card p-4 rounded-3xl border ' + (c.estado === 'Listo' ? 'border-green-500' : 'border-gray-800') + ' space-y-2 shadow-2xl">' +
-                        '<div class="flex justify-between items-center"><div><h3 class="font-black text-accent text-base">' + escapeHTML(c.mesa) + '</h3>' +
-                        (c.folio ? '<span class="text-[11px] bg-accent text-white px-2 py-0.5 rounded-full font-mono font-bold">' + c.folio + '</span>' : '') + '</div><span class="text-[10px] text-gray-400">' + c.hora + '</span></div>' +
-                        (c.mesero ? '<div class="text-[10px] text-blue-400">Mesero: ' + escapeHTML(c.mesero) + '</div>' : '') +
-                        '<ul class="text-xs space-y-1 divide-y divide-gray-800">' + c.items.map(function(i) { return '<li class="py-1 flex justify-between"><span>' + i.cantidad + 'x ' + escapeHTML(i.nombre) + '</span></li>'; }).join('') + '</ul>' +
-                        (c.estado !== 'Listo' ? '<button onclick="marcarListo(' + c.id + ')" class="w-full bg-green-500 hover:bg-green-400 text-black font-black py-2.5 rounded-2xl text-xs transition">🔔 ¡ORDEN LISTA! (Avisar)</button>' : '<div class="text-center py-1.5 bg-green-900 text-green-300 text-xs font-bold rounded-2xl border border-green-800">✓ Listo para entrega</div>') + '</div>';
-                }).join('');
-        }
-
-        function marcarListo(id) { if (socket) socket.emit('pedido_listo', id); }
-
-        function renderizarMeseroCobro() {
-            var grid = document.getElementById('gridMeseroCobro'); if (!grid) return;
-            grid.innerHTML = comandas.length === 0 ? '<p class="text-gray-500 col-span-full py-12 text-center text-xs">Sin cuentas pendientes por cobrar</p>' :
-                comandas.map(function(c) {
-                    return '<div class="bg-card p-4 rounded-3xl border border-gray-800 space-y-2 shadow-2xl">' +
-                        '<div class="flex justify-between items-center"><div><h3 class="font-black text-accent">' + escapeHTML(c.mesa) + '</h3>' +
-                        (c.folio ? '<span class="text-[10px] text-gray-400 font-mono">' + c.folio + '</span>' : '') + '</div><span class="pill-badge ' + (c.estado === 'Listo' ? 'text-green-400 bg-green-900 border border-green-800' : 'text-accent bg-accent border border-accent text-white') + '">' + escapeHTML(c.estado) + '</span></div>' +
-                        '<div class="text-xs text-gray-300 space-y-0.5">' + c.items.map(function(i) { return '<div class="flex justify-between"><span>' + i.cantidad + 'x ' + escapeHTML(i.nombre) + '</span><span>$' + (i.precio * i.cantidad).toFixed(2) + '</span></div>'; }).join('') + '</div>' +
-                        '<div class="flex justify-between font-black text-green-400 text-sm border-t border-gray-800 pt-2"><span>Subtotal:</span><span>$' + Number(c.total).toFixed(2) + '</span></div>' +
-                        '<button onclick="abrirCobro(' + c.id + ')" class="w-full bg-accent text-white font-black py-2.5 rounded-2xl text-xs shadow-md">💳 Cobrar Cuenta</button></div>';
-                }).join('');
-        }
-
-        function abrirCobro(id) {
-            var c = comandas.find(function(x) { return x.id === id; }); if (!c) return; comandaCobroActiva = c;
-            document.getElementById('cobroMesaLabel').textContent = c.mesa + (c.folio ? ' (' + c.folio + ')' : ''); document.getElementById('cobroSubtotal').textContent = '$' + Number(c.total).toFixed(2);
-            document.getElementById('cobroPropina').value = 0; document.getElementById('cobroMontoRecibido').value = '';
-            document.getElementById('cobroMesero').value = usuarioActivo ? usuarioActivo.nombre : (c.mesero || ''); calcClear(); actualizarTotalCobro(); document.getElementById('modal-cobro').classList.remove('hidden');
-        }
-
-        function cerrarCobro() { document.getElementById('modal-cobro').classList.add('hidden'); comandaCobroActiva = null; }
-        function setMetodoPago(m) {
-            metodoPago = m; var bEf = document.getElementById('btnPagoEfectivo'); var bTa = document.getElementById('btnPagoTarjeta'); var blq = document.getElementById('bloqueEfectivo');
-            if (m === 'Efectivo') { bEf.className = 'py-2 rounded-xl text-xs font-black bg-green-500 text-black'; bTa.className = 'py-2 rounded-xl text-xs font-black bg-gray-900 text-gray-400 border border-gray-800'; blq.classList.remove('hidden'); } 
-            else { bTa.className = 'py-2 rounded-xl text-xs font-black bg-blue-500 text-black'; bEf.className = 'py-2 rounded-xl text-xs font-black bg-gray-900 text-gray-400 border border-gray-800'; blq.classList.add('hidden'); }
-            actualizarTotalCobro();
-        }
-
-        function actualizarTotalCobro() {
-            if (!comandaCobroActiva) return;
-            var sub = Number(comandaCobroActiva.total); var prop = parseFloat(document.getElementById('cobroPropina').value) || 0; var tot = sub + prop; document.getElementById('cobroTotalPagar').textContent = '$' + tot.toFixed(2);
-            var rec = parseFloat(document.getElementById('cobroMontoRecibido').value) || 0; document.getElementById('cobroCambio').textContent = '$' + Math.max(0, rec - tot).toFixed(2);
-        }
-
-        function confirmarCobroFinal(imprimir) {
-            if (!comandaCobroActiva) return;
-            var sub = Number(comandaCobroActiva.total); var prop = parseFloat(document.getElementById('cobroPropina').value) || 0;
-            var mesero = document.getElementById('cobroMesero').value.trim() || 'General'; var tot = sub + prop;
-            var cobroData = { idComanda: comandaCobroActiva.id, propina: prop, mesero: mesero, metodoPago: metodoPago, montoRecibido: tot, cambio: 0 };
-            if (socket) socket.emit('cobrar_orden', cobroData); cerrarCobro();
-
-            var ultimoTicket = Object.assign({}, comandaCobroActiva, cobroData, { totalPagar: tot, horaCobro: new Date().toLocaleTimeString() });
-            var cuerpo = document.getElementById('cuerpoTicketDigital');
-            cuerpo.innerHTML = '<div class="text-center font-bold text-sm">' + escapeHTML(config.nombreNegocio) + '</div><div class="text-center text-[10px] text-gray-500">' + ultimoTicket.mesa + ' • ' + ultimoTicket.horaCobro + '</div>' +
-                '<div class="border-t border-b border-dashed my-2 py-1">' + ultimoTicket.items.map(function(i) { return '<div class="flex justify-between"><span>' + i.cantidad + 'x ' + escapeHTML(i.nombre) + '</span><span>$' + (i.precio * i.cantidad).toFixed(2) + '</span></div>'; }).join('') +
-                '</div><div class="text-right font-bold text-sm">TOTAL: $' + tot.toFixed(2) + ' (' + metodoPago + ')</div>';
-            document.getElementById('modal-ticket-digital').classList.remove('hidden'); if (imprimir) window.print();
-        }
-
-        function compartirTicketWhatsApp() { var texto = '*TICKET DIGITAL - ' + config.nombreNegocio + '*\nConsumo registrado.\n¡Gracias por tu visita!'; window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(texto), '_blank'); }
-
-        function renderizarListaUsuarios() {
-            var lista = document.getElementById('listaUsuariosAdmin'); if (!lista) return;
-            lista.innerHTML = usuariosSistema.map(function(u) {
-                return '<div class="flex justify-between items-center bg-app-base p-2.5 rounded-xl border border-gray-800 text-xs"><div><span class="font-bold text-white">' + escapeHTML(u.nombre) + ' (' + escapeHTML(u.usuario) + ')</span>' +
-                    '<span class="ml-2 pill-badge bg-accent text-white uppercase">' + escapeHTML(u.rol) + '</span></div>' +
-                    (usuariosSistema.length > 1 ? '<button onclick="eliminarUsuario(' + u.id + ')" class="text-red-400 font-bold px-2 py-0.5">Eliminar</button>' : '') + '</div>';
-            }).join('');
-        }
-        function guardarNuevoUsuario() {
-            var usuario = document.getElementById('nuevoUsuarioNick').value.trim(); var nombre = document.getElementById('nuevoUsuarioNombre').value.trim(); var pin = document.getElementById('nuevoUsuarioPin').value.trim(); var rol = document.getElementById('nuevoUsuarioRol').value;
-            if (!usuario || !nombre || !pin) return alert('Todos los campos son requeridos');
-            if (socket) socket.emit('guardar_usuario', { usuario: usuario, nombre: nombre, pin: pin, rol: rol });
-            document.getElementById('nuevoUsuarioNick').value = ''; document.getElementById('nuevoUsuarioNombre').value = ''; document.getElementById('nuevoUsuarioPin').value = ''; alert('Usuario registrado.');
-        }
-        function eliminarUsuario(id) { if (confirm('¿Eliminar usuario?')) { if (socket) socket.emit('eliminar_usuario', id); } }
-
-        function guardarConfigGeneral() {
-            var sup = parseInt(document.getElementById('sliderTextoSup').value, 10) || 20; var inf = parseInt(document.getElementById('sliderTextoInf').value, 10) || 15;
-            var c = { nombreNegocio: document.getElementById('configNombreNegocio').value.trim(), promoTexto: document.getElementById('configPromo').value.trim(), promoTextoInferior: document.getElementById('configPromoInferior').value.trim(), tamanoTextoSup: sup, tamanoTextoInf: inf, redesUrl: document.getElementById('configRedes').value.trim(), mediaUrl: document.getElementById('configMedia').value.trim(), videoConAudio: document.getElementById('checkVideoAudio').checked };
-            if (socket) socket.emit('actualizar_config', c); alert('Ajustes y tamaños guardados correctamente.');
-        }
-
-        function generarQR(tipo) {
-            var m = document.getElementById('selectMesaQR').value; var div = document.getElementById('qrCodeDiv'); div.innerHTML = ''; document.getElementById('contenedorQR').classList.remove('hidden');
-            var txt = (tipo === 'cliente') ? ('MESA ' + m) : 'INGRESO PERSONAL';
-            document.getElementById('qrTextoMesa').textContent = txt;
-            var base = window.location.protocol + '//' + ipServidor + '/';
-            var finalUrl = (tipo === 'cliente') ? (base + '?modo=cliente&mesa=' + m) : (base + '?modo=login');
-            new QRCode(div, { text: finalUrl, width: 140, height: 140 });
-        }
-
-        function renderizarInventario() {
-            var selectCompra = document.getElementById('compraSelectProd'); var lista = document.getElementById('listaAdminProductos'); if (!lista || !selectCompra) return;
-            selectCompra.innerHTML = productos.map(function(p) { return '<option value="' + p.id + '">' + escapeHTML(p.nombre) + ' (Stock: ' + p.stock + ')</option>'; }).join('');
-            lista.innerHTML = productos.map(function(p) {
-                var costo = p.costo || 0; var margen = p.precio > 0 ? (((p.precio - costo) / p.precio) * 100).toFixed(1) : 0;
-                return '<div class="flex justify-between items-center bg-app-base p-3 rounded-2xl border border-gray-800 text-xs"><div><div class="font-extrabold text-white">' + escapeHTML(p.nombre) + ' <span class="text-blue-400 font-normal">(' + escapeHTML(p.categoria) + ')</span></div>' +
-                    '<div class="text-gray-400 mt-1 space-x-2"><span>Costo: $' + costo.toFixed(2) + '</span><span>Venta: $' + Number(p.precio).toFixed(2) + '</span><span class="text-green-400 font-bold">Margen: ' + margen + '%</span><span>Stock: ' + p.stock + '</span></div></div>' +
-                    '<button onclick="eliminarProducto(' + p.id + ')" class="text-red-400 hover:text-red-300 font-bold px-2 py-1">Eliminar</button></div>';
-            }).join('');
-        }
-
-        function guardarProducto() {
-            var nombre = document.getElementById('prodNombre').value.trim(); var costo = parseFloat(document.getElementById('prodCosto').value) || 0;
-            var precio = parseFloat(document.getElementById('prodPrecio').value); var stock = parseInt(document.getElementById('prodStock').value, 10) || 0; var categoria = document.getElementById('prodCategoria').value;
-            if (!nombre || isNaN(precio)) return alert('Nombre y precio son obligatorios');
-            productos.push({ id: Date.now(), nombre: nombre, costo: costo, precio: precio, stock: stock, categoria: categoria }); if (socket) socket.emit('actualizar_productos', productos);
-            document.getElementById('prodNombre').value = ''; document.getElementById('prodPrecio').value = ''; document.getElementById('prodCosto').value = ''; document.getElementById('prodStock').value = ''; renderizarInventario();
-        }
-
-        function procesarCompraStock() {
-            var idProducto = document.getElementById('compraSelectProd').value; var cant = parseInt(document.getElementById('compraCantidad').value, 10); var nCosto = document.getElementById('compraNuevoCosto').value;
-            if (!cant || cant <= 0) return alert('Ingresa una cantidad válida');
-            if (socket) socket.emit('registrar_compra_stock', { idProducto: idProducto, cantidadSumar: cant, nuevoCosto: nCosto ? parseFloat(nCosto) : null });
-            document.getElementById('compraCantidad').value = ''; document.getElementById('compraNuevoCosto').value = ''; renderizarInventario(); alert('Inventario actualizado');
-        }
-
-        function eliminarProducto(id) { if (confirm('¿Eliminar producto?')) { productos = productos.filter(function(p) { return p.id !== id; }); if (socket) socket.emit('actualizar_productos', productos); renderizarInventario(); } }
-
-        // ======================= SOCKETS =======================
-        window.addEventListener('DOMContentLoaded', function() {
-            var params = new URLSearchParams(window.location.search);
-            var mUrl = params.get('mesa');
-            var modoUrl = params.get('modo');
-
-            if (mUrl) {
-                miMesaAsignada = 'Mesa ' + mUrl; var sM = document.getElementById('selectMesa'); var lM = document.getElementById('labelMesaAsignada');
-                if (sM) { sM.innerHTML += '<option value="'+miMesaAsignada+'">'+miMesaAsignada+'</option>'; sM.value = miMesaAsignada; sM.disabled = true; }
-                if (lM) lM.textContent = miMesaAsignada;
-            }
-
-            // SI EL MODO ES CLIENTE SE BLOQUEA EL RETORNO
-            if (modoUrl === 'cliente') {
-                entrarModo('cliente');
-                var btnTop = document.getElementById('btnSalirTop');
-                if (btnTop) btnTop.classList.add('hidden');
-            } else if (modoUrl === 'login') {
-                abrirModalLogin();
-            }
-
-            try {
-                if (typeof io !== 'undefined') {
-                    socket = io();
-                    socket.on('sincronizar_todo', function(db) {
-                        caja = db.caja || caja; productos = db.productos || productos; comandas = db.comandas || []; historialVentas = db.historialVentas || []; egresos = db.egresos || []; usuariosSistema = db.usuarios || []; archivosPublicidad = db.archivosPublicidad || []; config = db.config || config;
-                        if (db.ipLocal) ipServidor = db.ipLocal + ':3000';
-                        if (config.skinSeleccionada) aplicarSkinGlobal(config.skinSeleccionada, false);
-                        var r = document.documentElement; if (config.tamanoTextoSup) r.style.setProperty('--marquee-size-sup', config.tamanoTextoSup + 'px'); if (config.tamanoTextoInf) r.style.setProperty('--marquee-size-inf', config.tamanoTextoInf + 'px');
-                        var titulo = document.getElementById('tituloBienvenida'); var header = document.getElementById('headerNombreNegocio');
-                        if (titulo && config.nombreNegocio) titulo.textContent = config.nombreNegocio; if (header && config.nombreNegocio) header.textContent = config.nombreNegocio;
-
-                        var vC = document.getElementById('vista-comandas'); if (vC && !vC.classList.contains('hidden')) renderizarMenu();
-                        var vB = document.getElementById('vista-barra'); if (vB && !vB.classList.contains('hidden')) renderizarBarra();
-                        var vM = document.getElementById('vista-pantalla-cliente'); if (vM && !vM.classList.contains('hidden')) renderizarMonitor();
-                        var vA = document.getElementById('vista-admin'); if (vA && !vA.classList.contains('hidden')) renderizarAdmin();
-                        var vCo = document.getElementById('vista-mesero-cobro'); if (vCo && !vCo.classList.contains('hidden')) renderizarMeseroCobro();
-                        var vMap = document.getElementById('vista-mapa'); if (vMap && !vMap.classList.contains('hidden')) renderizarMapa();
-                    });
-
-                    socket.on('sonido_comanda_nueva', function() { reproducirAlertaSonora('nuevo'); });
-                    socket.on('notificacion_pedido_listo', function(datos) {
-                        reproducirAlertaSonora('listo'); if (navigator.vibrate) { try { navigator.vibrate([200, 100, 200]); } catch(e){} }
-                        var toast = document.getElementById('toastNotificacion');
-                        if (toast) { document.getElementById('toastTitulo').textContent = '🔔 ¡' + datos.mesa + ' LISTA!'; document.getElementById('toastMensaje').textContent = 'Orden preparada para servir.'; toast.classList.remove('hidden'); setTimeout(function() { toast.classList.add('hidden'); }, 7000); }
-                        if (rolActivo === 'cliente' && datos.mesa === miMesaAsignada) { document.getElementById('modal-alerta-cliente').classList.remove('hidden'); document.getElementById('alertaMesaNombre').textContent = datos.mesa; }
-                    });
-                }
-            } catch (err) {}
-        });
-    </script>
-</head>
-<body class="min-h-screen flex flex-col select-none pb-20">
-
-    <div id="btnActivarAudio" class="bg-accent text-white px-3 py-2 text-center text-xs font-black cursor-pointer shadow-lg tracking-wider" onclick="activarAudioNavegador()">🔊 TOCAR AQUÍ PARA ACTIVAR EL TIMBRE DE NOTIFICACIONES Y SONIDO</div>
-
-    <div id="toastNotificacion" class="fixed top-5 right-5 z-50 hidden bg-green-500 text-black font-black px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-3 border-2 border-white animate-bounce glow-green"><span class="text-3xl">🔔</span><div><h4 class="text-sm uppercase tracking-wide" id="toastTitulo">¡PEDIDO LISTO!</h4><p class="text-xs font-bold" id="toastMensaje">Mesa lista para entregar</p></div></div>
-
-    <div id="modal-alerta-cliente" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-6 text-center"><div class="bg-card border-2 border-purple-500 p-8 rounded-3xl max-w-sm w-full space-y-5 glow-purple"><div class="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-4xl mx-auto shadow-2xl animate-bounce">🍺</div><h2 class="text-2xl font-black text-white">¡TU PEDIDO ESTÁ LISTO!</h2><p class="text-sm text-purple-300 font-bold" id="alertaMesaNombre">Mesa 1</p><p class="text-xs text-gray-400">La barra acaba de terminar de preparar tus platillos y bebidas. Ya van en camino o puedes recogerlos.</p><button onclick="document.getElementById('modal-alerta-cliente').classList.add('hidden')" class="w-full bg-green-500 text-black font-black py-3 rounded-2xl text-sm">Entendido, ¡gracias!</button></div></div>
-
-    <div id="pantalla-bienvenida" class="fixed inset-0 bg-app-base z-50 flex items-center justify-center p-4">
-        <div class="bg-card border border-gray-800 p-8 rounded-3xl max-w-sm w-full text-center space-y-6 shadow-2xl box-glow">
-            <div class="w-20 h-20 bg-accent rounded-full flex items-center justify-center text-4xl mx-auto shadow-2xl">🍺</div>
-            <div><h1 class="text-2xl font-black text-accent tracking-wider" id="tituloBienvenida">LA BARRITA PRO</h1><p class="text-xs text-gray-400 mt-1">Sistema POS & Terminal Digital</p></div>
-            <div class="space-y-3">
-                <button onclick="entrarModo('cliente')" type="button" class="w-full bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-extrabold py-3.5 rounded-2xl text-xs transition shadow-lg">📱 SOY CLIENTE (Menú Digital)</button>
-                <button onclick="abrirModalLogin()" type="button" class="w-full bg-accent hover:opacity-90 active:scale-95 text-white font-extrabold py-3.5 rounded-2xl text-xs transition shadow-lg">🔒 INGRESO PERSONAL (Mesero / Barra / Admin)</button>
-                <button onclick="entrarModo('monitor')" type="button" class="w-full bg-app-base hover:bg-gray-900 active:scale-95 text-gray-300 font-bold py-2.5 rounded-2xl text-xs transition border border-gray-800">📺 PANTALLA MONITOR ULTRA</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-login" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-card border border-gray-800 p-7 rounded-3xl max-w-xs w-full text-center space-y-4 shadow-2xl">
-            <h3 class="font-extrabold text-accent text-sm tracking-wide">Acceso por Credenciales</h3>
-            <input type="text" id="loginUsuario" placeholder="Usuario (ej: admin)" class="w-full bg-black border border-gray-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none">
-            <input type="password" id="loginPin" placeholder="PIN / Contraseña" class="w-full bg-black border border-gray-800 rounded-xl px-3.5 py-2.5 text-center text-lg tracking-widest text-white outline-none">
-            <div class="flex gap-2">
-                <button onclick="procesarLogin()" type="button" class="flex-1 bg-green-500 text-black font-extrabold py-2.5 rounded-xl text-xs">Entrar</button>
-                <button onclick="cerrarModalLogin()" type="button" class="flex-1 bg-gray-800 text-gray-300 font-bold py-2.5 rounded-xl text-xs">Cancelar</button>
-            </div>
-        </div>
-    </div>
-
-    <header id="appTopBar" class="hidden bg-app-panel border-b border-gray-800 border-opacity-80 px-4 py-3 sticky top-0 z-40 flex justify-between items-center">
-        <div class="flex items-center gap-2"><span class="text-xl">🍺</span><h1 id="headerNombreNegocio" class="text-sm font-black text-accent tracking-wider">LA BARRITA</h1></div>
-        <button id="btnSalirTop" onclick="cerrarSesion()" type="button" class="text-xs bg-red-900 bg-opacity-60 hover:bg-red-900 text-red-300 px-3 py-1.5 rounded-xl border border-red-900 font-bold">Salir al Inicio</button>
-    </header>
-
-    <!-- VISTA MAPA DE MESAS -->
-    <main id="vista-mapa" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto space-y-5">
-        <h2 class="text-base font-black text-white">🗺️ MAPA DE MESAS</h2>
-        <div id="gridMapaMesas" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
-    </main>
-
-    <main id="vista-comandas" class="hidden flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 max-w-7xl w-full mx-auto">
-        <div class="lg:col-span-2 space-y-3"><div id="gridProductos" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div></div>
-        <div class="bg-card rounded-3xl border p-4 flex flex-col h-fit sticky top-16 space-y-3 shadow-2xl">
-            <div class="flex justify-between items-center border-b border-gray-800 pb-2"><h2 class="font-extrabold text-accent text-sm">COMANDA: <span id="labelMesaAsignada" class="text-white">Mesa 1</span></h2><select id="selectMesa" class="bg-black text-white font-bold text-xs px-2.5 py-1.5 rounded-xl border border-gray-700 outline-none"><option value="Mesa 1">Mesa 1</option><option value="Mesa 2">Mesa 2</option><option value="Mesa 3">Mesa 3</option><option value="Mesa 4">Mesa 4</option><option value="Mesa 5">Mesa 5</option><option value="Barra">Barra</option><option value="Para Llevar">Para Llevar</option></select></div>
-            <div class="bg-black p-2.5 rounded-2xl border border-gray-800 text-xs space-y-1.5"><input type="text" id="clienteNombre" placeholder="Nombre cliente (opcional)" class="w-full bg-app-input border border-gray-800 rounded-xl px-2.5 py-1.5 text-white outline-none"><input type="tel" id="clienteTelefono" placeholder="WhatsApp para promociones" class="w-full bg-app-input border border-gray-800 rounded-xl px-2.5 py-1.5 text-white outline-none"></div>
-            <div id="listaCarrito" class="flex-1 space-y-1.5 max-h-56 overflow-y-auto text-xs py-1"><p class="text-center py-6 text-gray-500 text-xs">Toca un platillo del menú para agregar</p></div>
-            <div class="border-t border-gray-800 pt-2"><div class="flex justify-between mb-2 text-base font-black text-green-400"><span>Total:</span><span id="totalCarrito">$0.00</span></div><button id="btnEnviarComanda" onclick="procesarEnvioOrden()" type="button" class="w-full bg-green-500 hover:bg-green-400 text-black font-black py-3 rounded-2xl text-xs transition shadow-lg">🚀 ENVIAR ORDEN</button></div>
-        </div>
-    </main>
-
-    <div id="modal-turno-cliente" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white text-black p-6 rounded-3xl max-w-xs w-full text-center space-y-4 shadow-2xl border-2 border-accent">
-            <div class="border-b-2 border-dashed border-gray-300 pb-3"><span class="text-[10px] tracking-widest text-gray-400 font-black block uppercase">TURNO DE PEDIDO</span><div id="ticketFolioGrande" class="text-4xl font-black font-mono tracking-tighter text-purple-700 my-1">M1-204</div><div class="text-xs font-bold text-gray-700" id="ticketMesaNombre">Mesa 1</div><div class="text-[10px] text-gray-400" id="ticketHoraGenerado">18:30</div></div>
-            <div id="ticketListaItems" class="text-xs text-left text-gray-700 max-h-36 overflow-y-auto divide-y divide-gray-100"></div>
-            <div class="flex justify-between items-center text-sm font-black border-t-2 border-dashed border-gray-300 pt-2"><span>Total:</span><span id="ticketTotalPagar" class="text-green-600 text-base">$0.00</span></div>
-            <p class="text-xs text-green-600 font-bold mt-2">¡Tu pedido ha sido enviado a la barra!</p><p class="text-[10px] text-gray-500 leading-tight">Muestra este folio al mesero cuando lleve tus bebidas.</p>
-            <div class="flex gap-2 mt-2"><button onclick="document.getElementById('modal-turno-cliente').classList.add('hidden')" type="button" class="w-full bg-green-500 text-black font-extrabold py-2.5 rounded-xl text-xs">Entendido</button></div>
-        </div>
-    </div>
-
-    <main id="vista-barra" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto space-y-3"><h2 class="text-base font-black text-white">🍻 COMANDAS ACTIVAS EN BARRA</h2><div id="gridComandasBarra" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div></main>
-    <main id="vista-mesero-cobro" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto space-y-3"><h2 class="text-base font-black text-green-400">💳 CUENTAS POR COBRAR</h2><div id="gridMeseroCobro" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div></main>
-
-    <main id="vista-inventario" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="space-y-4">
-            <div class="bg-card p-4 rounded-3xl border space-y-3 shadow-xl">
-                <h3 class="font-black text-green-400 text-xs uppercase tracking-wide">➕ Catálogo de Productos</h3>
-                <input type="text" id="prodNombre" placeholder="Nombre platillo / bebida *" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white">
-                <div class="grid grid-cols-2 gap-2"><input type="number" step="0.01" id="prodCosto" placeholder="Costo ($)" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"><input type="number" step="0.01" id="prodPrecio" placeholder="Venta ($) *" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"></div>
-                <div class="grid grid-cols-2 gap-2"><input type="number" id="prodStock" placeholder="Stock" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"><select id="prodCategoria" class="w-full bg-black border border-gray-800 rounded-xl px-2 py-2 text-xs text-white"><option value="Alitas">Alitas</option><option value="Nachos">Nachos</option><option value="Micheladas">Micheladas</option><option value="Snacks">Snacks</option><option value="Bebidas">Bebidas</option><option value="Comidas">Comidas</option></select></div>
-                <button onclick="guardarProducto()" type="button" class="w-full bg-green-500 text-black font-extrabold py-2.5 rounded-xl text-xs">Guardar en Catálogo</button>
-            </div>
-            <div class="bg-card p-4 rounded-3xl border space-y-3 shadow-xl">
-                <h3 class="font-black text-accent text-xs uppercase tracking-wide">📥 Entrada de Stock (Compra)</h3>
-                <select id="compraSelectProd" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"></select>
-                <div class="grid grid-cols-2 gap-2"><input type="number" id="compraCantidad" placeholder="Cantidad sumar" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"><input type="number" step="0.01" id="compraNuevoCosto" placeholder="Nuevo costo ($)" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"></div>
-                <button onclick="procesarCompraStock()" type="button" class="w-full bg-accent text-white font-extrabold py-2.5 rounded-xl text-xs">Sumar Existencias</button>
-            </div>
-        </div>
-        <div class="lg:col-span-2 bg-card p-4 rounded-3xl border"><h3 class="font-black text-white text-xs mb-3 uppercase tracking-wide">Existencias y Márgenes de Ganancia</h3><div id="listaAdminProductos" class="space-y-2 max-h-inv overflow-y-auto"></div></div>
-    </main>
-
-    <main id="vista-admin" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto space-y-5">
-        <div class="bg-card p-4 rounded-3xl border flex flex-wrap justify-between items-center gap-3 shadow-xl">
-            <div class="flex items-center gap-3"><h2 class="text-base font-black text-white">💰 ESTADO DE CAJA:</h2><span id="badgeEstadoCaja" class="pill-badge">CERRADA</span></div>
-            <div class="flex flex-wrap gap-2">
-                <button onclick="abrirCajaTurno()" class="bg-green-600 hover:bg-green-500 text-white font-bold px-3.5 py-2 rounded-xl text-xs">💵 Abrir Caja (Fondo)</button>
-                <button onclick="registrarGastoOperativo()" class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold px-3.5 py-2 rounded-xl text-xs">📤 Registrar Egreso / Gasto</button>
-                <button onclick="ejecutarCorteCaja()" class="bg-red-600 hover:bg-red-500 text-white font-bold px-3.5 py-2 rounded-xl text-xs">🔒 Realizar Corte (Cierre)</button>
-            </div>
-        </div>
-        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            <div class="bg-card p-3 rounded-2xl border text-center"><span class="text-xxs text-gray-400 font-bold block">FONDO INICIAL</span><span id="lblFondoInicial" class="text-base font-black text-gray-200">$0.00</span></div>
-            <div class="bg-card p-3 rounded-2xl border text-center"><span class="text-xxs text-gray-400 font-bold block">VENTAS TOTALES</span><span id="lblTotalIngresos" class="text-base font-black text-green-400">$0.00</span></div>
-            <div class="bg-card p-3 rounded-2xl border text-center"><span class="text-xxs text-gray-400 font-bold block">EGRESOS / GASTOS</span><span id="lblTotalEgresos" class="text-base font-black text-red-400">$0.00</span></div>
-            <div class="bg-card p-3 rounded-2xl border text-center"><span class="text-xxs text-gray-400 font-bold block">GANANCIA ESTIMADA</span><span id="lblGananciaNeta" class="text-base font-black text-accent">$0.00</span></div>
-            <div class="bg-card p-3 rounded-2xl border text-center col-span-2 sm:col-span-1"><span class="text-xxs text-gray-400 font-bold block">EFECTIVO EN CAJA</span><span id="lblEfectivoEsperado" class="text-base font-black text-blue-400">$0.00</span></div>
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <div class="lg:col-span-2 bg-card p-4 rounded-3xl border"><h3 class="text-xs font-black uppercase text-gray-300 mb-3 tracking-wide">📈 Balance Operativo del Día</h3><canvas id="chartFinanzas" height="110"></canvas></div>
-            <div class="bg-card p-4 rounded-3xl border space-y-3"><h3 class="text-xs font-black uppercase text-accent tracking-wide">🤵 Rendimiento por Mesero</h3><div id="listaRendimientoMeseros" class="space-y-2 max-h-52 overflow-y-auto pr-1"></div>
-                <div class="border-t border-gray-800 pt-2"><h4 class="text-xxs font-bold text-gray-400 mb-1">Gastos del turno:</h4><div id="listaEgresosCaja" class="space-y-1 max-h-24 overflow-y-auto"></div></div>
-            </div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div class="bg-card p-5 rounded-3xl border space-y-4 shadow-xl">
-                <h3 class="font-black text-accent text-xs uppercase tracking-wide">🎨 Selector de Skins del Sistema</h3>
-                <div class="grid grid-cols-2 gap-2.5">
-                    <button onclick="aplicarSkinGlobal('tech-neon', true)" class="p-3 rounded-2xl bg-[#0f0f15] border border-purple-500 border-opacity-60 text-purple-300 font-bold text-xs flex items-center justify-between"><span>Tech Neon</span> <span class="w-3 h-3 rounded-full bg-purple-500"></span></button>
-                    <button onclick="aplicarSkinGlobal('onyx-gold', true)" class="p-3 rounded-2xl bg-gray-900 border border-yellow-500 border-opacity-60 text-yellow-300 font-bold text-xs flex items-center justify-between"><span>Onyx Gold</span> <span class="w-3 h-3 rounded-full bg-yellow-500"></span></button>
-                    <button onclick="aplicarSkinGlobal('cyber-cyan', true)" class="p-3 rounded-2xl bg-gray-900 border border-blue-500 border-opacity-60 text-blue-300 font-bold text-xs flex items-center justify-between"><span>Cyber Cyan</span> <span class="w-3 h-3 rounded-full bg-blue-400"></span></button>
-                    <button onclick="aplicarSkinGlobal('emerald-bar', true)" class="p-3 rounded-2xl bg-green-900 border border-green-500 border-opacity-60 text-green-300 font-bold text-xs flex items-center justify-between"><span>Emerald Bar</span> <span class="w-3 h-3 rounded-full bg-green-500"></span></button>
-                </div>
-            </div>
-            <div class="bg-card p-5 rounded-3xl border space-y-3 shadow-xl">
-                <h3 class="font-black text-accent text-xs uppercase tracking-wide">👥 Gestión de Usuarios y Roles</h3>
-                <div class="space-y-2">
-                    <input type="text" id="nuevoUsuarioNick" placeholder="Usuario (ej: mesero2)" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white">
-                    <input type="text" id="nuevoUsuarioNombre" placeholder="Nombre completo" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white">
-                    <div class="grid grid-cols-2 gap-2"><input type="password" id="nuevoUsuarioPin" placeholder="PIN de acceso" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-2 text-xs text-white"><select id="nuevoUsuarioRol" class="w-full bg-black border border-gray-800 rounded-xl px-2 py-2 text-xs text-white"><option value="mesero">Mesero / Caja</option><option value="barra">Barra / Cocina</option><option value="admin">Administrador</option></select></div>
-                    <button onclick="guardarNuevoUsuario()" type="button" class="w-full bg-accent text-white font-black py-2 rounded-xl text-xs">Guardar Usuario</button>
-                </div>
-                <div id="listaUsuariosAdmin" class="space-y-1.5 max-h-32 overflow-y-auto border-t border-gray-800 pt-2"></div>
-            </div>
-        </div>
-
-        <!-- MÓDULO DE CREADOR DE PORTALES QR SEPARADOS -->
-        <div class="bg-card p-5 rounded-3xl border space-y-3 shadow-xl">
-            <h3 class="font-black text-blue-400 text-xs uppercase tracking-wide">⚙️ Textos del Monitor y Enlaces</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                <div><label class="text-xxs text-gray-400 block mb-1">Nombre del Bar:</label><input type="text" id="configNombreNegocio" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-white"></div>
-                <div><label class="text-xxs text-gray-400 block mb-1">Enlace para QR Redes Sociales:</label><input type="text" id="configRedes" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-white"></div>
-                <div><div class="flex justify-between items-center mb-1"><label class="text-xxs text-gray-400">Texto Superior:</label><span id="lblTamanoSup" class="text-xxs text-purple-400 font-bold">20px</span></div><input type="text" id="configPromo" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-white mb-1"><input type="range" id="sliderTextoSup" min="14" max="42" value="20" class="w-full" oninput="cambiarTamanoTexto('sup', this.value)"></div>
-                <div><div class="flex justify-between items-center mb-1"><label class="text-xxs text-gray-400">Texto Inferior:</label><span id="lblTamanoInf" class="text-xxs text-blue-400 font-bold">15px</span></div><input type="text" id="configPromoInferior" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-white mb-1"><input type="range" id="sliderTextoInf" min="11" max="32" value="15" class="w-full" oninput="cambiarTamanoTexto('inf', this.value)"></div>
-                <div><label class="text-xxs text-gray-400 block mb-1">URL directa Video/Imagen (Opcional):</label><input type="text" id="configMedia" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-white"></div>
-                <div class="flex items-center gap-2 pt-4"><input type="checkbox" id="checkVideoAudio" class="w-4 h-4 rounded"><label for="checkVideoAudio" class="text-xs font-bold text-gray-300">Reproducir videos promocionales CON audio</label></div>
-            </div>
-            <button onclick="guardarConfigGeneral()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-2 px-5 rounded-xl text-xs mt-2">Guardar Ajustes de Pantalla</button>
-            
-            <div class="pt-4 border-t border-gray-800 space-y-2 mt-4">
-                <h4 class="font-bold text-xs text-gray-300">Generar Accesos Directos (QR):</h4>
-                <div class="flex gap-2">
-                    <select id="selectMesaQR" class="bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-xs text-white flex-1"><option value="1">Mesa 1</option><option value="2">Mesa 2</option><option value="3">Mesa 3</option><option value="4">Mesa 4</option><option value="5">Mesa 5</option></select>
-                    <button onclick="generarQR('cliente')" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs">QR Menú Cliente</button>
-                </div>
-                <button onclick="generarQR('login')" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 rounded-xl text-xs w-full">QR Ingreso Personal (Trabajadores)</button>
-            </div>
-            <div id="contenedorQR" class="bg-white p-3 rounded-2xl hidden flex flex-col items-center justify-center mt-2 max-w-xs mx-auto text-black"><div id="qrCodeDiv"></div><span id="qrTextoMesa" class="font-black text-xs mt-1"></span></div>
-        </div>
-    </main>
-
-    <!-- VISTA 6: MONITOR ULTRA DARK CON BOTÓN DE REGRESO -->
-    <main id="vista-pantalla-cliente" class="hidden flex-1 flex flex-col justify-between p-3 w-full mx-auto space-y-2 bg-black min-h-screen relative">
-        <button onclick="cerrarSesion()" class="absolute top-3 left-4 z-50 bg-gray-900 border border-gray-700 text-gray-400 px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg opacity-40 hover:opacity-100 transition">⬅ Volver al Inicio</button>
-        <div class="bg-accent text-white font-black py-2.5 px-4 rounded-2xl shadow-2xl marquee-container uppercase tracking-wider border border-white border-opacity-10"><div id="marqueePromoSuperior" class="marquee-content font-black">¡BIENVENIDOS!</div></div>
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-3 flex-1 items-stretch my-1">
-            <div class="bg-app-panel border border-gray-900 p-4 rounded-3xl shadow-2xl flex flex-col"><h3 class="text-xs font-black text-accent mb-3 flex items-center gap-2"><span>📺</span> PEDIDOS EN BARRA</h3><div id="gridPantallaEstado" class="space-y-2.5 max-h-panel overflow-y-auto flex-1 pr-1"></div></div>
-            <div class="lg:col-span-2 bg-black border border-gray-900 p-2 rounded-3xl shadow-2xl flex items-center justify-center min-h-stage overflow-hidden"><div class="stage-media-wrapper" id="contenedorMediaCentral"></div></div>
-            <div class="bg-app-panel border border-gray-900 p-5 rounded-3xl text-center flex flex-col items-center justify-center shadow-2xl"><h4 class="font-black text-blue-400 text-sm mb-2">🎉 PARTICIPA EN DINÁMICAS</h4><p class="text-xs text-gray-400 mb-4">Escanea para seguir eventos y promociones:</p><div id="qrRedesPublico" class="bg-white p-3 rounded-2xl shadow-lg"></div></div>
-        </div>
-        <div class="bg-app-panel border border-gray-900 text-blue-400 font-black py-2 px-4 rounded-2xl shadow-lg marquee-container uppercase"><div id="marqueePromoInferior" class="marquee-content-reverse font-bold">CONSULTA NUESTRAS PROMOCIONES DE LA CASA</div></div>
-    </main>
-
-    <div id="modal-cobro" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-3">
-        <div class="bg-card border border-gray-800 p-5 rounded-3xl max-w-xl w-full shadow-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="space-y-3">
-                <div class="flex justify-between items-center border-b border-gray-800 pb-2"><h3 class="font-black text-green-400 text-sm">Cobrar Cuenta</h3><span id="cobroMesaLabel" class="text-xs font-bold text-white">Mesa 1</span></div>
-                <div class="bg-black p-3 rounded-2xl space-y-1 text-xs border border-gray-800"><div class="flex justify-between"><span>Consumo:</span><span id="cobroSubtotal">$0.00</span></div><div class="flex justify-between items-center"><span>Propina ($):</span><input type="number" id="cobroPropina" value="0" oninput="actualizarTotalCobro()" class="w-16 bg-app-input border border-gray-800 text-right px-2 py-0.5 rounded-lg text-white font-bold"></div><div class="flex justify-between font-black text-green-400 border-t border-gray-800 pt-1.5 text-sm"><span>Total a Pagar:</span><span id="cobroTotalPagar">$0.00</span></div></div>
-                <div class="grid grid-cols-2 gap-2"><button id="btnPagoEfectivo" onclick="setMetodoPago('Efectivo')" type="button" class="py-2 rounded-xl text-xs font-black bg-green-500 text-black">💵 Efectivo</button><button id="btnPagoTarjeta" onclick="setMetodoPago('Tarjeta')" type="button" class="py-2 rounded-xl text-xs font-black bg-gray-900 text-gray-400 border border-gray-800">💳 Tarjeta</button></div>
-                <div id="bloqueEfectivo" class="space-y-1.5 text-xs bg-black p-3 rounded-2xl border border-gray-800"><div class="flex justify-between items-center"><span class="text-gray-400">Recibido ($):</span><input type="number" id="cobroMontoRecibido" oninput="actualizarTotalCobro()" placeholder="0.00" class="w-24 bg-app-input border border-gray-700 text-right px-2 py-1 rounded-lg text-white font-bold text-sm"></div><div class="flex justify-between font-black text-blue-400 text-sm"><span>Cambio:</span><span id="cobroCambio">$0.00</span></div></div>
-                <input type="text" id="cobroMesero" placeholder="Nombre mesero que cobra" class="w-full bg-black border border-gray-800 text-xs px-3 py-2 rounded-xl text-white">
-                <div class="flex gap-2 pt-1"><button onclick="confirmarCobroFinal(true)" type="button" class="flex-1 bg-green-500 text-black font-black py-2.5 rounded-xl text-xs">Cobrar e Imprimir</button><button onclick="confirmarCobroFinal(false)" type="button" class="flex-1 bg-accent text-white font-bold py-2.5 rounded-xl text-xs">Solo Cobrar</button><button onclick="cerrarCobro()" type="button" class="bg-gray-800 text-gray-300 font-bold px-3 py-2.5 rounded-xl text-xs">Cerrar</button></div>
-            </div>
-            <div class="bg-black border border-gray-800 p-3 rounded-2xl flex flex-col justify-between">
-                <div><div class="text-xxs text-gray-400 mb-1 flex justify-between font-bold"><span>CALCULADORA DE CAJA</span><button onclick="calcUsarMontoRecibido()" class="text-blue-400 hover:underline">↳ Usar como Recibido</button></div><div id="calcPantalla" class="bg-app-base text-right px-3 py-2 rounded-xl text-xl font-mono font-black text-green-400 border border-gray-800 mb-2 truncate">0</div></div>
-                <div class="grid grid-cols-4 gap-1.5 text-xs font-bold">
-                    <button onclick="calcClear()" class="bg-red-900 text-red-300 p-2.5 rounded-xl">C</button><button onclick="calcOp('/')" class="bg-gray-900 text-gray-300 p-2.5 rounded-xl">÷</button><button onclick="calcOp('*')" class="bg-gray-900 text-gray-300 p-2.5 rounded-xl">×</button><button onclick="calcOp('-')" class="bg-gray-900 text-gray-300 p-2.5 rounded-xl">−</button>
-                    <button onclick="calcNum(7)" class="bg-app-input text-white p-2.5 rounded-xl border border-gray-800">7</button><button onclick="calcNum(8)" class="bg-app-input text-white p-2.5 rounded-xl border border-gray-800">8</button><button onclick="calcNum(9)" class="bg-app-input text-white p-2.5 rounded-xl border border-gray-800">9</button><button onclick="calcOp('+')" class="bg-gray-900 text-gray-300 p-2.5 rounded-xl row-span-2 flex items-center justify-center text-base">+</button>
-                    <button onclick="calcNum(4)" class="bg-app-input text-white p-2.5 rounded-xl border border-gray-800">4</button><button onclick="calcNum(5)" class="bg-app-input text-white p-2.5 rounded-xl border border-gray-800">5</button><button onclick="calcNum(6)" class="bg-app-input text-white p-2.5 rounded-xl border border-gray-800">6</button>
-                    <button onclick="calcNum(1)" class="bg-app-input text-white p-2.5 rounded-xl border border-gray-800">1</button><button onclick="calcNum(2)" class="bg-app-input text-white p-2.5 rounded-xl border border-gray-800">2</button><button onclick="calcNum(3)" class="bg-app-input text-white p-2.5 rounded-xl border border-gray-800">3</button><button onclick="calcIgual()" class="bg-green-500 text-black p-2.5 rounded-xl row-span-2 flex items-center justify-center text-base font-black">=</button>
-                    <button onclick="calcNum(0)" class="bg-app-input text-white p-2.5 rounded-xl col-span-2 border border-gray-800">0</button><button onclick="calcPunto()" class="bg-app-input text-white p-2.5 rounded-xl border border-gray-800">.</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-ticket-digital" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4"><div class="bg-white text-black p-5 rounded-3xl max-w-xs w-full space-y-3 shadow-2xl"><div id="cuerpoTicketDigital" class="text-xs font-mono space-y-1"></div><div class="flex gap-2"><button onclick="compartirTicketWhatsApp()" type="button" class="flex-1 bg-green-600 text-white font-bold py-2 rounded-xl text-xs">WhatsApp</button><button onclick="window.print()" type="button" class="bg-gray-800 text-white font-bold px-3 py-2 rounded-xl text-xs">Imprimir</button><button onclick="document.getElementById('modal-ticket-digital').classList.add('hidden')" type="button" class="bg-gray-200 text-black font-bold px-3 py-2 rounded-xl text-xs">Listo</button></div></div></div>
-
-    <nav id="appBottomBar" class="fixed bottom-0 left-0 right-0 bg-app-base bg-opacity-95 backdrop-blur-md border-t border-gray-800 border-opacity-80 z-40 px-3 py-1 hidden"></nav>
-    <div id="area-impresion-ticket"></div>
-</body>
-</html>
