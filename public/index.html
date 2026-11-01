@@ -80,7 +80,7 @@
             if (modo === 'cliente') { cambiarVista('comandas'); renderizarMenu(); } 
             else if (modo === 'mesero') { cambiarVista('mapa'); renderizarMapa(); } 
             else if (modo === 'barra') { cambiarVista('barra'); renderizarBarra(); } 
-            else if (modo === 'admin') { cambiarVista('mapa'); renderizarMapa(); renderizarAdmin(); }
+            else if (modo === 'admin') { cambiarVista('admin'); renderizarAdmin(); } // Corregido el inicio del Admin
         }
 
         function abrirModalLogin() { document.getElementById('modal-login').classList.remove('hidden'); document.getElementById('loginUsuario').value = ''; document.getElementById('loginPin').value = ''; document.getElementById('loginUsuario').focus(); }
@@ -127,69 +127,44 @@
                     '<button onclick="cambiarVista(\'pantalla-cliente\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">📺</span><span>Monitor</span></button></div>';
             } else if (rol === 'admin') {
                 bar.innerHTML = '<div class="flex justify-around items-center w-full max-w-2xl mx-auto py-2">' +
-                    '<button onclick="cambiarVista(\'mapa\')" class="flex flex-col items-center text-accent text-xs font-bold transition"><span class="text-xl">🗺️</span><span>Mapa / Caja</span></button>' +
-                    '<button onclick="cambiarVista(\'admin\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">📊</span><span>Dashboard</span></button>' +
+                    '<button onclick="cambiarVista(\'admin\')" class="flex flex-col items-center text-accent text-xs font-bold transition"><span class="text-xl">📊</span><span>Dashboard</span></button>' +
+                    '<button onclick="cambiarVista(\'mapa\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">🗺️</span><span>Mapa / Caja</span></button>' +
                     '<button onclick="cambiarVista(\'comandas\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">📝</span><span>Menú</span></button>' +
                     '<button onclick="cambiarVista(\'barra\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">🍻</span><span>Barra</span></button>' +
                     '<button onclick="cambiarVista(\'inventario\')" class="flex flex-col items-center text-gray-400 text-xs font-bold transition"><span class="text-xl">📦</span><span>Stock</span></button></div>';
             }
         }
 
-        // ======================= NUEVO: MAPA DE MESAS Y COBRO INTEGRADO =======================
+        // ======================= MAPA DE MESAS Y COBRO INTEGRADO =======================
         function renderizarMapa() {
-            var grid = document.getElementById('gridMapaMesas');
-            if (!grid) return;
-            // Configuración de lugares físicos
+            var grid = document.getElementById('gridMapaMesas'); if (!grid) return;
             var mesasConfiguradas = ['Mesa 1', 'Mesa 2', 'Mesa 3', 'Mesa 4', 'Mesa 5', 'Mesa 6', 'Barra', 'Para Llevar'];
             
             grid.innerHTML = mesasConfiguradas.map(function(mesa) {
                 var activas = comandas.filter(function(c) { return c.mesa === mesa; });
                 var totalMesa = activas.reduce(function(acc, c) { return acc + c.total; }, 0);
-                
                 var colorClase = 'bg-gray-900 border-gray-700 hover:border-gray-500'; 
-                var estadoTexto = 'Mesa Libre';
-                var icono = '🍽️';
-                var animacion = '';
+                var estadoTexto = 'Mesa Libre'; var icono = '🍽️'; var animacion = '';
                 
                 if (activas.length > 0) {
                     var hayListas = activas.some(function(c) { return c.estado === 'Listo'; });
-                    if (hayListas) {
-                        colorClase = 'bg-blue-900 border-blue-400 text-blue-100 shadow-[0_0_15px_rgba(59,130,246,0.5)]';
-                        estadoTexto = '¡Entregar Pedido!';
-                        icono = '🔔';
-                        animacion = 'animate-pulse';
-                    } else {
-                        colorClase = 'bg-red-900 border-red-500 text-red-100 shadow-[0_0_15px_rgba(239,68,68,0.3)]';
-                        estadoTexto = 'Ocupada / Esperando';
-                        icono = '🔥';
-                    }
+                    if (hayListas) { colorClase = 'bg-blue-900 border-blue-400 text-blue-100 shadow-[0_0_15px_rgba(59,130,246,0.5)]'; estadoTexto = '¡Entregar Pedido!'; icono = '🔔'; animacion = 'animate-pulse'; } 
+                    else { colorClase = 'bg-red-900 border-red-500 text-red-100 shadow-[0_0_15px_rgba(239,68,68,0.3)]'; estadoTexto = 'Ocupada / Esperando'; icono = '🔥'; }
                 }
                 
                 return '<div onclick="gestionarClicMesa(\'' + mesa + '\')" class="p-5 rounded-3xl border-2 cursor-pointer transition transform hover:scale-105 flex flex-col items-center justify-center text-center ' + colorClase + ' ' + animacion + '">' +
-                    '<span class="text-4xl mb-2 drop-shadow-md">' + icono + '</span>' +
-                    '<h3 class="font-black text-sm uppercase tracking-wide">' + mesa + '</h3>' +
+                    '<span class="text-4xl mb-2 drop-shadow-md">' + icono + '</span><h3 class="font-black text-sm uppercase tracking-wide">' + mesa + '</h3>' +
                     '<span class="text-[10px] font-bold px-2 py-0.5 bg-black bg-opacity-50 rounded-lg mt-1">' + estadoTexto + '</span>' +
-                    (activas.length > 0 ? '<span class="text-xs mt-2 text-green-400 font-black bg-black bg-opacity-40 px-3 py-1 rounded-xl">Por Cobrar: $' + totalMesa.toFixed(2) + '</span>' : '') +
-                    '</div>';
+                    (activas.length > 0 ? '<span class="text-xs mt-2 text-green-400 font-black bg-black bg-opacity-40 px-3 py-1 rounded-xl">Por Cobrar: $' + totalMesa.toFixed(2) + '</span>' : '') + '</div>';
             }).join('');
         }
 
         function gestionarClicMesa(mesa) {
             var activas = comandas.filter(function(c) { return c.mesa === mesa; });
-            if (activas.length === 0) {
-                // Mesa libre: ir a tomar orden
-                miMesaAsignada = mesa;
-                var sm = document.getElementById('selectMesa');
-                if(sm) sm.value = mesa;
-                document.getElementById('labelMesaAsignada').textContent = mesa;
-                cambiarVista('comandas');
-            } else {
-                // Mesa ocupada: Abrir modal de COBRO directo (tomando la primera comanda activa para simplificar)
-                abrirCobro(activas[0].id);
-            }
+            if (activas.length === 0) { miMesaAsignada = mesa; var sm = document.getElementById('selectMesa'); if(sm) sm.value = mesa; document.getElementById('labelMesaAsignada').textContent = mesa; cambiarVista('comandas'); } 
+            else { abrirCobro(activas[0].id); }
         }
 
-        // ======================= CALCULADORA =======================
         function calcNum(n) { if (calcReset || calcDisplay === '0') { calcDisplay = String(n); calcReset = false; } else { calcDisplay += String(n); } actualizarCalcDisplay(); }
         function calcPunto() { if (calcReset) { calcDisplay = '0.'; calcReset = false; } else if (calcDisplay.indexOf('.') === -1) { calcDisplay += '.'; } actualizarCalcDisplay(); }
         function calcOp(op) { calcPrevio = parseFloat(calcDisplay); calcOperacion = op; calcReset = true; }
@@ -213,7 +188,6 @@
             var totalEgresos = egresos.reduce(function(a, b) { return a + (b.monto || 0); }, 0);
             var totalGanancia = historialVentas.reduce(function(a, b) { return a + (b.gananciaNeta || (b.total * 0.45)); }, 0);
             var fondo = caja.fondoInicial || 0;
-            // El efectivo esperado solo suma las ventas que se pagaron en "Efectivo"
             var ventasEfectivo = historialVentas.filter(function(v){ return v.metodoPago === 'Efectivo'; }).reduce(function(a,b){ return a + b.total; }, 0);
             var dineroEsperadoEfectivo = fondo + ventasEfectivo - totalEgresos;
 
@@ -262,22 +236,49 @@
             if (qrCont && typeof QRCode !== 'undefined') { qrCont.innerHTML = ''; new QRCode(qrCont, { text: config.redesUrl || ('http://' + ipServidor), width: 140, height: 140 }); }
         }
 
+        // ================== REPRODUCTOR MEJORADO (YOUTUBE Y LOCAL) ==================
         function iniciarCarruselPublicidad() { clearInterval(timerPublicidad); mostrarMediaPublicidad(); timerPublicidad = setInterval(function() { mostrarMediaPublicidad(); }, 8500); }
 
         function mostrarMediaPublicidad() {
-            var mediaCont = document.getElementById('contenedorMediaCentral'); if (!mediaCont) return; var muteAttr = config.videoConAudio ? '' : 'muted';
+            var mediaCont = document.getElementById('contenedorMediaCentral'); if (!mediaCont) return; 
+            var muteAttr = config.videoConAudio ? '' : 'muted';
+            
+            // 1. YouTube Video Integrado
+            if (config.mediaUrl && (config.mediaUrl.indexOf('youtube.com') !== -1 || config.mediaUrl.indexOf('youtu.be') !== -1)) {
+                var videoId = "";
+                if (config.mediaUrl.indexOf('v=') !== -1) videoId = config.mediaUrl.split('v=')[1].split('&')[0];
+                else if (config.mediaUrl.indexOf('youtu.be/') !== -1) videoId = config.mediaUrl.split('youtu.be/')[1].split('?')[0];
+                
+                if (videoId) {
+                    var muteParam = config.videoConAudio ? '0' : '1';
+                    mediaCont.innerHTML = '<iframe class="w-full h-full rounded-2xl" src="https://www.youtube.com/embed/' + videoId + '?autoplay=1&mute=' + muteParam + '&loop=1&playlist=' + videoId + '&controls=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
+                    return;
+                }
+            }
+
+            // 2. Archivos Locales (Se codifican los espacios en los nombres de archivo)
             if (archivosPublicidad && archivosPublicidad.length > 0) {
-                indexPublicidad = (indexPublicidad + 1) % archivosPublicidad.length; var ruta = archivosPublicidad[indexPublicidad];
-                if (ruta.indexOf('.mp4') !== -1 || ruta.indexOf('.webm') !== -1) { mediaCont.innerHTML = '<video src="' + ruta + '" autoplay ' + muteAttr + ' loop playsinline class="media-asset"></video>'; } 
-                else { mediaCont.innerHTML = '<img src="' + ruta + '" class="media-asset">'; }
+                indexPublicidad = (indexPublicidad + 1) % archivosPublicidad.length; 
+                var ruta = encodeURI(archivosPublicidad[indexPublicidad]);
+                if (ruta.toLowerCase().indexOf('.mp4') !== -1 || ruta.toLowerCase().indexOf('.webm') !== -1) { 
+                    mediaCont.innerHTML = '<video src="' + ruta + '" autoplay ' + muteAttr + ' loop playsinline class="media-asset"></video>'; 
+                } else { 
+                    mediaCont.innerHTML = '<img src="' + ruta + '" class="media-asset">'; 
+                }
                 return;
             }
+
+            // 3. URLs Directas
             if (config.mediaUrl) {
-                if (config.mediaUrl.indexOf('.mp4') !== -1) { mediaCont.innerHTML = '<video src="' + config.mediaUrl + '" autoplay ' + muteAttr + ' loop playsinline class="media-asset"></video>'; } 
-                else { mediaCont.innerHTML = '<img src="' + config.mediaUrl + '" class="media-asset">'; }
+                var urlEnc = encodeURI(config.mediaUrl);
+                if (urlEnc.toLowerCase().indexOf('.mp4') !== -1) { 
+                    mediaCont.innerHTML = '<video src="' + urlEnc + '" autoplay ' + muteAttr + ' loop playsinline class="media-asset"></video>'; 
+                } else { 
+                    mediaCont.innerHTML = '<img src="' + urlEnc + '" class="media-asset">'; 
+                }
                 return;
             }
-            mediaCont.innerHTML = '<div class="text-center p-8 text-sm text-gray-500">Asegúrate de que tus videos/imágenes estén dentro de la ruta:<br><strong class="text-white">Pos-Restaurant/public/publicidad/</strong><br><br>Y reinicia iniciar.bat</div>';
+            mediaCont.innerHTML = '<div class="text-center p-8 text-sm text-gray-500">Agrega un link de YouTube en la configuración o guarda videos en <strong>public/publicidad/</strong></div>';
         }
 
         function renderizarMenu() {
@@ -329,14 +330,13 @@
                 estado: 'Preparando...', hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), cliente: tel ? { nombre: nom || 'Cliente', telefono: tel } : null
             };
 
-            // EMITIR INMEDIATAMENTE AL SERVIDOR
             if (socket) socket.emit('nueva_orden', orden);
 
             if (rolActivo === 'cliente') {
                 mostrarFichaTurnoCliente(orden);
             } else {
                 alert('¡Orden enviada a Barra con éxito!');
-                cambiarVista('mapa'); // Redirigir al mesero al mapa
+                cambiarVista('mapa'); 
             }
             carrito = []; renderizarCarrito();
         }
@@ -370,7 +370,6 @@
             document.getElementById('cobroPropina').value = 0; document.getElementById('cobroMontoRecibido').value = '';
             document.getElementById('cobroMesero').value = usuarioActivo ? usuarioActivo.nombre : (c.mesero || ''); calcClear(); 
             
-            // Por defecto efectivo
             setMetodoPago('Efectivo');
             document.getElementById('modal-cobro').classList.remove('hidden');
         }
@@ -378,15 +377,10 @@
 
         function setMetodoPago(m) {
             metodoPago = m; 
-            var bEf = document.getElementById('btnPagoEfectivo'); 
-            var bTa = document.getElementById('btnPagoTarjeta'); 
-            var bMp = document.getElementById('btnPagoMP');
-            var blq = document.getElementById('bloqueEfectivo');
-
+            var bEf = document.getElementById('btnPagoEfectivo'); var bTa = document.getElementById('btnPagoTarjeta'); var bMp = document.getElementById('btnPagoMP'); var blq = document.getElementById('bloqueEfectivo');
             bEf.className = 'py-2 rounded-xl text-xs font-black ' + (m==='Efectivo' ? 'bg-green-500 text-black' : 'bg-gray-900 text-gray-400 border border-gray-800');
             bTa.className = 'py-2 rounded-xl text-xs font-black ' + (m==='Tarjeta' ? 'bg-blue-500 text-black' : 'bg-gray-900 text-gray-400 border border-gray-800');
             bMp.className = 'py-2 rounded-xl text-xs font-black ' + (m==='Mercado Pago' ? 'bg-blue-400 text-white border border-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.5)]' : 'bg-gray-900 text-gray-400 border border-gray-800');
-            
             if (m === 'Efectivo') { blq.classList.remove('hidden'); } else { blq.classList.add('hidden'); }
             actualizarTotalCobro();
         }
@@ -411,37 +405,19 @@
                 '</div><div class="text-right font-bold text-sm">TOTAL: $' + tot.toFixed(2) + ' (' + metodoPago + ')</div>';
             document.getElementById('modal-ticket-digital').classList.remove('hidden'); if (imprimir) window.print();
         }
-        function compartirTicketWhatsApp() { var texto = '*TICKET DIGITAL - ' + config.nombreNegocio + '*\nConsumo registrado.\n¡Gracias por tu visita!'; window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(texto), '_blank'); }
 
-        function renderizarListaUsuarios() {
-            var lista = document.getElementById('listaUsuariosAdmin'); if (!lista) return;
-            lista.innerHTML = usuariosSistema.map(function(u) {
-                return '<div class="flex justify-between items-center bg-app-base p-2.5 rounded-xl border border-gray-800 text-xs"><div><span class="font-bold text-white">' + escapeHTML(u.nombre) + ' (' + escapeHTML(u.usuario) + ')</span>' +
-                    '<span class="ml-2 pill-badge bg-accent text-white uppercase">' + escapeHTML(u.rol) + '</span></div>' +
-                    (usuariosSistema.length > 1 ? '<button onclick="eliminarUsuario(' + u.id + ')" class="text-red-400 font-bold px-2 py-0.5">Eliminar</button>' : '') + '</div>';
-            }).join('');
-        }
-        function guardarNuevoUsuario() {
-            var usuario = document.getElementById('nuevoUsuarioNick').value.trim(); var nombre = document.getElementById('nuevoUsuarioNombre').value.trim(); var pin = document.getElementById('nuevoUsuarioPin').value.trim(); var rol = document.getElementById('nuevoUsuarioRol').value;
-            if (!usuario || !nombre || !pin) return alert('Todos los campos son requeridos');
-            if (socket) socket.emit('guardar_usuario', { usuario: usuario, nombre: nombre, pin: pin, rol: rol });
-            document.getElementById('nuevoUsuarioNick').value = ''; document.getElementById('nuevoUsuarioNombre').value = ''; document.getElementById('nuevoUsuarioPin').value = ''; alert('Usuario registrado.');
-        }
-        function eliminarUsuario(id) { if (confirm('¿Eliminar usuario?')) { if (socket) socket.emit('eliminar_usuario', id); } }
-
-        function guardarConfigGeneral() {
-            var sup = parseInt(document.getElementById('sliderTextoSup').value, 10) || 20; var inf = parseInt(document.getElementById('sliderTextoInf').value, 10) || 15;
-            var c = { nombreNegocio: document.getElementById('configNombreNegocio').value.trim(), promoTexto: document.getElementById('configPromo').value.trim(), promoTextoInferior: document.getElementById('configPromoInferior').value.trim(), tamanoTextoSup: sup, tamanoTextoInf: inf, redesUrl: document.getElementById('configRedes').value.trim(), mediaUrl: document.getElementById('configMedia').value.trim(), videoConAudio: document.getElementById('checkVideoAudio').checked };
-            if (socket) socket.emit('actualizar_config', c); alert('Ajustes y tamaños guardados correctamente.');
-        }
-
-        function generarQR(tipo) {
-            var m = document.getElementById('selectMesaQR').value; var div = document.getElementById('qrCodeDiv'); div.innerHTML = ''; document.getElementById('contenedorQR').classList.remove('hidden');
-            var txt = (tipo === 'cliente') ? (m) : 'INGRESO PERSONAL';
-            document.getElementById('qrTextoMesa').textContent = txt;
-            var base = window.location.protocol + '//' + ipServidor + '/';
-            var finalUrl = (tipo === 'cliente') ? (base + '?modo=cliente&mesa=' + encodeURIComponent(m)) : (base + '?modo=login');
-            new QRCode(div, { text: finalUrl, width: 140, height: 140 });
+        // ================== WHATSAPP AUTOMÁTICO ==================
+        function compartirTicketWhatsApp() { 
+            var c = comandaCobroActiva || (historialVentas.length > 0 ? historialVentas[0] : null);
+            if(!c) return;
+            var texto = '*TICKET DIGITAL - ' + config.nombreNegocio + '*\nFolio: ' + (c.folio || 'N/A') + '\nMesa: ' + c.mesa + '\nTotal: $' + Number(c.totalPagar || c.total).toFixed(2) + '\n\n¡Gracias por tu visita!'; 
+            var url = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(texto);
+            // Si el cliente anotó su teléfono en la orden, se jala automáticamente
+            if (c.cliente && c.cliente.telefono) {
+                var tel = c.cliente.telefono.replace(/[^0-9]/g, '');
+                if(tel) url += '&phone=' + tel;
+            }
+            window.open(url, '_blank'); 
         }
 
         function renderizarInventario() {
@@ -518,9 +494,7 @@
 <body class="min-h-screen flex flex-col select-none pb-20">
 
     <div id="btnActivarAudio" class="bg-accent text-white px-3 py-2 text-center text-xs font-black cursor-pointer shadow-lg tracking-wider" onclick="activarAudioNavegador()">🔊 TOCAR AQUÍ PARA ACTIVAR EL TIMBRE DE NOTIFICACIONES Y SONIDO</div>
-
     <div id="toastNotificacion" class="fixed top-5 right-5 z-50 hidden bg-green-500 text-black font-black px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-3 border-2 border-white animate-bounce glow-green"><span class="text-3xl">🔔</span><div><h4 class="text-sm uppercase tracking-wide" id="toastTitulo">¡PEDIDO LISTO!</h4><p class="text-xs font-bold" id="toastMensaje">Mesa lista para entregar</p></div></div>
-
     <div id="modal-alerta-cliente" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-6 text-center"><div class="bg-card border-2 border-purple-500 p-8 rounded-3xl max-w-sm w-full space-y-5 glow-purple"><div class="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-4xl mx-auto shadow-2xl animate-bounce">🍺</div><h2 class="text-2xl font-black text-white">¡TU PEDIDO ESTÁ LISTO!</h2><p class="text-sm text-purple-300 font-bold" id="alertaMesaNombre">Mesa 1</p><p class="text-xs text-gray-400">La barra acaba de terminar de preparar tus platillos y bebidas. Ya van en camino o puedes recogerlos.</p><button onclick="document.getElementById('modal-alerta-cliente').classList.add('hidden')" class="w-full bg-green-500 text-black font-black py-3 rounded-2xl text-sm">Entendido, ¡gracias!</button></div></div>
 
     <div id="pantalla-bienvenida" class="fixed inset-0 bg-app-base z-50 flex items-center justify-center p-4">
@@ -559,7 +533,7 @@
         <div class="lg:col-span-2 space-y-3"><div id="gridProductos" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div></div>
         <div class="bg-card rounded-3xl border p-4 flex flex-col h-fit sticky top-16 space-y-3 shadow-2xl">
             <div class="flex justify-between items-center border-b border-gray-800 pb-2"><h2 class="font-extrabold text-accent text-sm">COMANDA: <span id="labelMesaAsignada" class="text-white">Para Llevar</span></h2><select id="selectMesa" class="bg-black text-white font-bold text-xs px-2.5 py-1.5 rounded-xl border border-gray-700 outline-none"><option value="Para Llevar">Para Llevar</option><option value="Mesa 1">Mesa 1</option><option value="Mesa 2">Mesa 2</option><option value="Mesa 3">Mesa 3</option><option value="Mesa 4">Mesa 4</option><option value="Mesa 5">Mesa 5</option><option value="Mesa 6">Mesa 6</option><option value="Barra">Barra</option></select></div>
-            <div class="bg-black p-2.5 rounded-2xl border border-gray-800 text-xs space-y-1.5"><input type="text" id="clienteNombre" placeholder="Nombre cliente (opcional)" class="w-full bg-app-input border border-gray-800 rounded-xl px-2.5 py-1.5 text-white outline-none"><input type="tel" id="clienteTelefono" placeholder="WhatsApp para promociones" class="w-full bg-app-input border border-gray-800 rounded-xl px-2.5 py-1.5 text-white outline-none"></div>
+            <div class="bg-black p-2.5 rounded-2xl border border-gray-800 text-xs space-y-1.5"><input type="text" id="clienteNombre" placeholder="Nombre cliente (opcional)" class="w-full bg-app-input border border-gray-800 rounded-xl px-2.5 py-1.5 text-white outline-none"><input type="tel" id="clienteTelefono" placeholder="WhatsApp para promociones/tickets" class="w-full bg-app-input border border-gray-800 rounded-xl px-2.5 py-1.5 text-white outline-none"></div>
             <div id="listaCarrito" class="flex-1 space-y-1.5 max-h-56 overflow-y-auto text-xs py-1"><p class="text-center py-6 text-gray-500 text-xs">Toca un platillo del menú para agregar</p></div>
             <div class="border-t border-gray-800 pt-2"><div class="flex justify-between mb-2 text-base font-black text-green-400"><span>Total:</span><span id="totalCarrito">$0.00</span></div><button id="btnEnviarComanda" onclick="procesarEnvioOrden()" type="button" class="w-full bg-green-500 hover:bg-green-400 text-black font-black py-3 rounded-2xl text-xs transition shadow-lg">🚀 ENVIAR ORDEN</button></div>
         </div>
@@ -632,6 +606,8 @@
                 <div id="listaUsuariosAdmin" class="space-y-1.5 max-h-32 overflow-y-auto border-t border-gray-800 pt-2"></div>
             </div>
         </div>
+        
+        <!-- PANEL DE YOUTUBE Y CREADOR QR -->
         <div class="bg-card p-5 rounded-3xl border space-y-3 shadow-xl">
             <h3 class="font-black text-blue-400 text-xs uppercase tracking-wide">⚙️ Textos del Monitor y Enlaces</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
@@ -639,8 +615,8 @@
                 <div><label class="text-xxs text-gray-400 block mb-1">Enlace para QR Redes Sociales:</label><input type="text" id="configRedes" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-white"></div>
                 <div><div class="flex justify-between items-center mb-1"><label class="text-xxs text-gray-400">Texto Superior:</label><span id="lblTamanoSup" class="text-xxs text-purple-400 font-bold">20px</span></div><input type="text" id="configPromo" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-white mb-1"><input type="range" id="sliderTextoSup" min="14" max="42" value="20" class="w-full" oninput="cambiarTamanoTexto('sup', this.value)"></div>
                 <div><div class="flex justify-between items-center mb-1"><label class="text-xxs text-gray-400">Texto Inferior:</label><span id="lblTamanoInf" class="text-xxs text-blue-400 font-bold">15px</span></div><input type="text" id="configPromoInferior" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-white mb-1"><input type="range" id="sliderTextoInf" min="11" max="32" value="15" class="w-full" oninput="cambiarTamanoTexto('inf', this.value)"></div>
-                <div><label class="text-xxs text-gray-400 block mb-1">URL directa Video/Imagen (Opcional):</label><input type="text" id="configMedia" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-white"></div>
-                <div class="flex items-center gap-2 pt-4"><input type="checkbox" id="checkVideoAudio" class="w-4 h-4 rounded"><label for="checkVideoAudio" class="text-xs font-bold text-gray-300">Reproducir videos promocionales CON audio</label></div>
+                <div><label class="text-xxs text-gray-400 block mb-1">URL directa (Pega aquí links de YouTube):</label><input type="text" id="configMedia" placeholder="ej. https://www.youtube.com/watch?v=..." class="w-full bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-white"></div>
+                <div class="flex items-center gap-2 pt-4"><input type="checkbox" id="checkVideoAudio" class="w-4 h-4 rounded"><label for="checkVideoAudio" class="text-xs font-bold text-gray-300">Reproducir videos de YouTube CON audio</label></div>
             </div>
             <button onclick="guardarConfigGeneral()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-2 px-5 rounded-xl text-xs mt-2">Guardar Ajustes de Pantalla</button>
             <div class="pt-4 border-t border-gray-800 space-y-2 mt-4">
@@ -667,6 +643,7 @@
         <div class="bg-app-panel border border-gray-900 text-blue-400 font-black py-2 px-4 rounded-2xl shadow-lg marquee-container uppercase"><div id="marqueePromoInferior" class="marquee-content-reverse font-bold">CONSULTA NUESTRAS PROMOCIONES DE LA CASA</div></div>
     </main>
 
+    <!-- MODAL COBRO CON BOTÓN MERCADO PAGO INTEGRADO -->
     <div id="modal-cobro" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-3">
         <div class="bg-card border border-gray-800 p-5 rounded-3xl max-w-xl w-full shadow-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="space-y-3">
@@ -677,7 +654,6 @@
                     <div class="flex justify-between font-black text-green-400 border-t border-gray-800 pt-1.5 text-sm"><span>Total a Pagar:</span><span id="cobroTotalPagar">$0.00</span></div>
                 </div>
                 
-                <!-- BOTONES DE PAGO CON MERCADO PAGO INTEGRADO -->
                 <div class="grid grid-cols-3 gap-2">
                     <button id="btnPagoEfectivo" onclick="setMetodoPago('Efectivo')" type="button" class="py-2 rounded-xl text-xs font-black bg-green-500 text-black">💵 Efectivo</button>
                     <button id="btnPagoTarjeta" onclick="setMetodoPago('Tarjeta')" type="button" class="py-2 rounded-xl text-xs font-black bg-gray-900 text-gray-400 border border-gray-800">💳 Tarjeta</button>
@@ -702,10 +678,12 @@
                 </div>
             </div>
         </div>
+    </div>
 
-        <div id="modal-ticket-digital" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4"><div class="bg-white text-black p-5 rounded-3xl max-w-xs w-full space-y-3 shadow-2xl"><div id="cuerpoTicketDigital" class="text-xs font-mono space-y-1"></div><div class="flex gap-2"><button onclick="compartirTicketWhatsApp()" type="button" class="flex-1 bg-green-600 text-white font-bold py-2 rounded-xl text-xs">WhatsApp</button><button onclick="window.print()" type="button" class="bg-gray-800 text-white font-bold px-3 py-2 rounded-xl text-xs">Imprimir</button><button onclick="document.getElementById('modal-ticket-digital').classList.add('hidden')" type="button" class="bg-gray-200 text-black font-bold px-3 py-2 rounded-xl text-xs">Listo</button></div></div></div>
+    <!-- TICKET DIGITAL -->
+    <div id="modal-ticket-digital" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4"><div class="bg-white text-black p-5 rounded-3xl max-w-xs w-full space-y-3 shadow-2xl"><div id="cuerpoTicketDigital" class="text-xs font-mono space-y-1"></div><div class="flex gap-2"><button onclick="compartirTicketWhatsApp()" type="button" class="flex-1 bg-green-600 text-white font-bold py-2 rounded-xl text-xs">WhatsApp</button><button onclick="window.print()" type="button" class="bg-gray-800 text-white font-bold px-3 py-2 rounded-xl text-xs">Imprimir</button><button onclick="document.getElementById('modal-ticket-digital').classList.add('hidden')" type="button" class="bg-gray-200 text-black font-bold px-3 py-2 rounded-xl text-xs">Listo</button></div></div></div>
 
-        <nav id="appBottomBar" class="fixed bottom-0 left-0 right-0 bg-app-base bg-opacity-95 backdrop-blur-md border-t border-gray-800 border-opacity-80 z-40 px-3 py-1 hidden"></nav>
-        <div id="area-impresion-ticket"></div>
-    </body>
-    </html>
+    <nav id="appBottomBar" class="fixed bottom-0 left-0 right-0 bg-app-base bg-opacity-95 backdrop-blur-md border-t border-gray-800 border-opacity-80 z-40 px-3 py-1 hidden"></nav>
+    <div id="area-impresion-ticket"></div>
+</body>
+</html>
