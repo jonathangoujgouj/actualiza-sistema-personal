@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { exec } = require('child_process');
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { maxHttpBufferSize: 1e7 });
@@ -65,7 +66,6 @@ function leerDB() {
         const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
         if (!data.mesas) data.mesas = estadoInicial.mesas;
         if (!data.mensajesChat) data.mensajesChat = [];
-        // Asegurar campos nuevos en productos antiguos
         data.productos.forEach(p => { 
             if(!p.imagen) p.imagen = ""; 
             if(!p.descripcion) p.descripcion = ""; 
@@ -116,25 +116,7 @@ function filtrarDatosParaCliente(db) {
 io.on('connection', (socket) => {
     const db = leerDB();
     socket.emit('sincronizar_todo', filtrarDatosParaCliente(db));
-socket.on('sincronizar_github', (datos, callback) => {
-        const tipo = datos.tipo || 'chore';
-        const detalle = datos.detalle || 'Actualización desde el panel de control';
-        const mensaje = `${tipo}: ${detalle}`;
 
-        // Ejecuta los comandos de Git encadenados en segundo plano
-        exec(`git add . && git commit -m "${mensaje}" && git push`, (error, stdout, stderr) => {
-            if (error) {
-                // Si no hay cambios nuevos, Git arrojará un error de commit vacío, lo manejamos aquí.
-                if (stdout.includes('nothing to commit')) {
-                    callback({ success: false, mensaje: 'No hay cambios nuevos para guardar.' });
-                } else {
-                    callback({ success: false, mensaje: 'Error al sincronizar. Revisa la consola.', detalle: stderr });
-                }
-                return;
-            }
-            callback({ success: true, mensaje: '¡Sistema actualizado en GitHub exitosamente!' });
-        });
-    });
     socket.on('login_usuario', ({ usuario, pin }, callback) => {
         const actual = leerDB();
         const user = actual.usuarios.find(u => String(u.usuario).toLowerCase() === String(usuario).trim().toLowerCase() && String(u.pin) === String(pin).trim());
@@ -182,7 +164,6 @@ socket.on('sincronizar_github', (datos, callback) => {
 
     socket.on('nueva_orden', (nuevaComanda) => {
         const actual = leerDB();
-        // Descontar stock (manejando combos)
         if (Array.isArray(nuevaComanda.items)) {
             for (let item of nuevaComanda.items) {
                 const prod = actual.productos.find(p => p.id === item.id);
@@ -261,8 +242,26 @@ socket.on('sincronizar_github', (datos, callback) => {
     socket.on('enviar_mensaje_chat', (mensaje) => {
         const actual = leerDB();
         actual.mensajesChat.push({ ...mensaje, hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
-        if (actual.mensajesChat.length > 50) actual.mensajesChat.shift(); // Mantener solo los últimos 50 mensajes
+        if (actual.mensajesChat.length > 50) actual.mensajesChat.shift();
         guardarDB(actual); io.emit('sincronizar_todo', filtrarDatosParaCliente(actual)); io.emit('notificacion_chat', mensaje);
+    });
+
+    socket.on('sincronizar_github', (datos, callback) => {
+        const tipo = datos.tipo || 'chore';
+        const detalle = datos.detalle || 'Actualización desde el panel de control';
+        const mensaje = `${tipo}: ${detalle}`;
+
+        exec(`git add . && git commit -m "${mensaje}" && git push`, (error, stdout, stderr) => {
+            if (error) {
+                if (stdout.includes('nothing to commit')) {
+                    callback({ success: false, mensaje: 'No hay cambios nuevos para guardar.' });
+                } else {
+                    callback({ success: false, mensaje: 'Error al sincronizar. Revisa la consola.', detalle: stderr });
+                }
+                return;
+            }
+            callback({ success: true, mensaje: '¡Sistema actualizado en GitHub exitosamente!' });
+        });
     });
 });
 
