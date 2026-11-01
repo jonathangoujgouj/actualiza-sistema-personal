@@ -4,7 +4,7 @@ const { Server } = require('socket.io');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-
+const { exec } = require('child_process');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { maxHttpBufferSize: 1e7 });
@@ -116,7 +116,25 @@ function filtrarDatosParaCliente(db) {
 io.on('connection', (socket) => {
     const db = leerDB();
     socket.emit('sincronizar_todo', filtrarDatosParaCliente(db));
+socket.on('sincronizar_github', (datos, callback) => {
+        const tipo = datos.tipo || 'chore';
+        const detalle = datos.detalle || 'Actualización desde el panel de control';
+        const mensaje = `${tipo}: ${detalle}`;
 
+        // Ejecuta los comandos de Git encadenados en segundo plano
+        exec(`git add . && git commit -m "${mensaje}" && git push`, (error, stdout, stderr) => {
+            if (error) {
+                // Si no hay cambios nuevos, Git arrojará un error de commit vacío, lo manejamos aquí.
+                if (stdout.includes('nothing to commit')) {
+                    callback({ success: false, mensaje: 'No hay cambios nuevos para guardar.' });
+                } else {
+                    callback({ success: false, mensaje: 'Error al sincronizar. Revisa la consola.', detalle: stderr });
+                }
+                return;
+            }
+            callback({ success: true, mensaje: '¡Sistema actualizado en GitHub exitosamente!' });
+        });
+    });
     socket.on('login_usuario', ({ usuario, pin }, callback) => {
         const actual = leerDB();
         const user = actual.usuarios.find(u => String(u.usuario).toLowerCase() === String(usuario).trim().toLowerCase() && String(u.pin) === String(pin).trim());
