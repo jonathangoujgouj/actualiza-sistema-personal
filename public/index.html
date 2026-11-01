@@ -1074,7 +1074,7 @@ socket.on('notificacion_pedido_listo', function(datos) {
                             <label class="flex items-center gap-1.5 text-accent col-span-2"><input type="checkbox" id="checkPermisoAdmin"> Acceso Total (Administrador)</label>
                         </div>
                     </div>
-                    <button onclick="guardarNuevoUsuario()" type="button" class="w-full bg-accent hover:bg-purple-500 transition text-white font-black py-2 rounded-xl text-xs">Crear Usuario</button>
+                   <button id="btnGuardarNuevoUsuario" onclick="guardarNuevoUsuario()" type="button" class="w-full bg-accent hover:bg-purple-500 transition text-white font-black py-2 rounded-xl text-xs">Crear Usuario</button>
                 </div>
                 <div id="listaUsuariosAdmin" class="space-y-1.5 max-h-32 overflow-y-auto pt-1"></div>
             </div>
