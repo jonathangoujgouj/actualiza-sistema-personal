@@ -44,6 +44,7 @@ const estadoInicial = {
     clientesRegistrados: [],
     propinas: [],
     mensajesChat: [],
+    listaCompras: [],
     config: {
         nombreNegocio: "LA BARRITA PRO",
         promoTexto: "🔥 PROMOCIÓN ESTELAR: 2x1 EN MICHELADAS Y ALITAS HASTA LAS 9:00 PM 🍺",
@@ -66,6 +67,7 @@ function leerDB() {
         const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
         if (!data.mesas) data.mesas = estadoInicial.mesas;
         if (!data.mensajesChat) data.mensajesChat = [];
+        if (!data.listaCompras) data.listaCompras = [];
         data.productos.forEach(p => { 
             if(!p.imagen) p.imagen = ""; 
             if(!p.descripcion) p.descripcion = ""; 
@@ -143,7 +145,7 @@ io.on('connection', (socket) => {
     socket.on('cerrar_corte_caja', (callback) => {
         const actual = leerDB();
         actual.caja = { abierta: false, fondoInicial: 0, horaApertura: null, fechaApertura: null };
-        actual.historialVentas = []; actual.egresos = []; actual.propinas = []; actual.mensajesChat = []; // Limpiar chat al corte
+        actual.historialVentas = []; actual.egresos = []; actual.propinas = []; actual.mensajesChat = [];
         guardarDB(actual); io.emit('sincronizar_todo', filtrarDatosParaCliente(actual));
         if (typeof callback === 'function') callback({ success: true });
     });
@@ -171,10 +173,16 @@ io.on('connection', (socket) => {
                     if (prod.tipo === 'combo' && prod.componentes) {
                         prod.componentes.forEach(comp => {
                             const subProd = actual.productos.find(sp => sp.id === comp.id);
-                            if (subProd) subProd.stock = Math.max(0, subProd.stock - (parseInt(item.cantidad, 10) * comp.cant));
+                            if (subProd) {
+                                subProd.stock = Math.max(0, subProd.stock - (parseInt(item.cantidad, 10) * comp.cant));
+                                if(subProd.stock > 0 && subProd.stock <= 5) io.emit('alerta_stock_bajo', { nombre: subProd.nombre, stock: subProd.stock });
+                                else if(subProd.stock === 0) io.emit('alerta_stock_bajo', { nombre: subProd.nombre, agotado: true });
+                            }
                         });
                     } else {
                         prod.stock = Math.max(0, prod.stock - (parseInt(item.cantidad, 10) || 0));
+                        if(prod.stock > 0 && prod.stock <= 5) io.emit('alerta_stock_bajo', { nombre: prod.nombre, stock: prod.stock });
+                        else if(prod.stock === 0) io.emit('alerta_stock_bajo', { nombre: prod.nombre, agotado: true });
                     }
                 }
             }
@@ -227,6 +235,19 @@ io.on('connection', (socket) => {
             if (nuevoCosto && !isNaN(parseFloat(nuevoCosto))) p.costo = parseFloat(nuevoCosto);
             guardarDB(actual); io.emit('sincronizar_todo', filtrarDatosParaCliente(actual));
         }
+    });
+    
+    // Gestión Lista de Compras/Insumos
+    socket.on('agregar_insumo', (texto) => {
+        const actual = leerDB();
+        if(!actual.listaCompras) actual.listaCompras = [];
+        actual.listaCompras.unshift({ id: Date.now(), texto: texto });
+        guardarDB(actual); io.emit('sincronizar_todo', filtrarDatosParaCliente(actual));
+    });
+    socket.on('eliminar_insumo', (id) => {
+        const actual = leerDB();
+        if(actual.listaCompras) actual.listaCompras = actual.listaCompras.filter(x => x.id !== id);
+        guardarDB(actual); io.emit('sincronizar_todo', filtrarDatosParaCliente(actual));
     });
 
     socket.on('actualizar_config', (nuevaConfig) => {
