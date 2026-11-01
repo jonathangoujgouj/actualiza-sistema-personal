@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- Etiquetas PWA para iOS y Android -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
@@ -42,12 +41,26 @@
         .prod-img-placeholder { font-size: 2rem; opacity: 0.3; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        #pantalla-bienvenida {
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        
+        #logoBienvenida, #headerLogo {
+            max-height: 80px;
+            object-fit: contain;
+        }
+        #headerLogo {
+            max-height: 30px;
+        }
     </style>
     <script>
         var socket = null; var usuarioActivo = null; var rolActivo = 'cliente'; var miMesaAsignada = 'Para Llevar';
         var caja = { abierta: false, fondoInicial: 0 }; var productos = []; var comandas = []; var historialVentas = []; var egresos = []; var usuariosSistema = []; var archivosPublicidad = []; var archivosImagenes = []; var mensajesChat = [];
         var listaCompras = [];
-        var config = { nombreNegocio: "LA BARRITA PRO", promoTexto: "🔥 2x1 EN MICHELADAS Y ALITAS HASTA LAS 9:00 PM 🍺", promoTextoInferior: "📲 Wi-Fi: LaBarrita_VIP", tamanoTextoSup: 20, tamanoTextoInf: 15, redesUrl: "", mediaUrl: "", videoConAudio: false, skinSeleccionada: "tech-neon" };
+        var config = { nombreNegocio: "LA BARRITA PRO", logoUrl: "", fondoPantallaUrl: "", promoTexto: "🔥 2x1 EN MICHELADAS Y ALITAS HASTA LAS 9:00 PM 🍺", promoTextoInferior: "📲 Wi-Fi: LaBarrita_VIP", tamanoTextoSup: 20, tamanoTextoInf: 15, redesUrl: "", mediaUrl: "", mostrarYouTube: false, videoConAudio: false, skinSeleccionada: "tech-neon" };
         var mesasData = []; 
         var ipServidor = window.location.host; var carrito = []; var indexPublicidad = -1; var comandaCobroActiva = null; var metodoPago = 'Efectivo'; var timerPublicidad = null; var chartVentas = null;
         var modoEdicionMapa = false;
@@ -125,7 +138,6 @@
         function procesarLogin() {
             var usuario = document.getElementById('loginUsuario').value.trim().toLowerCase(); var pin = document.getElementById('loginPin').value.trim();
             if (!usuario || !pin) return alert('Ingresa usuario y PIN');
-            // Hardcode del admin (bypass de seguridad en frontend por si falla BD)
             if (usuario === 'admin' && pin === '1234') {
                 var permisosAdmin = { menu: true, mapa: true, barra: true, inventario: true, admin: true };
                 usuarioActivo = { usuario: 'admin', rol: 'admin', nombre: 'ADMINISTRADOR', permisos: permisosAdmin };
@@ -136,7 +148,6 @@
                     if (res && res.success) { 
                         usuarioActivo = { usuario: res.usuario, rol: res.rol, nombre: res.nombre, permisos: res.permisos }; 
                         cerrarModalLogin(); 
-                        // Determinar la mejor vista inicial según permisos
                         var vistaIn = 'comandas';
                         if (res.permisos.admin) vistaIn = 'admin';
                         else if (res.permisos.barra && !res.permisos.menu) vistaIn = 'barra';
@@ -154,7 +165,6 @@
         }
 
         function cambiarVista(v) {
-            // Verificación de seguridad antes de mostrar la vista
             if (usuarioActivo && usuarioActivo.permisos) {
                 if (v === 'admin' && !usuarioActivo.permisos.admin) return alert('No tienes permisos de Administrador.');
                 if (v === 'inventario' && !usuarioActivo.permisos.inventario && !usuarioActivo.permisos.admin) return alert('No tienes permisos para ver el Inventario.');
@@ -176,19 +186,16 @@
                 return;
             }
             
-            // Construcción dinámica basada en permisos
             var htmlBotones = '';
             var permisos = usuarioActivo.permisos || {};
             
             if (permisos.admin) { htmlBotones += '<button onclick="cambiarVista(\'admin\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">📊</span><span>Dashboard</span></button>'; }
             if (permisos.mapa || permisos.admin) { htmlBotones += '<button onclick="cambiarVista(\'mapa\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">🗺️</span><span>Mapa/Caja</span></button>'; }
-            if (permisos.menu || permisos.admin) { htmlBotones += '<button onclick="cambiarVista(\'comandas\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">📝</span><span>Menú</span></button>'; }
+            if (permisos.menu || permisos.admin) { htmlBotones += '<button onclick="cambiarVista(\'comandas\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">📝</span><span>Menú POS</span></button>'; }
             if (permisos.barra || permisos.admin) { htmlBotones += '<button onclick="cambiarVista(\'barra\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">🍻</span><span>Barra</span></button>'; }
             if (permisos.inventario || permisos.admin) { htmlBotones += '<button onclick="cambiarVista(\'inventario\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">📦</span><span>Stock</span></button>'; }
             
-            // Botón de monitor siempre disponible para trabajadores
             htmlBotones += '<button onclick="cambiarVista(\'pantalla-cliente\')" class="flex flex-col items-center text-gray-400 focus:text-accent text-xs font-bold transition"><span class="text-xl">📺</span><span>Monitor</span></button>';
-
             bar.innerHTML = '<div class="flex justify-around items-center w-full max-w-2xl mx-auto py-2">' + htmlBotones + '</div>';
         }
 
@@ -415,7 +422,6 @@
             if (c.cliente && c.cliente.telefono) { var tel = c.cliente.telefono.replace(/[^0-9]/g, ''); if(tel) url += '&phone=' + tel; } window.open(url, '_blank'); 
         }
 
-        // ================== NUEVO: TECLADO RÁPIDO ==================
         function tecladoCobro(val) {
             var input = document.getElementById('cobroMontoRecibido');
             if (val === 'del') { input.value = input.value.slice(0, -1); } 
@@ -480,7 +486,7 @@
 
         function iniciarCarruselPublicidad() { 
             clearInterval(timerPublicidad); 
-            if (config.mediaUrl && (config.mediaUrl.indexOf('youtube.com') !== -1 || config.mediaUrl.indexOf('youtu.be') !== -1)) {
+            if (config.mostrarYouTube && config.mediaUrl && (config.mediaUrl.indexOf('youtube.com') !== -1 || config.mediaUrl.indexOf('youtu.be') !== -1)) {
                 mostrarMediaPublicidad(); return; 
             }
             mostrarMediaPublicidad(); 
@@ -491,7 +497,7 @@
             var mediaCont = document.getElementById('contenedorMediaCentral'); if (!mediaCont) return; 
             var muteAttr = config.videoConAudio ? '' : 'muted';
             
-            if (config.mediaUrl && (config.mediaUrl.indexOf('youtube.com') !== -1 || config.mediaUrl.indexOf('youtu.be') !== -1)) {
+            if (config.mostrarYouTube && config.mediaUrl && (config.mediaUrl.indexOf('youtube.com') !== -1 || config.mediaUrl.indexOf('youtu.be') !== -1)) {
                 var videoId = ""; 
                 if (config.mediaUrl.indexOf('v=') !== -1) videoId = config.mediaUrl.split('v=')[1].split('&')[0]; 
                 else if (config.mediaUrl.indexOf('youtu.be/') !== -1) videoId = config.mediaUrl.split('youtu.be/')[1].split('?')[0];
@@ -505,10 +511,9 @@
                 indexPublicidad = (indexPublicidad + 1) % archivosPublicidad.length; var ruta = encodeURI(archivosPublicidad[indexPublicidad]);
                 if (ruta.toLowerCase().indexOf('.mp4') !== -1 || ruta.toLowerCase().indexOf('.webm') !== -1) { mediaCont.innerHTML = '<video src="' + ruta + '" autoplay ' + muteAttr + ' loop playsinline class="media-asset max-w-full max-h-full object-contain"></video>'; } else { mediaCont.innerHTML = '<img src="' + ruta + '" class="media-asset max-w-full max-h-full object-contain rounded-2xl">'; } return;
             }
-            mediaCont.innerHTML = '<div class="text-center p-8 text-sm text-gray-500">Agrega un link de YouTube en la configuración o guarda videos en <strong>public/publicidad/</strong></div>';
+            mediaCont.innerHTML = '<div class="text-center p-8 text-sm text-gray-500">Activa YouTube en la configuración o guarda videos/imágenes en <strong>public/publicidad/</strong></div>';
         }
 
-        // ================== NUEVO: GESTIÓN DE USUARIOS CON CHECKBOXES ==================
         function renderizarListaUsuarios() {
             var lista = document.getElementById('listaUsuariosAdmin'); if (!lista) return;
             lista.innerHTML = usuariosSistema.map(function(u) {
@@ -538,7 +543,16 @@
         function guardarConfigGeneral() {
             var sup = parseInt(document.getElementById('sliderTextoSup').value, 10) || 20; var inf = parseInt(document.getElementById('sliderTextoInf').value, 10) || 15;
             var pSup = document.getElementById('configPromo').value.trim(); var pInf = document.getElementById('configPromoInferior').value.trim();
-            var c = { nombreNegocio: document.getElementById('configNombreNegocio').value.trim(), promoTexto: pSup, promoTextoInferior: pInf, tamanoTextoSup: sup, tamanoTextoInf: inf, redesUrl: document.getElementById('configRedes').value.trim(), mediaUrl: document.getElementById('configMedia').value.trim(), videoConAudio: document.getElementById('checkVideoAudio').checked };
+            var fondoUrl = document.getElementById('configFondoPantalla').value; var logoUrl = document.getElementById('configLogoNegocio').value;
+            
+            var c = { 
+                nombreNegocio: document.getElementById('configNombreNegocio').value.trim(), 
+                promoTexto: pSup, promoTextoInferior: pInf, tamanoTextoSup: sup, tamanoTextoInf: inf, 
+                redesUrl: document.getElementById('configRedes').value.trim(), mediaUrl: document.getElementById('configMedia').value.trim(), 
+                videoConAudio: document.getElementById('checkVideoAudio').checked,
+                mostrarYouTube: document.getElementById('checkMostrarYouTube').checked,
+                fondoPantallaUrl: fondoUrl, logoUrl: logoUrl
+            };
             var ms = document.getElementById('marqueePromoSuperior'); var mi = document.getElementById('marqueePromoInferior'); if (ms) ms.textContent = pSup; if (mi) mi.textContent = pInf;
             if (socket) socket.emit('actualizar_config', c); alert('Ajustes y tamaños guardados correctamente.');
         }
@@ -614,6 +628,14 @@
             if(selImg) {
                 selImg.innerHTML = '<option value="">Sin imagen (icono por defecto)</option>' + archivosImagenes.map(function(img) { return '<option value="'+img+'">'+img.split('/').pop()+'</option>'; }).join('');
             }
+            
+            var selFondo = document.getElementById('configFondoPantalla'); var selLogo = document.getElementById('configLogoNegocio');
+            if(selFondo && selLogo) {
+                var opcionesImagenes = '<option value="">Ninguna</option>' + archivosImagenes.map(function(img) { return '<option value="'+img+'">'+img.split('/').pop()+'</option>'; }).join('');
+                var valFondo = config.fondoPantallaUrl || ''; var valLogo = config.logoUrl || '';
+                selFondo.innerHTML = opcionesImagenes; selFondo.value = valFondo;
+                selLogo.innerHTML = opcionesImagenes; selLogo.value = valLogo;
+            }
         }
         var componentesComboTemp = [];
         function agregarComponenteCombo() {
@@ -673,6 +695,30 @@
             }
         }
 
+        function aplicarConfiguracionVisual() {
+            var pantalla = document.getElementById('pantalla-bienvenida');
+            if(pantalla) {
+                if(config.fondoPantallaUrl) {
+                    pantalla.style.backgroundImage = 'url(' + encodeURI(config.fondoPantallaUrl) + ')';
+                } else {
+                    pantalla.style.backgroundImage = 'none';
+                }
+            }
+            
+            var divLogoBienvenida = document.getElementById('divLogoBienvenida');
+            var divLogoHeader = document.getElementById('divLogoHeader');
+            if(config.logoUrl) {
+                if(divLogoBienvenida) divLogoBienvenida.innerHTML = '<img src="'+encodeURI(config.logoUrl)+'" id="logoBienvenida" class="mx-auto shadow-2xl rounded-full">';
+                if(divLogoHeader) divLogoHeader.innerHTML = '<img src="'+encodeURI(config.logoUrl)+'" id="headerLogo" class="rounded-full shadow-md">';
+            } else {
+                if(divLogoBienvenida) divLogoBienvenida.innerHTML = '<div class="w-20 h-20 bg-accent rounded-full flex items-center justify-center text-4xl mx-auto shadow-2xl">🍺</div>';
+                if(divLogoHeader) divLogoHeader.innerHTML = '<span class="text-xl">🍺</span>';
+            }
+            
+            var titulo = document.getElementById('tituloBienvenida'); var header = document.getElementById('headerNombreNegocio');
+            if (titulo && config.nombreNegocio) titulo.textContent = config.nombreNegocio; if (header && config.nombreNegocio) header.textContent = config.nombreNegocio;
+        }
+
         window.addEventListener('DOMContentLoaded', function() {
             var params = new URLSearchParams(window.location.search);
             var mUrl = params.get('mesa'); var modoUrl = params.get('modo');
@@ -692,8 +738,8 @@
                         if (db.ipLocal) ipServidor = db.ipLocal + ':3000';
                         if (config.skinSeleccionada) aplicarSkinGlobal(config.skinSeleccionada, false);
                         var r = document.documentElement; if (config.tamanoTextoSup) r.style.setProperty('--marquee-size-sup', config.tamanoTextoSup + 'px'); if (config.tamanoTextoInf) r.style.setProperty('--marquee-size-inf', config.tamanoTextoInf + 'px');
-                        var titulo = document.getElementById('tituloBienvenida'); var header = document.getElementById('headerNombreNegocio');
-                        if (titulo && config.nombreNegocio) titulo.textContent = config.nombreNegocio; if (header && config.nombreNegocio) header.textContent = config.nombreNegocio;
+                        
+                        aplicarConfiguracionVisual();
 
                         var vC = document.getElementById('vista-comandas'); if (vC && !vC.classList.contains('hidden')) renderizarMenu();
                         var vB = document.getElementById('vista-barra'); if (vB && !vB.classList.contains('hidden')) { renderizarBarra(); renderizarInsumos(); }
@@ -702,6 +748,12 @@
                         var vMap = document.getElementById('vista-mapa'); if (vMap && !vMap.classList.contains('hidden')) renderizarMapa();
                         var vInv = document.getElementById('vista-inventario'); if(vInv && !vInv.classList.contains('hidden')) renderizarInventario();
                         if(!document.getElementById('panelChatFlotante').classList.contains('hidden')) renderizarChat();
+                        
+                        if(document.getElementById('configFondoPantalla')) {
+                            document.getElementById('configFondoPantalla').value = config.fondoPantallaUrl || "";
+                            document.getElementById('configLogoNegocio').value = config.logoUrl || "";
+                            document.getElementById('checkMostrarYouTube').checked = config.mostrarYouTube || false;
+                        }
                     });
                     socket.on('sonido_comanda_nueva', function() { reproducirAlertaSonora('nuevo'); });
                     socket.on('notificacion_pedido_listo', function(datos) {
@@ -736,8 +788,10 @@
     <div id="modal-alerta-cliente" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-6 text-center"><div class="bg-card border-2 border-purple-500 p-8 rounded-3xl max-w-sm w-full space-y-5 glow-purple"><div class="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-4xl mx-auto shadow-2xl animate-bounce">🍺</div><h2 class="text-2xl font-black text-white">¡TU PEDIDO ESTÁ LISTO!</h2><p class="text-sm text-purple-300 font-bold" id="alertaMesaNombre">Mesa 1</p><p class="text-xs text-gray-400">La barra acaba de terminar de preparar tus platillos y bebidas. Ya van en camino o puedes recogerlos.</p><button onclick="document.getElementById('modal-alerta-cliente').classList.add('hidden')" class="w-full bg-green-500 text-black font-black py-3 rounded-2xl text-sm">Entendido, ¡gracias!</button></div></div>
 
     <div id="pantalla-bienvenida" class="fixed inset-0 bg-app-base z-50 flex items-center justify-center p-4">
-        <div class="bg-card border border-gray-800 p-8 rounded-3xl max-w-sm w-full text-center space-y-6 shadow-2xl box-glow">
-            <div class="w-20 h-20 bg-accent rounded-full flex items-center justify-center text-4xl mx-auto shadow-2xl">🍺</div>
+        <div class="bg-card border border-gray-800 p-8 rounded-3xl max-w-sm w-full text-center space-y-6 shadow-2xl box-glow bg-opacity-90 backdrop-blur-sm">
+            <div id="divLogoBienvenida">
+                <div class="w-20 h-20 bg-accent rounded-full flex items-center justify-center text-4xl mx-auto shadow-2xl">🍺</div>
+            </div>
             <div><h1 class="text-2xl font-black text-accent tracking-wider" id="tituloBienvenida">LA BARRITA PRO</h1><p class="text-xs text-gray-400 mt-1">Sistema POS & Terminal Digital</p></div>
             <div class="space-y-3">
                 <button onclick="entrarModo('cliente', 'comandas')" type="button" class="w-full bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-extrabold py-3.5 rounded-2xl text-xs transition shadow-lg">📱 SOY CLIENTE (Menú Digital)</button>
@@ -767,7 +821,10 @@
     </div>
 
     <header id="appTopBar" class="hidden bg-app-panel border-b border-gray-800 px-4 py-3 sticky top-0 z-40 flex justify-between items-center">
-        <div class="flex items-center gap-2"><span class="text-xl">🍺</span><h1 id="headerNombreNegocio" class="text-sm font-black text-accent tracking-wider">LA BARRITA</h1></div>
+        <div class="flex items-center gap-2">
+            <div id="divLogoHeader"><span class="text-xl">🍺</span></div>
+            <h1 id="headerNombreNegocio" class="text-sm font-black text-accent tracking-wider">LA BARRITA</h1>
+        </div>
         <button id="btnSalirTop" onclick="cerrarSesion()" type="button" class="text-xs bg-red-900 bg-opacity-60 hover:bg-red-900 text-red-300 px-3 py-1.5 rounded-xl border border-red-900 font-bold">Salir al Inicio</button>
     </header>
 
@@ -779,13 +836,48 @@
         <div id="mapaContainerWrapper" class="mapa-container"></div>
     </main>
 
-    <main id="vista-comandas" class="hidden flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 max-w-7xl w-full mx-auto">
-        <div class="lg:col-span-2 space-y-3"><div id="gridProductos" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div></div>
-        <div class="bg-card rounded-3xl border p-4 flex flex-col h-fit sticky top-16 space-y-3 shadow-2xl">
-            <div class="flex justify-between items-center border-b border-gray-800 pb-2"><h2 class="font-extrabold text-accent text-sm">COMANDA: <span id="labelMesaAsignada" class="text-white">Para Llevar</span></h2><select id="selectMesa" class="bg-black text-white font-bold text-xs px-2.5 py-1.5 rounded-xl border border-gray-700 outline-none"><option value="Para Llevar">Para Llevar</option><option value="Mesa 1">Mesa 1</option><option value="Mesa 2">Mesa 2</option><option value="Mesa 3">Mesa 3</option><option value="Mesa 4">Mesa 4</option><option value="Mesa 5">Mesa 5</option><option value="Mesa 6">Mesa 6</option><option value="Barra">Barra</option></select></div>
-            <div class="bg-black p-2.5 rounded-2xl border border-gray-800 text-xs space-y-1.5"><input type="text" id="clienteNombre" placeholder="Nombre cliente (opcional)" class="w-full bg-app-input border border-gray-800 rounded-xl px-2.5 py-1.5 text-white outline-none"><input type="tel" id="clienteTelefono" placeholder="WhatsApp para promociones/tickets" class="w-full bg-app-input border border-gray-800 rounded-xl px-2.5 py-1.5 text-white outline-none"></div>
-            <div id="listaCarrito" class="flex-1 space-y-1.5 max-h-56 overflow-y-auto text-xs py-1"><p class="text-center py-6 text-gray-500 text-xs">Toca un platillo del menú para agregar</p></div>
-            <div class="border-t border-gray-800 pt-2"><div class="flex justify-between mb-2 text-base font-black text-green-400"><span>Total:</span><span id="totalCarrito">$0.00</span></div><button id="btnEnviarComanda" onclick="procesarEnvioOrden()" type="button" class="w-full bg-green-500 hover:bg-green-400 text-black font-black py-3 rounded-2xl text-xs transition shadow-lg">🚀 ENVIAR ORDEN</button></div>
+    <!-- VISTA COMANDAS EN DOS COLUMNAS ESTILO POS PROFESIONAL -->
+    <main id="vista-comandas" class="hidden flex-1 p-2 w-full mx-auto h-[calc(100vh-64px)] overflow-hidden">
+        <div class="flex flex-col lg:flex-row h-full gap-2">
+            <!-- COLUMNA IZQUIERDA: MENÚ -->
+            <div class="flex-1 lg:w-2/3 flex flex-col bg-card rounded-2xl border border-gray-800 overflow-hidden shadow-xl">
+                <div class="bg-app-panel p-3 border-b border-gray-800 flex justify-between items-center">
+                    <h2 class="font-black text-white text-sm">Menú de Productos</h2>
+                    <select id="filtroCategoriaComanda" class="bg-black text-xs text-white border border-gray-700 rounded-lg px-2 py-1 outline-none">
+                        <option value="Todos">Todas las Categorías</option>
+                        <option value="Alitas">Alitas</option>
+                        <option value="Combos">Combos</option>
+                        <option value="Micheladas">Micheladas</option>
+                        <option value="Snacks">Snacks</option>
+                        <option value="Bebidas">Bebidas</option>
+                    </select>
+                </div>
+                <div id="gridProductos" class="flex-1 overflow-y-auto p-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 no-scrollbar content-start"></div>
+            </div>
+            
+            <!-- COLUMNA DERECHA: CAJA / COMANDA (FIJA) -->
+            <div class="w-full lg:w-1/3 flex flex-col bg-card rounded-2xl border border-gray-800 overflow-hidden shadow-xl shrink-0">
+                <div class="bg-app-panel p-3 border-b border-gray-800 flex justify-between items-center">
+                    <h2 class="font-extrabold text-accent text-sm">Caja / Orden</h2>
+                    <select id="selectMesa" class="bg-black text-white font-bold text-xs px-2 py-1 rounded-lg border border-gray-700 outline-none">
+                        <option value="Para Llevar">Para Llevar</option><option value="Mesa 1">Mesa 1</option><option value="Mesa 2">Mesa 2</option><option value="Mesa 3">Mesa 3</option><option value="Mesa 4">Mesa 4</option><option value="Mesa 5">Mesa 5</option><option value="Mesa 6">Mesa 6</option><option value="Barra">Barra</option>
+                    </select>
+                </div>
+                
+                <div class="p-2 space-y-1.5 bg-black border-b border-gray-800 text-xs">
+                    <input type="text" id="clienteNombre" placeholder="Nombre cliente (opcional)" class="w-full bg-app-input border border-gray-800 rounded-lg px-2.5 py-1.5 text-white outline-none">
+                    <input type="tel" id="clienteTelefono" placeholder="WhatsApp para tickets" class="w-full bg-app-input border border-gray-800 rounded-lg px-2.5 py-1.5 text-white outline-none">
+                </div>
+                
+                <div id="listaCarrito" class="flex-1 overflow-y-auto p-2 space-y-1.5 text-xs no-scrollbar">
+                    <p class="text-center py-6 text-gray-500">Toca un platillo para agregar</p>
+                </div>
+                
+                <div class="p-3 bg-app-panel border-t border-gray-800 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.3)]">
+                    <div class="flex justify-between mb-2 text-base font-black text-green-400"><span>Total:</span><span id="totalCarrito">$0.00</span></div>
+                    <button id="btnEnviarComanda" onclick="procesarEnvioOrden()" type="button" class="w-full bg-green-500 hover:bg-green-400 text-black font-black py-3 rounded-xl text-xs transition shadow-lg">🚀 ENVIAR ORDEN A BARRA</button>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -905,7 +997,6 @@
                 </div>
             </div>
             
-            <!-- NUEVO: GESTIÓN DE USUARIOS CON CHECKBOXES -->
             <div class="bg-card p-5 rounded-3xl border space-y-3 shadow-xl">
                 <h3 class="font-black text-accent text-xs uppercase tracking-wide">👥 Gestión de Personal (Permisos)</h3>
                 <div class="space-y-3 border-b border-gray-800 pb-3">
@@ -932,16 +1023,52 @@
         </div>
         
         <div class="bg-card p-5 rounded-3xl border space-y-3 shadow-xl">
-            <h3 class="font-black text-blue-400 text-xs uppercase tracking-wide">⚙️ Textos del Monitor y Enlaces</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                <div><label class="text-xxs text-gray-400 block mb-1">Nombre del Bar:</label><input type="text" id="configNombreNegocio" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-white"></div>
-                <div><label class="text-xxs text-gray-400 block mb-1">Enlace para QR Redes Sociales:</label><input type="text" id="configRedes" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-white"></div>
-                <div><div class="flex justify-between items-center mb-1"><label class="text-xxs text-gray-400">Texto Superior:</label><span id="lblTamanoSup" class="text-xxs text-purple-400 font-bold">20px</span></div><input type="text" id="configPromo" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-white mb-1"><input type="range" id="sliderTextoSup" min="14" max="42" value="20" class="w-full" oninput="cambiarTamanoTexto('sup', this.value)"></div>
-                <div><div class="flex justify-between items-center mb-1"><label class="text-xxs text-gray-400">Texto Inferior:</label><span id="lblTamanoInf" class="text-xxs text-blue-400 font-bold">15px</span></div><input type="text" id="configPromoInferior" class="w-full bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-white mb-1"><input type="range" id="sliderTextoInf" min="11" max="32" value="15" class="w-full" oninput="cambiarTamanoTexto('inf', this.value)"></div>
-                <div><label class="text-xxs text-gray-400 block mb-1">URL directa (Pega aquí links de YouTube):</label><input type="text" id="configMedia" placeholder="ej. https://www.youtube.com/watch?v=..." class="w-full bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-white"></div>
-                <div class="flex items-center gap-2 pt-4"><input type="checkbox" id="checkVideoAudio" class="w-4 h-4 rounded"><label for="checkVideoAudio" class="text-xs font-bold text-gray-300">Reproducir videos de YouTube CON audio</label></div>
+            <h3 class="font-black text-blue-400 text-xs uppercase tracking-wide">⚙️ Configuraciones de Pantalla e Imagen</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                
+                <div class="space-y-3 bg-black p-3 rounded-xl border border-gray-800">
+                    <h4 class="font-bold text-gray-300 text-sm">Textos y Links</h4>
+                    <div><label class="text-xxs text-gray-400 block mb-1">Nombre del Negocio:</label><input type="text" id="configNombreNegocio" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white"></div>
+                    <div><label class="text-xxs text-gray-400 block mb-1">Link para Código QR (Ej. WhatsApp o Facebook):</label><input type="text" id="configRedes" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white"></div>
+                    <div><div class="flex justify-between items-center mb-1"><label class="text-xxs text-gray-400">Texto Marquesina Superior:</label><span id="lblTamanoSup" class="text-xxs text-purple-400 font-bold">20px</span></div><input type="text" id="configPromo" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white mb-1"><input type="range" id="sliderTextoSup" min="14" max="42" value="20" class="w-full" oninput="cambiarTamanoTexto('sup', this.value)"></div>
+                    <div><div class="flex justify-between items-center mb-1"><label class="text-xxs text-gray-400">Texto Marquesina Inferior:</label><span id="lblTamanoInf" class="text-xxs text-blue-400 font-bold">15px</span></div><input type="text" id="configPromoInferior" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white mb-1"><input type="range" id="sliderTextoInf" min="11" max="32" value="15" class="w-full" oninput="cambiarTamanoTexto('inf', this.value)"></div>
+                </div>
+
+                <div class="space-y-3 bg-black p-3 rounded-xl border border-gray-800">
+                    <h4 class="font-bold text-gray-300 text-sm">Apariencia Visual y Multimedia</h4>
+                    
+                    <div>
+                        <label class="text-xxs text-gray-400 block mb-1">Fondo de Pantalla de Inicio (Login):</label>
+                        <select id="configFondoPantalla" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white"><option value="">Ninguna</option></select>
+                        <p class="text-[9px] text-gray-500 mt-0.5">La imagen debe estar en <b>public/imagenes/</b></p>
+                    </div>
+                    
+                    <div>
+                        <label class="text-xxs text-gray-400 block mb-1">Logo del Negocio:</label>
+                        <select id="configLogoNegocio" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white"><option value="">Ninguna</option></select>
+                        <p class="text-[9px] text-gray-500 mt-0.5">Se mostrará en la pantalla de inicio y cabecera.</p>
+                    </div>
+
+                    <div class="border-t border-gray-800 pt-2 mt-2">
+                        <label class="text-xxs text-gray-400 block mb-1">Link de Video Principal (YouTube):</label>
+                        <input type="text" id="configMedia" placeholder="ej. https://www.youtube.com/watch?v=..." class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white">
+                        
+                        <div class="flex items-center justify-between gap-2 mt-3 bg-gray-900 p-2 rounded-lg border border-gray-700">
+                            <label for="checkMostrarYouTube" class="text-xs font-bold text-white flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="checkMostrarYouTube" class="w-4 h-4 rounded text-accent"> 
+                                Mostrar YouTube en el Monitor
+                            </label>
+                        </div>
+                        <div class="flex items-center gap-2 mt-2 ml-1">
+                            <input type="checkbox" id="checkVideoAudio" class="w-3 h-3 rounded">
+                            <label for="checkVideoAudio" class="text-[10px] font-bold text-gray-400">Reproducir YouTube CON audio</label>
+                        </div>
+                        <p class="text-[9px] text-yellow-500 mt-1 italic">Si "Mostrar YouTube" está desmarcado, el monitor rotará automáticamente las imágenes que guardes en <b>public/publicidad/</b>.</p>
+                    </div>
+                </div>
+                
             </div>
-            <button onclick="guardarConfigGeneral()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-2 px-5 rounded-xl text-xs mt-2">Guardar Ajustes de Pantalla</button>
+            <button onclick="guardarConfigGeneral()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-3 px-5 rounded-xl text-xs mt-2 shadow-lg transition active:scale-95">Guardar Configuración General</button>
             <div class="pt-4 border-t border-gray-800 space-y-2 mt-4">
                 <h4 class="font-bold text-xs text-gray-300">Generar Accesos Directos (QR):</h4>
                 <div class="flex gap-2">
@@ -989,7 +1116,6 @@
                 <div class="flex gap-2 pt-1"><button onclick="confirmarCobroFinal(true)" type="button" class="flex-1 bg-green-500 text-black font-black py-2.5 rounded-xl text-xs">Cobrar e Imprimir</button><button onclick="confirmarCobroFinal(false)" type="button" class="flex-1 bg-accent text-white font-bold py-2.5 rounded-xl text-xs">Solo Cobrar</button><button onclick="cerrarCobro()" type="button" class="bg-gray-800 text-gray-300 font-bold px-3 py-2.5 rounded-xl text-xs">Cerrar</button></div>
             </div>
             
-            <!-- NUEVO TECLADO RÁPIDO DE COBRO -->
             <div class="bg-black border border-gray-800 p-3 rounded-2xl flex flex-col justify-between">
                 <div>
                     <div class="text-xxs text-gray-400 mb-2 flex justify-between font-bold">
