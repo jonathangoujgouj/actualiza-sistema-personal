@@ -795,11 +795,28 @@
         </div>
     </main>
 
-    <!-- MONITOR CLIENTE (Con Reloj Digital, Ticket en Proceso y Rango de Tiempo) -->
+   <!-- MONITOR CLIENTE (PANTALLA COMPLETA REPARADA PARA TV) -->
     <main id="vista-pantalla-cliente" class="hidden fixed inset-0 z-[200] bg-[#050505] p-4 flex flex-col overflow-hidden">
-        <div class="flex justify-between items-center mb-4 shrink-0">
-            <button onclick="document.exitFullscreen ? document.exitFullscreen() : null; cerrarSesion();" class="bg-card border border-[color:var(--card-border)] text-gray-300 px-4 py-2 rounded-xl text-sm font-bold hover:text-white transition shadow-lg">⬅ Salir del Monitor</button>
-            
+        <div class="flex justify-between items-center mb-2 shrink-0">
+            <button onclick="document.exitFullscreen ? document.exitFullscreen() : null; cerrarSesion();" class="bg-card border border-[color:var(--card-border)] text-gray-300 px-3 py-1.5 rounded-xl text-xs font-bold hover:text-white transition shadow-lg">⬅ Salir</button>
+            <div id="relojDigitalMonitor" class="text-accent text-lg font-black tracking-widest bg-black px-3 py-1 rounded-xl border border-[color:var(--card-border)]">00:00:00</div>
+            <button onclick="togglePantallaCompleta()" class="bg-accent bg-opacity-30 border border-accent text-white px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-opacity-100 transition shadow-lg">🔲 Pantalla</button>
+        </div>
+        
+        <!-- Contenedores flexibles forzados al 100% de la pantalla restante -->
+        <div class="flex-1 flex flex-col lg:flex-row gap-4 h-[calc(100vh-80px)] min-h-0 overflow-hidden">
+            <!-- Panel izquierdo de notificaciones -->
+            <div class="w-full lg:w-1/4 bg-card neon-box p-4 rounded-3xl flex flex-col h-full overflow-hidden">
+                <div id="infoTicketEnProcesoMonitor"></div>
+                <h3 class="text-sm font-black text-accent mb-3 flex items-center gap-2 shrink-0"><span>📺</span> ESTADO DE ÓRDENES</h3>
+                <div id="gridPantallaEstado" class="space-y-2 overflow-y-auto flex-1 pr-1 no-scrollbar"></div>
+            </div>
+            <!-- Panel derecho de publicidad (Forzado a ancho y alto absoluto) -->
+            <div class="w-full lg:w-3/4 bg-card neon-box rounded-3xl relative overflow-hidden bg-black flex-1 h-full min-h-[300px]">
+                <div id="contenedorMediaCentral" class="absolute inset-0 w-full h-full flex items-center justify-center bg-black"></div>
+            </div>
+        </div>
+    </main>
             <!-- Reloj Digital en espacio libre superior -->
             <div id="relojDigitalMonitor" class="text-accent text-xl font-black tracking-widest bg-black px-4 py-1.5 rounded-xl border border-[color:var(--card-border)]">00:00:00</div>
             
