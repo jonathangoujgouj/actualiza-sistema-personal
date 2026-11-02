@@ -123,7 +123,24 @@ function obtenerArchivos(directorio, rutaRelativa) {
                        .map(f => `${rutaRelativa}/${f}`);
     } catch (err) { return []; }
 }
+function cambiarTabMovil(vista) {
+  const paneles = {
+    mapa: document.getElementById('panel-vista-mapa'),
+    menu: document.getElementById('panel-vista-menu'),
+    checkout: document.getElementById('panel-vista-checkout')
+  };
 
+  Object.keys(paneles).forEach(k => {
+    if (!paneles[k]) return;
+    if (k === vista) {
+      paneles[k].classList.remove('hidden');
+      paneles[k].classList.add('flex');
+    } else {
+      paneles[k].classList.add('hidden');
+      paneles[k].classList.remove('flex');
+    }
+  });
+}
 function filtrarDatosParaCliente(db) {
     const copia = JSON.parse(JSON.stringify(db));
     return {
