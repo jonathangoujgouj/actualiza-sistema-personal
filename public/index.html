@@ -22,12 +22,10 @@
         .mapa-container { position: relative; width: 100%; height: 60vh; min-height: 400px; background-color: #0d0d14; border-radius: 1.5rem; border: 1px solid #1f1f2e; overflow: hidden; }
         .mesa-node { position: absolute; width: 100px; height: 100px; border-radius: 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; user-select: none; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5); z-index: 10; border: 2px solid; }
         #pantalla-bienvenida { background-size: cover; background-position: center; background-repeat: no-repeat; }
-        
-        .no-scrollbar::-webkit-scrollbar { display: none; } 
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .hidden { display: none !important; }
     </style>
-  <script>
+    <script>
         var socket = null; var usuarioActivo = null; var rolActivo = 'cliente'; var miMesaAsignada = 'Para Llevar';
         var caja = { abierta: false, fondoInicial: 0 }; var productos = []; var comandas = []; var historialVentas = []; var egresos = []; var usuariosSistema = []; var archivosPublicidad = []; var archivosImagenes = []; var mensajesChat = [];
         var listaCompras = []; var config = { nombreNegocio: "LA BARRITA PRO", logoUrl: "", fondoPantallaUrl: "", promoTexto: "🔥 2x1 EN MICHELADAS Y ALITAS", promoTextoInferior: "📲 Wi-Fi: LaBarrita_VIP", tamanoTextoSup: 20, tamanoTextoInf: 15, redesUrl: "", mediaUrl: "", mostrarYouTube: false, videoConAudio: false, skinSeleccionada: "tech-neon" };
@@ -526,8 +524,7 @@
                         var vB = document.getElementById('vista-barra'); if (vB && !vB.classList.contains('hidden')) renderizarBarra();
                         var vM = document.getElementById('vista-pantalla-cliente'); if (vM && !vM.classList.contains('hidden')) renderizarMonitor();
                         var vMap = document.getElementById('vista-mapa'); if (vMap && !vMap.classList.contains('hidden')) renderizarMapa();
-                        var vInv = document.getElementById('vista-inventario'); if(vInv && !vInv.classList.net) renderizarInventario(); // fixed check
-                        if(vInv && !vInv.classList.contains('hidden')) renderizarInventario();
+                        var vInv = document.getElementById('vista-inventario'); if(vInv && !vInv.classList.contains('hidden')) renderizarInventario();
                         var vAdm = document.getElementById('vista-admin'); if (vAdm && !vAdm.classList.contains('hidden')) renderizarAdmin();
                         
                         if(document.getElementById('configFondoPantalla')) {
@@ -841,7 +838,7 @@
     </div>
 
     <!-- TICKET DIGITAL Y CHAT FLOTANTE -->
-    <div id="modal-ticket-digital" class="fixed inset-0 bg-black bg-opacity-90 z-[110] hidden flex items-center justify-center p-4"><div class="bg-white text-black p-5 rounded-3xl max-w-xs w-full space-y-3 shadow-2xl"><div id="cuerpoTicketDigital" class="text-xs font-mono space-y-1"></div><div class="flex gap-2"><button onclick="document.getElementById('modal-ticket-digital').classList.add('hidden')" type="button" class="w-full bg-gray-800 text-white font-bold px-3 py-2 rounded-xl text-xs">Cerrar</button></div></div></div>
+    <div id="modal-ticket-digital" class="fixed inset-0 bg-black bg-opacity-90 z-[110] hidden flex items-center justify-center p-4"><div class="bg-white text-black p-5 rounded-3xl max-w-xs w-full space-y-3 shadow-2xl"><div id="cuerpoTicketDigital" class="text-xs font-mono space-y-1"></div><div class="flex gap-2"><button onclick="document.getElementById('modal-ticket-digital').classList.add('hidden')" type="button" class="w-full bg-gray-800 text-white font-bold px-3 py-2 rounded-xl text-xs">Cerrar, gracias</button></div></div></div>
     
     <button id="btnChatFlotante" onclick="toggleChat()" class="hidden fixed bottom-16 right-4 z-40 bg-accent text-white p-3 rounded-full shadow-2xl hover:scale-110 transition">💬 <span id="badgeChatNew" class="hidden absolute -top-1 -right-1 bg-red-500 w-3 h-3 rounded-full animate-ping"></span></button>
     <div id="panelChatFlotante" class="hidden fixed bottom-32 right-4 z-50 bg-card border border-[color:var(--card-border)] rounded-3xl w-72 h-80 flex flex-col shadow-[0_0_30px_rgba(0,0,0,0.8)]">
