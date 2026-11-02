@@ -29,11 +29,12 @@
         #pantalla-bienvenida { background-size: cover; background-position: center; background-repeat: no-repeat; }
         #logoBienvenida, #headerLogo { max-height: 80px; object-fit: contain; } #headerLogo { max-height: 30px; }
     </style>
-    <script>
+  <script>
         var socket = null; var usuarioActivo = null; var rolActivo = 'cliente'; var miMesaAsignada = 'Para Llevar';
         var caja = { abierta: false, fondoInicial: 0 }; var productos = []; var comandas = []; var historialVentas = []; var egresos = []; var usuariosSistema = []; var archivosPublicidad = []; var archivosImagenes = []; var mensajesChat = [];
         var listaCompras = []; var config = { nombreNegocio: "LA BARRITA PRO", logoUrl: "", fondoPantallaUrl: "", promoTexto: "🔥 2x1 EN MICHELADAS Y ALITAS", promoTextoInferior: "📲 Wi-Fi: LaBarrita_VIP", tamanoTextoSup: 20, tamanoTextoInf: 15, redesUrl: "", mediaUrl: "", mostrarYouTube: false, videoConAudio: false, skinSeleccionada: "tech-neon" };
         var mesasData = []; var ipServidor = window.location.host; var carrito = []; var indexPublicidad = -1; var comandaCobroActiva = null; var metodoPago = 'Efectivo'; var timerPublicidad = null; var chartVentas = null; var modoEdicionMapa = false; var modalProductoActivo = null;
+        var categoriaSeleccionadaMenu = 'Todos';
 
         var SKINS = {
             "tech-neon": { bgMain: "#07070a", cardBg: "#0f0f15", border: "#1f1f2e", accent: "#a855f7", glow: "rgba(168, 85, 247, 0.35)" },
@@ -84,17 +85,16 @@
         }
         function activarAudioNavegador() { reproducirAlertaSonora('nuevo'); if (typeof Notification !== 'undefined' && Notification.permission !== "granted") { Notification.requestPermission(); } var btn = document.getElementById('btnActivarAudio'); if (btn) btn.classList.add('hidden'); }
 
-        // NAVEGACIÓN Y VISTAS
-function entrarModo(modo, vistaInicial = 'comandas') {
+        // ====== NAVEGACIÓN Y VISTAS ======
+        function entrarModo(modo, vistaInicial = 'comandas') {
             rolActivo = modo; 
             document.getElementById('pantalla-bienvenida').classList.add('hidden');
             
-            var btnAudio = document.getElementById('btnActivarAudio');
-            if(btnAudio) btnAudio.classList.remove('hidden'); // Mostrar por defecto
+            var btnAudio = document.getElementById('btnActivarAudio'); if(btnAudio) btnAudio.classList.remove('hidden');
             
             if (modo === 'monitor') { 
                 document.getElementById('appTopBar').classList.add('hidden'); 
-                if(btnAudio) btnAudio.classList.add('hidden'); // Ocultar barra morada en monitor
+                if(btnAudio) btnAudio.classList.add('hidden');
                 var btnChat = document.getElementById('btnChatFlotante'); if (btnChat) btnChat.classList.add('hidden');
                 cambiarVista('pantalla-cliente'); renderizarMonitor(); iniciarCarruselPublicidad(); return; 
             }
@@ -103,17 +103,22 @@ function entrarModo(modo, vistaInicial = 'comandas') {
                 document.getElementById('appTopBar').classList.add('hidden');
                 var selMesa = document.getElementById('selectMesa'); if(selMesa) { selMesa.disabled = true; selMesa.classList.add('opacity-50', 'cursor-not-allowed'); }
                 var btnChat = document.getElementById('btnChatFlotante'); if (btnChat) btnChat.classList.add('hidden');
+                var chatPos = document.getElementById('contenedorChatPOS'); if (chatPos) chatPos.classList.add('hidden');
+                
                 if(!document.getElementById('btnSalirClienteFlotante')) {
                     var btnSalir = document.createElement('button'); btnSalir.id = 'btnSalirClienteFlotante'; btnSalir.innerHTML = '⬅ Salir del Menú'; btnSalir.className = 'fixed top-4 left-4 z-50 bg-red-900 bg-opacity-80 text-white px-3 py-2 rounded-xl text-xs font-bold shadow-lg backdrop-blur-md border border-red-700';
                     btnSalir.onclick = function() { cerrarSesion(); this.remove(); }; document.body.appendChild(btnSalir);
                 }
             } else {
-                document.getElementById('appTopBar').classList.remove('hidden'); var btnSalirC = document.getElementById('btnSalirClienteFlotante'); if(btnSalirC) btnSalirC.remove();
+                document.getElementById('appTopBar').classList.remove('hidden'); 
+                var chatPos = document.getElementById('contenedorChatPOS'); if (chatPos) chatPos.classList.remove('hidden');
+                var btnSalirC = document.getElementById('btnSalirClienteFlotante'); if(btnSalirC) btnSalirC.remove();
             }
 
             configurarAppBottomBar(); cambiarVista(vistaInicial);
             if(document.getElementById('btnChatFlotante') && modo !== 'cliente') document.getElementById('btnChatFlotante').classList.remove('hidden');
         }
+
         function volverMenuAnterior() {
             if(rolActivo === 'cliente') { cerrarSesion(); } else if(usuarioActivo && usuarioActivo.permisos) { cambiarVista(usuarioActivo.permisos.admin ? 'admin' : 'mapa'); } else { cerrarSesion(); }
         }
@@ -164,7 +169,22 @@ function entrarModo(modo, vistaInicial = 'comandas') {
             bar.innerHTML = '<div class="flex justify-around items-center w-full max-w-2xl mx-auto py-2">' + htmlBotones + '</div>';
         }
 
-        // MAPA
+        // ====== IMÁGENES Y FONDOS ======
+        function aplicarConfiguracionVisual() {
+            var pantalla = document.getElementById('pantalla-bienvenida');
+            if(pantalla) {
+                if(config.fondoPantallaUrl) pantalla.style.backgroundImage = 'url(' + encodeURI(config.fondoPantallaUrl) + ')';
+                else pantalla.style.backgroundImage = 'none';
+            }
+            var selFondo = document.getElementById('configFondoPantalla'); var selLogo = document.getElementById('configLogoNegocio');
+            if(selFondo && selLogo) {
+                var opciones = '<option value="">Ninguna</option>' + archivosImagenes.map(function(img) { return '<option value="'+img+'">'+img.split('/').pop()+'</option>'; }).join('');
+                selFondo.innerHTML = opciones; selFondo.value = config.fondoPantallaUrl || '';
+                selLogo.innerHTML = opciones; selLogo.value = config.logoUrl || '';
+            }
+        }
+
+        // ====== MAPA ======
         function renderizarMapa() {
             var container = document.getElementById('mapaContainerWrapper'); if (!container) return;
             container.innerHTML = mesasData.map(function(mesaObj) {
@@ -187,47 +207,74 @@ function entrarModo(modo, vistaInicial = 'comandas') {
             else { abrirCobro(activas[0].id); }
         }
 
-        // CHAT (Solo empleados)
+        // ====== CHAT (Solo empleados) ======
         function toggleChat() {
             var chat = document.getElementById('panelChatFlotante');
             if(chat.classList.contains('hidden')) { chat.classList.remove('hidden'); renderizarChat(); document.getElementById('inputChat').focus(); document.getElementById('badgeChatNew').classList.add('hidden'); } else { chat.classList.add('hidden'); }
         }
-        function enviarMensajeChat(e) {
+        function enviarMensajeChat(e, inputId = 'inputChat') {
             if(e && e.key !== 'Enter') return;
-            var msg = document.getElementById('inputChat').value.trim(); if(!msg || !usuarioActivo) return;
-            socket.emit('enviar_mensaje_chat', { usuario: usuarioActivo.nombre, rol: usuarioActivo.permisos.admin ? 'admin' : 'mesero', texto: msg }); document.getElementById('inputChat').value = '';
+            var input = document.getElementById(inputId); var msg = input ? input.value.trim() : ''; 
+            if(!msg || !usuarioActivo) return;
+            socket.emit('enviar_mensaje_chat', { usuario: usuarioActivo.nombre, rol: usuarioActivo.permisos.admin ? 'admin' : 'mesero', texto: msg }); 
+            if(input) input.value = '';
         }
         function renderizarChat() {
-            var body = document.getElementById('chatBody'); if(!body) return;
-            if(mensajesChat.length === 0) { body.innerHTML = '<p class="text-center text-xs text-gray-500 mt-4">Sin mensajes</p>'; return; }
-            body.innerHTML = mensajesChat.map(function(m) {
-                var isMe = usuarioActivo && m.usuario === usuarioActivo.nombre; var col = isMe ? 'bg-purple-900 text-purple-100 ml-4' : 'bg-gray-800 text-gray-300 mr-4'; var ali = isMe ? 'text-right' : 'text-left';
-                return '<div class="mb-2 ' + ali + '"><div class="text-[9px] mb-0.5 text-blue-400 font-bold">' + escapeHTML(m.usuario) + '</div><div class="inline-block px-3 py-1.5 rounded-xl text-xs ' + col + '">' + escapeHTML(m.texto) + '</div></div>';
-            }).join(''); body.scrollTop = body.scrollHeight;
+            var html = '';
+            if(mensajesChat.length === 0) { html = '<p class="text-center text-xs text-gray-500 mt-4">Sin mensajes</p>'; } 
+            else {
+                html = mensajesChat.map(function(m) {
+                    var isMe = usuarioActivo && m.usuario === usuarioActivo.nombre; var col = isMe ? 'bg-purple-900 text-purple-100 ml-4' : 'bg-gray-800 text-gray-300 mr-4'; var ali = isMe ? 'text-right' : 'text-left';
+                    return '<div class="mb-2 ' + ali + '"><div class="text-[9px] mb-0.5 text-blue-400 font-bold">' + escapeHTML(m.usuario) + '</div><div class="inline-block px-3 py-1.5 rounded-xl text-xs ' + col + '">' + escapeHTML(m.texto) + '</div></div>';
+                }).join('');
+            }
+            var bodyFlotante = document.getElementById('chatBody'); if(bodyFlotante) { bodyFlotante.innerHTML = html; bodyFlotante.scrollTop = bodyFlotante.scrollHeight; }
+            var bodyPOS = document.getElementById('chatBodyPOS'); if(bodyPOS) { bodyPOS.innerHTML = html; bodyPOS.scrollTop = bodyPOS.scrollHeight; }
         }
 
-        // MENU Y CARRITO
+        // ====== MENU 3 COLUMNAS Y CARRITO ======
+        function cambiarCategoriaMenu(cat) { categoriaSeleccionadaMenu = cat; renderizarMenu(); }
+
         function renderizarMenu() {
             var grid = document.getElementById('gridProductos'); if (!grid) return;
-            var cat = document.getElementById('filtroCategoriaComanda') ? document.getElementById('filtroCategoriaComanda').value : 'Todos';
-            var prodFiltrados = cat === 'Todos' ? productos : productos.filter(function(p) { return p.categoria === cat; });
+            var categoriasUnicas = []; productos.forEach(function(p) { if(categoriasUnicas.indexOf(p.categoria) === -1) categoriasUnicas.push(p.categoria); });
             
-            if (prodFiltrados.length === 0) { grid.innerHTML = '<p class="text-gray-500 col-span-full text-center mt-10">No hay productos en esta categoría</p>'; return; }
-            var categoriasUnicas = []; prodFiltrados.forEach(function(p) { if(categoriasUnicas.indexOf(p.categoria) === -1) categoriasUnicas.push(p.categoria); });
-            var html = '';
-            categoriasUnicas.forEach(function(c) {
-                html += '<div class="col-span-full mt-4 mb-2 border-b-2 border-red-600 pb-1 text-center"><h3 class="text-2xl font-black text-white italic tracking-widest uppercase transform -skew-x-6 drop-shadow-[0_2px_4px_rgba(220,38,38,0.8)]">' + escapeHTML(c) + '</h3></div>';
-                var prodsDeCat = prodFiltrados.filter(function(p) { return p.categoria === c; });
+            // SIDEBAR ESCRITORIO
+            var sidebar = document.getElementById('listaCategoriasSidebar');
+            if(sidebar) {
+                var htmlSide = '<button onclick="cambiarCategoriaMenu(\'Todos\')" class="w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition ' + (categoriaSeleccionadaMenu === 'Todos' ? 'bg-accent text-white shadow-lg' : 'text-gray-400 hover:bg-gray-800') + '">🍽️ Ver Todo</button>';
+                categoriasUnicas.forEach(function(c) {
+                    htmlSide += '<button onclick="cambiarCategoriaMenu(\''+escapeHTML(c)+'\')" class="w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition mt-1.5 ' + (categoriaSeleccionadaMenu === c ? 'bg-accent text-white shadow-lg' : 'text-gray-400 hover:bg-gray-800') + '">' + escapeHTML(c) + '</button>';
+                });
+                sidebar.innerHTML = htmlSide;
+            }
+
+            // DROPDOWN MÓVIL
+            var dd = document.getElementById('filtroCategoriaComanda');
+            if(dd) {
+                var htmlDd = '<option value="Todos">🍽️ Todas</option>';
+                categoriasUnicas.forEach(function(c) { htmlDd += '<option value="'+escapeHTML(c)+'">'+escapeHTML(c)+'</option>'; });
+                dd.innerHTML = htmlDd; dd.value = categoriaSeleccionadaMenu;
+            }
+
+            var prodFiltrados = categoriaSeleccionadaMenu === 'Todos' ? productos : productos.filter(function(p) { return p.categoria === categoriaSeleccionadaMenu; });
+            if (prodFiltrados.length === 0) { grid.innerHTML = '<p class="text-gray-500 col-span-full text-center mt-10">Sin productos</p>'; return; }
+            
+            var catsADibujar = categoriaSeleccionadaMenu === 'Todos' ? categoriasUnicas : [categoriaSeleccionadaMenu];
+            var htmlGrid = '';
+            catsADibujar.forEach(function(c) {
+                var prodsDeCat = prodFiltrados.filter(function(p) { return p.categoria === c; }); if(prodsDeCat.length === 0) return;
+                htmlGrid += '<div class="col-span-full mt-2 mb-1 border-b border-gray-800 pb-1"><h3 class="text-xs font-black text-gray-500 uppercase tracking-widest">' + escapeHTML(c) + '</h3></div>';
                 prodsDeCat.forEach(function(p) {
                     var imgUrl = p.imagen ? encodeURI(p.imagen) : ''; var imgHtml = imgUrl ? '<img src="'+imgUrl+'" class="w-full h-full object-cover">' : '<span class="text-4xl opacity-20">🔥</span>';
-                    html += '<div onclick="abrirDetalleProducto(' + p.id + ')" class="cursor-pointer flex flex-col bg-black rounded-xl border-2 border-gray-800 overflow-hidden shadow-2xl hover:border-red-500 transition transform hover:scale-105 active:scale-95">' +
-                        '<div class="h-24 w-full bg-gray-900 flex items-center justify-center relative">' + imgHtml + (p.stock <= 0 ? '<div class="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center"><span class="text-red-500 font-black border-2 border-red-500 p-1 transform -rotate-12 bg-black">AGOTADO</span></div>' : '') + '</div>' +
-                        '<div class="p-2 flex-1 flex flex-col justify-between bg-gradient-to-b from-gray-900 to-black text-center">' +
-                        '<h4 class="font-black text-yellow-400 text-xs leading-tight uppercase drop-shadow-md mb-2">' + escapeHTML(p.nombre) + '</h4>' +
-                        '<div class="flex justify-center mt-auto"><span class="bg-red-600 text-white font-black px-3 py-1 rounded text-sm border border-red-700">$' + Number(p.precio).toFixed(0) + '</span></div>' +
+                    htmlGrid += '<div onclick="abrirDetalleProducto(' + p.id + ')" class="cursor-pointer flex flex-col bg-[#16161e] rounded-2xl border border-gray-800 overflow-hidden hover:border-accent transition transform hover:scale-105 active:scale-95 shadow-lg">' +
+                        '<div class="h-28 w-full bg-gray-900 flex items-center justify-center relative">' + imgHtml + (p.stock <= 0 ? '<div class="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center"><span class="text-red-500 font-black border-2 border-red-500 p-1 transform -rotate-12 bg-black text-[10px]">AGOTADO</span></div>' : '') + '</div>' +
+                        '<div class="p-3 flex-1 flex flex-col justify-between bg-gradient-to-b from-[#1a1a24] to-[#16161e] text-left">' +
+                        '<h4 class="font-bold text-gray-200 text-xs leading-tight mb-2">' + escapeHTML(p.nombre) + '</h4>' +
+                        '<div class="flex justify-between items-end mt-auto"><span class="text-accent font-black text-sm">$' + Number(p.precio).toFixed(0) + '</span></div>' +
                         '</div></div>';
                 });
-            }); grid.innerHTML = html;
+            }); grid.innerHTML = htmlGrid;
         }
 
         function abrirDetalleProducto(id) {
@@ -264,7 +311,7 @@ function entrarModo(modo, vistaInicial = 'comandas') {
             if (rolActivo !== 'cliente') cambiarVista('mapa');
         }
 
-        // BARRA
+        // ====== BARRA ======
         function renderizarBarra() {
             var grid = document.getElementById('gridComandasBarra'); if (!grid) return;
             grid.innerHTML = comandas.length === 0 ? '<p class="text-gray-500 col-span-full py-12 text-center text-xs">Sin comandas activas</p>' :
@@ -288,7 +335,7 @@ function entrarModo(modo, vistaInicial = 'comandas') {
             var ulBarra = document.getElementById('listaInsumosBarra'); if(ulBarra) ulBarra.innerHTML = html;
         }
 
-        // COBRO MODAL
+        // ====== COBRO ======
         function abrirCobro(id) {
             var c = comandas.find(function(x) { return x.id === id; }); if (!c) return; comandaCobroActiva = c;
             document.getElementById('cobroMesaLabel').textContent = c.mesa; document.getElementById('cobroSubtotal').textContent = '$' + Number(c.total).toFixed(2);
@@ -317,7 +364,7 @@ function entrarModo(modo, vistaInicial = 'comandas') {
             if(imprimir) { document.getElementById('modal-ticket-digital').classList.remove('hidden'); }
         }
 
-        // ADMIN Y FUNCIONES DE NEGOCIO
+        // ====== ADMIN Y CONFIG ======
         function abrirCajaTurno() { var m = prompt("Fondo inicial ($):", "500"); if (m !== null && !isNaN(parseFloat(m))) { if (socket) socket.emit('abrir_caja', parseFloat(m)); } }
         function registrarGastoOperativo() { var c = prompt("Concepto:"); var m = prompt("Monto ($):"); if (c && m && !isNaN(parseFloat(m))) { if (socket) socket.emit('registrar_egreso', { concepto: c, monto: parseFloat(m) }); } }
         function ejecutarCorteCaja() { if (confirm("¿Cerrar caja y reiniciar registros?")) { if (socket) socket.emit('cerrar_corte_caja', function(res) { if (res && res.success) alert("Caja cerrada exitosamente."); }); } }
@@ -357,7 +404,15 @@ function entrarModo(modo, vistaInicial = 'comandas') {
         }
 
         function guardarConfigGeneral() {
-            var c = { nombreNegocio: document.getElementById('configNombreNegocio').value.trim(), promoTexto: document.getElementById('configPromo').value.trim(), promoTextoInferior: document.getElementById('configPromoInferior').value.trim(), mediaUrl: document.getElementById('configMedia').value.trim(), videoConAudio: document.getElementById('checkVideoAudio').checked, mostrarYouTube: document.getElementById('checkMostrarYouTube').checked };
+            var c = { 
+                nombreNegocio: document.getElementById('configNombreNegocio').value.trim(), 
+                promoTexto: document.getElementById('configPromo').value.trim(), 
+                mediaUrl: document.getElementById('configMedia').value.trim(), 
+                videoConAudio: document.getElementById('checkVideoAudio').checked, 
+                mostrarYouTube: document.getElementById('checkMostrarYouTube').checked,
+                fondoPantallaUrl: document.getElementById('configFondoPantalla') ? document.getElementById('configFondoPantalla').value : '',
+                logoUrl: document.getElementById('configLogoNegocio') ? document.getElementById('configLogoNegocio').value : ''
+            };
             if (socket) socket.emit('actualizar_config', c); alert('Ajustes guardados correctamente.');
         }
 
@@ -369,7 +424,7 @@ function entrarModo(modo, vistaInicial = 'comandas') {
 
         function abrirModalGithub() { alert("Abre tu terminal y ejecuta el script 'herramientas_dev.bat' para sincronizar con GitHub."); }
 
-        // INVENTARIO Y USUARIOS (Jalar datos)
+        // ====== INVENTARIO Y USUARIOS ======
         function renderizarInventario() {
             var lista = document.getElementById('listaAdminProductos'); if (!lista) return;
             lista.innerHTML = productos.map(function(p) {
@@ -419,7 +474,7 @@ function entrarModo(modo, vistaInicial = 'comandas') {
         }
         function eliminarUsuario(id) { if (confirm('¿Eliminar usuario?')) { if (socket) socket.emit('eliminar_usuario', id); } }
 
-        // MONITOR PANTALLA
+        // ====== MONITOR ======
         function renderizarMonitor() {
             var cont = document.getElementById('gridPantallaEstado'); if(!cont) return;
             cont.innerHTML = comandas.length === 0 ? '<p class="text-gray-500 text-center py-10 text-xs">Sin órdenes activas</p>' : comandas.map(function(c) {
@@ -444,13 +499,17 @@ function entrarModo(modo, vistaInicial = 'comandas') {
             mediaCont.innerHTML = '<div class="text-gray-500 text-sm">Sin publicidad. Añade a public/publicidad/</div>';
         }
 
+        // ====== INICIALIZACIÓN SOCKET ======
         window.addEventListener('DOMContentLoaded', function() {
             try {
                 if (typeof io !== 'undefined') {
                     socket = io();
                     socket.on('sincronizar_todo', function(db) {
-                        caja = db.caja || caja; productos = db.productos || productos; comandas = db.comandas || []; historialVentas = db.historialVentas || []; egresos = db.egresos || []; usuariosSistema = db.usuarios || []; archivosPublicidad = db.archivosPublicidad || []; mensajesChat = db.mensajesChat || []; mesasData = db.mesas || []; config = db.config || config;
+                        caja = db.caja || caja; productos = db.productos || productos; comandas = db.comandas || []; historialVentas = db.historialVentas || []; egresos = db.egresos || []; usuariosSistema = db.usuarios || []; archivosPublicidad = db.archivosPublicidad || []; archivosImagenes = db.archivosImagenes || []; mensajesChat = db.mensajesChat || []; mesasData = db.mesas || []; config = db.config || config;
+                        
                         if (config.skinSeleccionada) aplicarSkinGlobal(config.skinSeleccionada, false);
+                        aplicarConfiguracionVisual();
+                        
                         var vC = document.getElementById('vista-comandas'); if (vC && !vC.classList.contains('hidden')) renderizarMenu();
                         var vB = document.getElementById('vista-barra'); if (vB && !vB.classList.contains('hidden')) renderizarBarra();
                         var vM = document.getElementById('vista-pantalla-cliente'); if (vM && !vM.classList.contains('hidden')) renderizarMonitor();
@@ -461,7 +520,6 @@ function entrarModo(modo, vistaInicial = 'comandas') {
                         if(document.getElementById('configFondoPantalla')) {
                             document.getElementById('configNombreNegocio').value = config.nombreNegocio || "";
                             document.getElementById('configPromo').value = config.promoTexto || "";
-                            document.getElementById('configPromoInferior').value = config.promoTextoInferior || "";
                             document.getElementById('configMedia').value = config.mediaUrl || "";
                             document.getElementById('checkMostrarYouTube').checked = config.mostrarYouTube || false;
                             document.getElementById('checkVideoAudio').checked = config.videoConAudio || false;
@@ -472,17 +530,14 @@ function entrarModo(modo, vistaInicial = 'comandas') {
                         reproducirAlertaSonora('listo'); 
                         var msj = 'Orden de ' + datos.mesa + ' lista para entrega.';
                         mostrarToast('¡LISTO!', msj, 'normal');
-                        
-                        // Notificación en background (Service Worker)
-                        if (rolActivo === 'cliente' || (usuarioActivo && (usuarioActivo.rol === 'mesero' || usuarioActivo.rol === 'admin'))) {
-                            notificarDispositivo('¡Orden Lista!', msj);
-                        }
+                        if (rolActivo === 'cliente' || (usuarioActivo && (usuarioActivo.rol === 'mesero' || usuarioActivo.rol === 'admin'))) { notificarDispositivo('¡Orden Lista!', msj); }
                     });
                     
                     socket.on('notificacion_chat', function(msg) {
                         if (rolActivo === 'cliente' || rolActivo === 'monitor') return;
                         reproducirAlertaSonora('chat');
                         if(document.getElementById('panelChatFlotante').classList.contains('hidden')) { document.getElementById('badgeChatNew').classList.remove('hidden'); }
+                        renderizarChat(); // Asegura que el chat se actualice cuando está incrustado en el POS
                     });
                 }
             } catch (err) {}
@@ -533,18 +588,67 @@ function entrarModo(modo, vistaInicial = 'comandas') {
         <div id="mapaContainerWrapper" class="mapa-container"></div>
     </main>
 
-<!-- VISTA COMANDAS / CLIENTE AISLADO -->
-    <main id="vista-comandas" class="hidden flex-1 p-2 w-full max-w-7xl mx-auto h-[calc(100vh-80px)] md:h-[calc(100vh-64px)] overflow-hidden relative">
+<!-- VISTA COMANDAS / CAJA POS (Diseño 3 Columnas) -->
+    <main id="vista-comandas" class="hidden flex-1 p-2 w-full max-w-[1400px] mx-auto h-[calc(100vh-80px)] md:h-[calc(100vh-64px)] overflow-hidden relative">
+        <button onclick="volverMenuAnterior()" class="md:hidden absolute top-2 left-4 z-10 bg-gray-800 bg-opacity-70 text-white px-3 py-1.5 rounded-lg text-xs font-bold backdrop-blur-sm border border-gray-700">⬅ Salir</button>
+        
         <div class="flex flex-col md:flex-row h-full gap-3 pt-12 md:pt-0">
-            <!-- Columna Menú -->
+            
+            <!-- COLUMNA 1: SIDEBAR (Categorías y Chat) -->
+            <div class="hidden md:flex flex-col w-56 lg:w-64 bg-[#121212] rounded-2xl border border-gray-800 overflow-hidden shadow-xl shrink-0">
+                <div class="p-3 border-b border-gray-800 bg-[#1a1a1a]">
+                    <h3 class="font-black text-white text-sm uppercase tracking-wider">Categorías</h3>
+                </div>
+                <!-- Lista de Categorías -->
+                <div id="listaCategoriasSidebar" class="flex-1 overflow-y-auto p-2 space-y-1 no-scrollbar">
+                    <!-- Se inyectan desde JS -->
+                </div>
+                
+                <!-- Módulo de Chat Incrustado -->
+                <div id="contenedorChatPOS" class="h-64 border-t border-gray-800 bg-[#0a0a0a] flex flex-col">
+                    <div class="p-2 border-b border-gray-800 bg-gray-900 flex justify-between items-center">
+                        <span class="text-xs font-bold text-blue-400">💬 Radio Interno</span>
+                    </div>
+                    <div id="chatBodyPOS" class="flex-1 overflow-y-auto p-2 text-xs space-y-2 no-scrollbar"></div>
+                    <div class="p-2 border-t border-gray-800 flex gap-2">
+                        <input type="text" id="inputChatPOS" onkeydown="enviarMensajeChat(event, 'inputChatPOS')" placeholder="Mensaje..." class="flex-1 bg-black border border-gray-800 rounded-lg px-2 py-1 text-xs text-white outline-none">
+                        <button onclick="enviarMensajeChat({key:'Enter'}, 'inputChatPOS')" class="bg-accent hover:bg-purple-500 text-white font-bold px-2 rounded-lg text-xs transition">▶</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLUMNA 2: GRID DE PRODUCTOS -->
             <div class="flex-1 flex flex-col bg-[#121212] rounded-2xl border border-gray-800 overflow-hidden shadow-xl min-h-[400px]">
-                <div class="bg-[#1a1a1a] p-3 border-b border-gray-800 flex justify-between items-center">
-                    <select id="filtroCategoriaComanda" onchange="renderizarMenu()" class="bg-black text-xs text-white border border-gray-700 rounded-lg px-3 py-1.5 outline-none font-bold w-full md:w-auto">
-                        <option value="Todos">🍽️ Todas las Categorías</option><option value="Alitas">🍗 Alitas</option><option value="Combos">🍔 Combos</option><option value="Bebidas">🍺 Bebidas</option>
+                <!-- Dropdown visible SOLO en móviles (Vista Cliente QR) -->
+                <div class="md:hidden bg-[#1a1a1a] p-3 border-b border-gray-800 flex justify-between items-center">
+                    <select id="filtroCategoriaComanda" onchange="cambiarCategoriaMenu(this.value)" class="bg-black text-xs text-white border border-gray-700 rounded-lg px-3 py-2 outline-none font-bold w-full">
+                        <option value="Todos">🍽️ Todas las Categorías</option>
                     </select>
                 </div>
-                <div id="gridProductos" class="flex-1 overflow-y-auto p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 no-scrollbar content-start bg-[#0a0a0a]"></div>
+                
+                <div id="gridProductos" class="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 no-scrollbar content-start bg-[#050505]">
+                    <!-- Tarjetas de productos inyectadas desde JS -->
+                </div>
             </div>
+            
+            <!-- COLUMNA 3: TICKET / CUENTA -->
+            <div class="w-full md:w-72 lg:w-80 flex flex-col bg-[#1a1a1a] rounded-2xl border border-gray-800 overflow-hidden shadow-xl shrink-0 h-[45vh] md:h-full">
+                <div class="bg-[#242424] p-3 border-b border-gray-800 flex justify-between items-center">
+                    <div class="flex items-center gap-2"><span class="bg-accent text-white p-1.5 rounded-lg text-xs shadow-[0_0_10px_rgba(168,85,247,0.4)]">📝</span><h2 class="font-extrabold text-white text-sm">Comanda</h2></div>
+                    <select id="selectMesa" class="bg-gray-800 text-white font-bold text-xs px-2 py-1.5 rounded-lg border-none outline-none">
+                        <option value="Para Llevar">👜 Para Llevar</option><option value="Mesa 1">🍽️ Mesa 1</option><option value="Mesa 2">🍽️ Mesa 2</option>
+                    </select>
+                </div>
+                <div class="p-2 bg-[#121212] border-b border-gray-800"><input type="text" id="clienteNombre" placeholder="👤 Nombre de cliente..." class="w-full bg-black border border-gray-700 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-accent"></div>
+                <div id="listaCarrito" class="flex-1 overflow-y-auto p-2 space-y-1.5 text-xs no-scrollbar bg-[#121212]"></div>
+                <div class="p-4 bg-[#1a1a1a] border-t border-gray-800 shrink-0">
+                    <div class="flex justify-between items-center mb-3"><span class="text-gray-400 font-bold uppercase text-xs tracking-wider">Total a cobrar:</span><span id="totalCarrito" class="text-3xl font-black text-green-400">$0.00</span></div>
+                    <button onclick="procesarEnvioOrden()" type="button" class="w-full bg-green-500 hover:bg-green-400 text-black font-black py-4 rounded-xl text-sm shadow-[0_0_15px_rgba(34,197,94,0.2)] transition active:scale-95">ENVIAR A BARRA</button>
+                </div>
+            </div>
+            
+        </div>
+    </main>
             
             <!-- Columna Pedido -->
             <div class="w-full md:w-80 lg:w-96 flex flex-col bg-[#1a1a1a] rounded-2xl border border-gray-800 overflow-hidden shadow-xl shrink-0 h-[45vh] md:h-full">
@@ -665,22 +769,22 @@ function entrarModo(modo, vistaInicial = 'comandas') {
                 <div id="listaUsuariosAdmin" class="space-y-1.5 max-h-40 overflow-y-auto pt-1"></div>
             </div>
         </div>
-
-        <div class="bg-card p-5 rounded-3xl border space-y-3 shadow-xl">
+       <div class="bg-card p-5 rounded-3xl border space-y-3 shadow-xl">
             <h3 class="font-black text-blue-400 text-xs uppercase tracking-wide">⚙️ Configuraciones de Pantalla e Imagen</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                 <div class="space-y-3 bg-black p-3 rounded-xl border border-gray-800">
                     <div><label class="text-xxs text-gray-400 block mb-1">Nombre Negocio:</label><input type="text" id="configNombreNegocio" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white"></div>
-                    <div><label class="text-xxs text-gray-400 block mb-1">Promo Superior:</label><input type="text" id="configPromo" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white"></div>
-                    <div><label class="text-xxs text-gray-400 block mb-1">Promo Inferior:</label><input type="text" id="configPromoInferior" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white"></div>
+                    <div><label class="text-xxs text-gray-400 block mb-1">Fondo de Pantalla de Login:</label><select id="configFondoPantalla" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white"><option value="">Ninguna</option></select></div>
+                    <div><label class="text-xxs text-gray-400 block mb-1">Logotipo Principal:</label><select id="configLogoNegocio" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white"><option value="">Ninguna</option></select></div>
                 </div>
                 <div class="space-y-3 bg-black p-3 rounded-xl border border-gray-800">
-                    <div><label class="text-xxs text-gray-400 block mb-1">Video YouTube:</label><input type="text" id="configMedia" placeholder="https://youtube.com/..." class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white"></div>
-                    <label class="flex items-center gap-2 text-white font-bold"><input type="checkbox" id="checkMostrarYouTube" class="w-4 h-4 text-accent"> Mostrar YouTube</label>
-                    <label class="flex items-center gap-2 text-gray-400"><input type="checkbox" id="checkVideoAudio" class="w-3 h-3"> Con audio</label>
+                    <div><label class="text-xxs text-gray-400 block mb-1">Promo Superior (Monitor):</label><input type="text" id="configPromo" class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white"></div>
+                    <div><label class="text-xxs text-gray-400 block mb-1">Video YouTube (Monitor):</label><input type="text" id="configMedia" placeholder="https://youtube.com/..." class="w-full bg-app-input border border-gray-700 rounded-lg px-3 py-1.5 text-white"></div>
+                    <label class="flex items-center gap-2 text-white font-bold"><input type="checkbox" id="checkMostrarYouTube" class="w-4 h-4 text-accent"> Forzar Mostrar YouTube</label>
+                    <label class="flex items-center gap-2 text-gray-400"><input type="checkbox" id="checkVideoAudio" class="w-3 h-3"> YouTube con audio</label>
                 </div>
             </div>
-            <button onclick="guardarConfigGeneral()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-3 px-5 rounded-xl text-xs mt-2">Guardar Configuración General</button>
+            <button onclick="guardarConfigGeneral()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-3 px-5 rounded-xl text-xs mt-2 transition active:scale-95">Guardar Configuración General</button>
             <div class="pt-4 border-t border-gray-800 space-y-2 mt-4">
                 <div class="flex gap-2">
                     <select id="selectMesaQR" class="bg-black border border-gray-800 rounded-xl px-3 py-1.5 text-xs text-white flex-1"><option value="Mesa 1">Mesa 1</option><option value="Mesa 2">Mesa 2</option></select>
