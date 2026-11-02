@@ -23,7 +23,6 @@
         .mesa-node { position: absolute; width: 100px; height: 100px; border-radius: 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; user-select: none; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5); z-index: 10; border: 2px solid; }
         #pantalla-bienvenida { background-size: cover; background-position: center; background-repeat: no-repeat; }
         
-        /* Ocultamiento Estricto para evitar empalmes */
         .no-scrollbar::-webkit-scrollbar { display: none; } 
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .hidden { display: none !important; }
@@ -87,7 +86,6 @@
             } else { if(cancelFullScreen) { cancelFullScreen.call(doc); } }
         }
 
-        // ====== NAVEGACIÓN Y VISTAS ======
         function entrarModo(modo, vistaInicial = 'comandas') {
             rolActivo = modo; 
             document.getElementById('pantalla-bienvenida').classList.add('hidden');
@@ -105,6 +103,10 @@
                 var selMesa = document.getElementById('selectMesa'); if(selMesa) { selMesa.disabled = true; selMesa.classList.add('opacity-50', 'cursor-not-allowed'); }
                 var btnChat = document.getElementById('btnChatFlotante'); if (btnChat) btnChat.classList.add('hidden');
                 var chatPos = document.getElementById('contenedorChatPOS'); if (chatPos) chatPos.classList.add('hidden');
+                
+                var btnGrpCli = document.getElementById('btnGroupCliente'); if(btnGrpCli) btnGrpCli.classList.remove('hidden');
+                var btnGrpCaja = document.getElementById('btnGroupCaja'); if(btnGrpCaja) btnGrpCaja.classList.add('hidden');
+
                 if(!document.getElementById('btnSalirClienteFlotante')) {
                     var btnSalir = document.createElement('button'); btnSalir.id = 'btnSalirClienteFlotante'; btnSalir.innerHTML = '⬅ Salir del Menú'; btnSalir.className = 'fixed top-4 left-4 z-50 bg-red-900 bg-opacity-80 text-white px-3 py-2 rounded-xl text-xs font-bold shadow-lg backdrop-blur-md border border-red-700';
                     btnSalir.onclick = function() { cerrarSesion(); this.remove(); }; document.body.appendChild(btnSalir);
@@ -113,6 +115,9 @@
                 document.getElementById('appTopBar').classList.remove('hidden'); 
                 var chatPos = document.getElementById('contenedorChatPOS'); if (chatPos) chatPos.classList.remove('hidden');
                 var btnSalirC = document.getElementById('btnSalirClienteFlotante'); if(btnSalirC) btnSalirC.remove();
+                
+                var btnGrpCli = document.getElementById('btnGroupCliente'); if(btnGrpCli) btnGrpCli.classList.add('hidden');
+                var btnGrpCaja = document.getElementById('btnGroupCaja'); if(btnGrpCaja) btnGrpCaja.classList.remove('hidden');
             }
 
             configurarAppBottomBar(); cambiarVista(vistaInicial);
@@ -169,23 +174,22 @@
             bar.innerHTML = '<div class="flex justify-around items-center w-full max-w-2xl mx-auto py-2">' + htmlBotones + '</div>';
         }
 
-        // ====== IMÁGENES Y FONDOS ======
-       function aplicarConfiguracionVisual() {
-        var pantalla = document.getElementById('pantalla-bienvenida');
-        if(pantalla) {
-            if(config.fondoPantallaUrl) pantalla.style.backgroundImage = 'url(' + encodeURI(config.fondoPantallaUrl) + ')';
-            else pantalla.style.backgroundImage = 'none';
+        function aplicarConfiguracionVisual() {
+            var pantalla = document.getElementById('pantalla-bienvenida');
+            if(pantalla) {
+                if(config.fondoPantallaUrl) pantalla.style.backgroundImage = 'url(' + encodeURI(config.fondoPantallaUrl) + ')';
+                else pantalla.style.backgroundImage = 'none';
+            }
+            var selFondo = document.getElementById('configFondoPantalla'); var selLogo = document.getElementById('configLogoNegocio');
+            var selImgProd = document.getElementById('prodImagenUrl');
+            var opciones = '<option value="">Ninguna / Sin Imagen</option>' + archivosImagenes.map(function(img) { return '<option value="'+img+'">'+img.split('/').pop()+'</option>'; }).join('');
+            if(selFondo && selLogo) {
+                selFondo.innerHTML = opciones; selFondo.value = config.fondoPantallaUrl || '';
+                selLogo.innerHTML = opciones; selLogo.value = config.logoUrl || '';
+            }
+            if(selImgProd) { selImgProd.innerHTML = opciones; }
         }
-        var selFondo = document.getElementById('configFondoPantalla'); var selLogo = document.getElementById('configLogoNegocio');
-        var selImgProd = document.getElementById('prodImagenUrl');
-        var opciones = '<option value="">Ninguna / Sin Imagen</option>' + archivosImagenes.map(function(img) { return '<option value="'+img+'">'+img.split('/').pop()+'</option>'; }).join('');
-        if(selFondo && selLogo) {
-            selFondo.innerHTML = opciones; selFondo.value = config.fondoPantallaUrl || '';
-            selLogo.innerHTML = opciones; selLogo.value = config.logoUrl || '';
-        }
-        if(selImgProd) { selImgProd.innerHTML = opciones; }
-    }
-        // ====== MAPA ======
+
         function renderizarMapa() {
             var container = document.getElementById('mapaContainerWrapper'); if (!container) return;
             container.innerHTML = mesasData.map(function(mesaObj) {
@@ -208,7 +212,6 @@
             else { abrirCobro(activas[0].id); }
         }
 
-        // ====== CHAT (Solo empleados) ======
         function toggleChat() {
             var chat = document.getElementById('panelChatFlotante');
             if(chat.classList.contains('hidden')) { chat.classList.remove('hidden'); renderizarChat(); document.getElementById('inputChat').focus(); document.getElementById('badgeChatNew').classList.add('hidden'); } else { chat.classList.add('hidden'); }
@@ -233,7 +236,6 @@
             var bodyPOS = document.getElementById('chatBodyPOS'); if(bodyPOS) { bodyPOS.innerHTML = html; bodyPOS.scrollTop = bodyPOS.scrollHeight; }
         }
 
-        // ====== MENU 3 COLUMNAS Y CARRITO ======
         function cambiarCategoriaMenu(cat) { categoriaSeleccionadaMenu = cat; renderizarMenu(); }
 
         function renderizarMenu() {
@@ -309,19 +311,16 @@
             socket.emit('nueva_orden', orden); alert('¡Orden enviada a Barra!'); carrito = []; renderizarCarrito();
             if (rolActivo !== 'cliente') cambiarVista('mapa');
         }
-function procesarYCobrar() {
-        if (carrito.length === 0) return alert('Carrito vacío');
-        var mesaEl = document.getElementById('selectMesa'); var mesa = mesaEl ? mesaEl.value : miMesaAsignada; var nom = document.getElementById('clienteNombre').value.trim();
-        var idNueva = Date.now();
-        var orden = { id: idNueva, folio: 'M' + mesa.replace(/[^0-9]/g, '') + '-' + Math.floor(100+Math.random()*900), mesa: mesa, items: carrito.slice(), total: carrito.reduce(function(a, b) { return a + (b.precio * b.cantidad); }, 0), estado: 'Preparando...', hora: new Date().toLocaleTimeString(), cliente: { nombre: nom } };
-        
-        socket.emit('nueva_orden', orden); 
-        carrito = []; renderizarCarrito();
-        
-        comandas.unshift(orden); // Inserta temporalmente para poder abrir la caja
-        abrirCobro(idNueva);
-    }
-        // ====== BARRA ======
+
+        function procesarYCobrar() {
+            if (carrito.length === 0) return alert('Carrito vacío');
+            var mesaEl = document.getElementById('selectMesa'); var mesa = mesaEl ? mesaEl.value : miMesaAsignada; var nom = document.getElementById('clienteNombre').value.trim();
+            var idNueva = Date.now();
+            var orden = { id: idNueva, folio: 'M' + mesa.replace(/[^0-9]/g, '') + '-' + Math.floor(100+Math.random()*900), mesa: mesa, items: carrito.slice(), total: carrito.reduce(function(a, b) { return a + (b.precio * b.cantidad); }, 0), estado: 'Preparando...', hora: new Date().toLocaleTimeString(), cliente: { nombre: nom } };
+            socket.emit('nueva_orden', orden); carrito = []; renderizarCarrito();
+            comandas.unshift(orden); abrirCobro(idNueva);
+        }
+
         function renderizarBarra() {
             var grid = document.getElementById('gridComandasBarra'); if (!grid) return;
             grid.innerHTML = comandas.length === 0 ? '<p class="text-gray-500 col-span-full py-12 text-center text-xs">Sin comandas activas</p>' :
@@ -345,7 +344,6 @@ function procesarYCobrar() {
             var ulBarra = document.getElementById('listaInsumosBarra'); if(ulBarra) ulBarra.innerHTML = html;
         }
 
-        // ====== COBRO ======
         function abrirCobro(id) {
             var c = comandas.find(function(x) { return x.id === id; }); if (!c) return; comandaCobroActiva = c;
             document.getElementById('cobroMesaLabel').textContent = c.mesa; document.getElementById('cobroSubtotal').textContent = '$' + Number(c.total).toFixed(2);
@@ -374,7 +372,6 @@ function procesarYCobrar() {
             if(imprimir) { document.getElementById('modal-ticket-digital').classList.remove('hidden'); }
         }
 
-        // ====== ADMIN Y CONFIG ======
         function abrirCajaTurno() { var m = prompt("Fondo inicial ($):", "500"); if (m !== null && !isNaN(parseFloat(m))) { if (socket) socket.emit('abrir_caja', parseFloat(m)); } }
         function registrarGastoOperativo() { var c = prompt("Concepto:"); var m = prompt("Monto ($):"); if (c && m && !isNaN(parseFloat(m))) { if (socket) socket.emit('registrar_egreso', { concepto: c, monto: parseFloat(m) }); } }
         function ejecutarCorteCaja() { if (confirm("¿Cerrar caja y reiniciar registros?")) { if (socket) socket.emit('cerrar_corte_caja', function(res) { if (res && res.success) alert("Caja cerrada exitosamente."); }); } }
@@ -434,35 +431,39 @@ function procesarYCobrar() {
 
         function abrirModalGithub() { alert("Abre tu terminal y ejecuta el script 'herramientas_dev.bat' para sincronizar con GitHub."); }
 
-        // ====== INVENTARIO Y USUARIOS ======
         function renderizarInventario() {
             var lista = document.getElementById('listaAdminProductos'); if (!lista) return;
             lista.innerHTML = productos.map(function(p) {
-                return '<div class="flex justify-between items-center bg-app-base p-3 rounded-2xl border border-[color:var(--card-border)] text-xs"><div><div class="font-extrabold text-white">' + escapeHTML(p.nombre) + '</div><div class="text-gray-400 mt-1"><span>Costo: $' + (p.costo||0).toFixed(2) + '</span> | <span>Venta: $' + Number(p.precio).toFixed(2) + '</span> | <span>Stock: ' + p.stock + '</span></div></div>' +
+                var minStock = p.stockMinimo !== undefined ? p.stockMinimo : 5;
+                var colorStock = p.stock <= minStock ? 'text-red-500 font-black animate-pulse' : 'text-gray-400';
+                return '<div class="flex justify-between items-center bg-app-base p-3 rounded-2xl border border-[color:var(--card-border)] text-xs"><div><div class="font-extrabold text-white">' + escapeHTML(p.nombre) + '</div><div class="text-gray-400 mt-1"><span>Costo: $' + (p.costo||0).toFixed(2) + '</span> | <span>Venta: $' + Number(p.precio).toFixed(2) + '</span> | <span class="'+colorStock+'">Stock: ' + p.stock + ' (Aviso en: ' + minStock + ')</span></div></div>' +
                     '<div><button onclick="editarProducto(' + p.id + ')" class="text-blue-400 font-bold px-2 mr-2">Editar</button><button onclick="eliminarProducto(' + p.id + ')" class="text-red-400 font-bold px-2">Borrar</button></div></div>';
             }).join('');
         }
-      function editarProducto(id) {
-        var p = productos.find(function(x) { return x.id === id; }); if (!p) return;
-        document.getElementById('prodNombre').value = p.nombre; document.getElementById('prodCosto').value = p.costo || 0;
-        document.getElementById('prodPrecio').value = p.precio; document.getElementById('prodStock').value = p.stock || 0; document.getElementById('prodCategoria').value = p.categoria;
-        var selImg = document.getElementById('prodImagenUrl'); if(selImg) selImg.value = p.imagen || '';
-        var btnGuardar = document.getElementById('btnGuardarProducto'); btnGuardar.textContent = "Actualizar Producto"; btnGuardar.setAttribute("data-edit-id", p.id);
-        btnGuardar.className = "w-full bg-blue-500 text-white font-extrabold py-2.5 rounded-xl text-xs shadow-[0_0_15px_rgba(59,130,246,0.5)]"; document.getElementById('btnCancelarEdicion').classList.remove('hidden'); window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-    function limpiarFormProducto() {
-        document.getElementById('prodNombre').value = ''; document.getElementById('prodPrecio').value = ''; document.getElementById('prodCosto').value = ''; document.getElementById('prodStock').value = '';
-        var selImg = document.getElementById('prodImagenUrl'); if(selImg) selImg.value = '';
-        var btnGuardar = document.getElementById('btnGuardarProducto'); btnGuardar.textContent = "Guardar en Catálogo"; btnGuardar.removeAttribute("data-edit-id"); btnGuardar.className = "w-full bg-green-500 text-black font-extrabold py-2.5 rounded-xl text-xs"; document.getElementById('btnCancelarEdicion').classList.add('hidden');
-    }
-    function guardarProducto() {
-        var idEdicion = document.getElementById('btnGuardarProducto').getAttribute('data-edit-id'); var nombre = document.getElementById('prodNombre').value.trim(); var precio = parseFloat(document.getElementById('prodPrecio').value);
-        if (!nombre || isNaN(precio)) return alert('Nombre y precio requeridos');
-        var imgVal = document.getElementById('prodImagenUrl') ? document.getElementById('prodImagenUrl').value : '';
-        var nuevoProd = { id: idEdicion ? parseInt(idEdicion) : Date.now(), nombre: nombre, costo: parseFloat(document.getElementById('prodCosto').value)||0, precio: precio, stock: parseInt(document.getElementById('prodStock').value)||0, categoria: document.getElementById('prodCategoria').value, imagen: imgVal };
-        if (idEdicion) { var idx = productos.findIndex(function(p) { return p.id === parseInt(idEdicion); }); if(idx !== -1) productos[idx] = nuevoProd; } else { productos.push(nuevoProd); }
-        socket.emit('actualizar_productos', productos); limpiarFormProducto(); renderizarInventario(); alert(idEdicion ? 'Actualizado' : 'Guardado');
-    }
+        function editarProducto(id) {
+            var p = productos.find(function(x) { return x.id === id; }); if (!p) return;
+            document.getElementById('prodNombre').value = p.nombre; document.getElementById('prodCosto').value = p.costo || 0;
+            document.getElementById('prodPrecio').value = p.precio; document.getElementById('prodStock').value = p.stock || 0; 
+            document.getElementById('prodStockMinimo').value = p.stockMinimo !== undefined ? p.stockMinimo : 5; 
+            document.getElementById('prodCategoria').value = p.categoria;
+            var selImg = document.getElementById('prodImagenUrl'); if(selImg) selImg.value = p.imagen || '';
+            var btnGuardar = document.getElementById('btnGuardarProducto'); btnGuardar.textContent = "Actualizar Producto"; btnGuardar.setAttribute("data-edit-id", p.id);
+            btnGuardar.className = "w-full bg-blue-500 text-white font-extrabold py-2.5 rounded-xl text-xs shadow-[0_0_15px_rgba(59,130,246,0.5)]; document.getElementById('btnCancelarEdicion').classList.remove('hidden'); window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        function limpiarFormProducto() {
+            document.getElementById('prodNombre').value = ''; document.getElementById('prodPrecio').value = ''; document.getElementById('prodCosto').value = ''; document.getElementById('prodStock').value = ''; document.getElementById('prodStockMinimo').value = '';
+            var selImg = document.getElementById('prodImagenUrl'); if(selImg) selImg.value = '';
+            var btnGuardar = document.getElementById('btnGuardarProducto'); btnGuardar.textContent = "Guardar en Catálogo"; btnGuardar.removeAttribute("data-edit-id"); btnGuardar.className = "w-full bg-green-500 text-black font-extrabold py-2.5 rounded-xl text-xs"; document.getElementById('btnCancelarEdicion').classList.add('hidden');
+        }
+        function guardarProducto() {
+            var idEdicion = document.getElementById('btnGuardarProducto').getAttribute('data-edit-id'); var nombre = document.getElementById('prodNombre').value.trim(); var precio = parseFloat(document.getElementById('prodPrecio').value);
+            if (!nombre || isNaN(precio)) return alert('Nombre y precio requeridos');
+            var minStockVal = document.getElementById('prodStockMinimo').value;
+            var imgVal = document.getElementById('prodImagenUrl') ? document.getElementById('prodImagenUrl').value : '';
+            var nuevoProd = { id: idEdicion ? parseInt(idEdicion) : Date.now(), nombre: nombre, costo: parseFloat(document.getElementById('prodCosto').value)||0, precio: precio, stock: parseInt(document.getElementById('prodStock').value)||0, stockMinimo: minStockVal === '' ? 5 : parseInt(minStockVal), categoria: document.getElementById('prodCategoria').value, imagen: imgVal };
+            if (idEdicion) { var idx = productos.findIndex(function(p) { return p.id === parseInt(idEdicion); }); if(idx !== -1) productos[idx] = nuevoProd; } else { productos.push(nuevoProd); }
+            socket.emit('actualizar_productos', productos); limpiarFormProducto(); renderizarInventario(); alert(idEdicion ? 'Actualizado' : 'Guardado');
+        }
         function eliminarProducto(id) { if (confirm('¿Eliminar producto?')) { productos = productos.filter(function(p) { return p.id !== id; }); if (socket) socket.emit('actualizar_productos', productos); renderizarInventario(); } }
 
         function renderizarListaUsuarios() {
@@ -487,7 +488,6 @@ function procesarYCobrar() {
         }
         function eliminarUsuario(id) { if (confirm('¿Eliminar usuario?')) { if (socket) socket.emit('eliminar_usuario', id); } }
 
-        // ====== MONITOR ======
         function renderizarMonitor() {
             var cont = document.getElementById('gridPantallaEstado'); if(!cont) return;
             cont.innerHTML = comandas.length === 0 ? '<p class="text-gray-500 text-center py-10 text-xs">Sin órdenes activas</p>' : comandas.map(function(c) {
@@ -498,28 +498,20 @@ function procesarYCobrar() {
             clearInterval(timerPublicidad); if (config.mostrarYouTube && config.mediaUrl && (config.mediaUrl.indexOf('youtube.com') !== -1 || config.mediaUrl.indexOf('youtu.be') !== -1)) { mostrarMediaPublicidad(); return; }
             mostrarMediaPublicidad(); timerPublicidad = setInterval(function() { mostrarMediaPublicidad(); }, 8500); 
         }
-   function mostrarMediaPublicidad() {
-        var mediaCont = document.getElementById('contenedorMediaCentral'); if (!mediaCont) return; 
-        if (config.mostrarYouTube && config.mediaUrl) {
-            var videoId = config.mediaUrl.indexOf('v=') !== -1 ? config.mediaUrl.split('v=')[1].split('&')[0] : config.mediaUrl.split('youtu.be/')[1].split('?')[0]; 
-            var muteParam = config.videoConAudio ? '0' : '1'; 
-            // Añadido 'allow="autoplay"' para forzar la reproducción nativa
-            mediaCont.innerHTML = '<iframe class="w-full h-full pointer-events-none" src="https://www.youtube.com/embed/' + videoId + '?autoplay=1&mute=' + muteParam + '&loop=1&playlist=' + videoId + '&controls=0" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>'; 
-            return; 
+        function mostrarMediaPublicidad() {
+            var mediaCont = document.getElementById('contenedorMediaCentral'); if (!mediaCont) return; 
+            if (config.mostrarYouTube && config.mediaUrl) {
+                var videoId = config.mediaUrl.indexOf('v=') !== -1 ? config.mediaUrl.split('v=')[1].split('&')[0] : config.mediaUrl.split('youtu.be/')[1].split('?')[0]; var muteParam = config.videoConAudio ? '0' : '1'; 
+                mediaCont.innerHTML = '<iframe class="w-full h-full border-0 absolute inset-0" src="https://www.youtube.com/embed/' + videoId + '?autoplay=1&mute=' + muteParam + '&loop=1&playlist=' + videoId + '&controls=0&playsinline=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>'; return; 
+            }
+            if (archivosPublicidad && archivosPublicidad.length > 0) {
+                indexPublicidad = (indexPublicidad + 1) % archivosPublicidad.length; var ruta = encodeURI(archivosPublicidad[indexPublicidad]);
+                if (ruta.toLowerCase().indexOf('.mp4') !== -1) { mediaCont.innerHTML = '<video src="' + ruta + '" autoplay loop muted playsinline class="absolute inset-0 w-full h-full object-cover"></video>'; } 
+                else { mediaCont.innerHTML = '<img src="' + ruta + '" class="absolute inset-0 w-full h-full object-cover rounded-3xl">'; } return;
+            }
+            mediaCont.innerHTML = '<div class="text-gray-500 text-sm">Sin publicidad. Añade videos o fotos a public/publicidad/</div>';
         }
-        if (archivosPublicidad && archivosPublicidad.length > 0) {
-            indexPublicidad = (indexPublicidad + 1) % archivosPublicidad.length; var ruta = encodeURI(archivosPublicidad[indexPublicidad]);
-            if (ruta.toLowerCase().indexOf('.mp4') !== -1) { 
-                mediaCont.innerHTML = '<video src="' + ruta + '" autoplay loop muted playsinline class="media-asset w-full h-full object-contain"></video>'; 
-            } else { 
-                mediaCont.innerHTML = '<img src="' + ruta + '" class="media-asset w-full h-full object-contain rounded-2xl">'; 
-            } 
-            return;
-        }
-        mediaCont.innerHTML = '<div class="text-gray-500 text-sm">Sin publicidad. Añade videos o fotos a public/publicidad/</div>';
-    }
 
-        // ====== INICIALIZACIÓN SOCKET ======
         window.addEventListener('DOMContentLoaded', function() {
             try {
                 if (typeof io !== 'undefined') {
@@ -532,7 +524,7 @@ function procesarYCobrar() {
                         
                         var vC = document.getElementById('vista-comandas'); if (vC && !vC.classList.contains('hidden')) renderizarMenu();
                         var vB = document.getElementById('vista-barra'); if (vB && !vB.classList.contains('hidden')) renderizarBarra();
-                        var vM = document.getElementById('vista-pantalla-cliente'); if (vM && !vM.classList.contains('hidden')) renderizarMonitor();
+                        var vM = document.getElementById('vista-pantalla-client'); if (vM && !vM.classList.contains('hidden')) renderizarMonitor();
                         var vMap = document.getElementById('vista-mapa'); if (vMap && !vMap.classList.contains('hidden')) renderizarMapa();
                         var vInv = document.getElementById('vista-inventario'); if(vInv && !vInv.classList.contains('hidden')) renderizarInventario();
                         var vAdm = document.getElementById('vista-admin'); if (vAdm && !vAdm.classList.contains('hidden')) renderizarAdmin();
@@ -553,6 +545,7 @@ function procesarYCobrar() {
                         if (rolActivo === 'cliente' || (usuarioActivo && (usuarioActivo.rol === 'mesero' || usuarioActivo.rol === 'admin'))) { notificarDispositivo('¡Orden Lista!', msj); }
                     });
                     
+                    socket.on('notoxifen_chat', function(msg) {} ); // safety stub
                     socket.on('notificacion_chat', function(msg) {
                         if (rolActivo === 'cliente' || rolActivo === 'monitor') return;
                         reproducirAlertaSonora('chat');
@@ -608,12 +601,11 @@ function procesarYCobrar() {
         <div id="mapaContainerWrapper" class="mapa-container"></div>
     </main>
 
-    <!-- VISTA COMANDAS / CAJA POS UNIFICADA (Cliente y Empleado) -->
+    <!-- VISTA COMANDAS / CAJA POS UNIFICADA -->
     <main id="vista-comandas" class="hidden flex-1 p-2 w-full max-w-[1400px] mx-auto h-[calc(100vh-80px)] md:h-[calc(100vh-64px)] overflow-hidden relative">
         <button onclick="volverMenuAnterior()" class="md:hidden absolute top-2 left-4 z-10 bg-card border border-[color:var(--card-border)] text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg">⬅ Salir</button>
         
         <div class="flex flex-col md:flex-row h-full gap-3 pt-12 md:pt-0">
-            <!-- SIDEBAR -->
             <div class="hidden md:flex flex-col w-56 lg:w-64 bg-card rounded-2xl border border-[color:var(--card-border)] overflow-hidden shadow-xl shrink-0">
                 <div class="p-3 border-b border-[color:var(--card-border)] bg-app-panel">
                     <h3 class="font-black text-white text-sm uppercase tracking-wider">Categorías</h3>
@@ -632,7 +624,6 @@ function procesarYCobrar() {
                 </div>
             </div>
 
-            <!-- PRODUCTOS -->
             <div class="flex-1 flex flex-col bg-card rounded-2xl border border-[color:var(--card-border)] overflow-hidden shadow-xl min-h-[400px]">
                 <div class="md:hidden bg-app-panel p-3 border-b border-[color:var(--card-border)] flex justify-between items-center">
                     <select id="filtroCategoriaComanda" onchange="cambiarCategoriaMenu(this.value)" class="bg-app-input text-xs text-white border border-[color:var(--card-border)] rounded-lg px-3 py-2 outline-none font-bold w-full">
@@ -642,43 +633,49 @@ function procesarYCobrar() {
                 <div id="gridProductos" class="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 no-scrollbar content-start bg-app-base"></div>
             </div>
             
-        <!-- TICKET / CUENTA (CON BOTÓN DE COBRO) -->
-        <div class="w-full md:w-72 lg:w-80 flex flex-col bg-card rounded-2xl border border-[color:var(--card-border)] overflow-hidden shadow-xl shrink-0 h-[45vh] md:h-full">
-            <div class="bg-app-panel p-3 border-b border-[color:var(--card-border)] flex justify-between items-center">
-                <div class="flex items-center gap-2"><span class="bg-accent text-white p-1.5 rounded-lg text-xs box-glow">📝</span><h2 class="font-extrabold text-white text-sm">Comanda</h2></div>
-                <select id="selectMesa" class="bg-app-input text-white font-bold text-xs px-2 py-1.5 rounded-lg border border-[color:var(--card-border)] outline-none">
-                    <option value="Para Llevar">👜 Para Llevar</option><option value="Mesa 1">🍽️ Mesa 1</option><option value="Mesa 2">🍽️ Mesa 2</option>
-                </select>
-            </div>
-            <div class="p-2 bg-app-base border-b border-[color:var(--card-border)]"><input type="text" id="clienteNombre" placeholder="👤 Nombre de cliente..." class="w-full bg-app-input border border-[color:var(--card-border)] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-accent"></div>
-            <div id="listaCarrito" class="flex-1 overflow-y-auto p-2 space-y-1.5 text-xs no-scrollbar bg-app-base"></div>
-            <div class="p-4 bg-app-panel border-t border-[color:var(--card-border)] shrink-0">
-                <div class="flex justify-between items-center mb-3"><span class="text-gray-400 font-bold uppercase text-xs tracking-wider">Total a cobrar:</span><span id="totalCarrito" class="text-3xl font-black text-green-400">$0.00</span></div>
-                <div class="flex gap-2">
-                    <button onclick="procesarEnvioOrden()" type="button" class="w-1/2 bg-yellow-600 hover:bg-yellow-500 text-white font-black py-3 rounded-xl text-xs transition active:scale-95 shadow-lg">SOLO ENVIAR</button>
-                    <button onclick="procesarYCobrar()" type="button" class="w-1/2 bg-green-500 hover:bg-green-400 text-black font-black py-3 rounded-xl text-xs transition active:scale-95 shadow-lg">COBRAR AHORA</button>
+            <div class="w-full md:w-72 lg:w-80 flex flex-col bg-card rounded-2xl border border-[color:var(--card-border)] overflow-hidden shadow-xl shrink-0 h-[45vh] md:h-full">
+                <div class="bg-app-panel p-3 border-b border-[color:var(--card-border)] flex justify-between items-center">
+                    <div class="flex items-center gap-2"><span class="bg-accent text-white p-1.5 rounded-lg text-xs box-glow">📝</span><h2 class="font-extrabold text-white text-sm">Comanda</h2></div>
+                    <select id="selectMesa" class="bg-app-input text-white font-bold text-xs px-2 py-1.5 rounded-lg border border-[color:var(--card-border)] outline-none">
+                        <option value="Para Llevar">👜 Para Llevar</option><option value="Mesa 1">🍽️ Mesa 1</option><option value="Mesa 2">🍽️ Mesa 2</option>
+                    </select>
+                </div>
+                <div class="p-2 bg-app-base border-b border-[color:var(--card-border)]"><input type="text" id="clienteNombre" placeholder="👤 Nombre de cliente..." class="w-full bg-app-input border border-[color:var(--card-border)] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-accent"></div>
+                <div id="listaCarrito" class="flex-1 overflow-y-auto p-2 space-y-1.5 text-xs no-scrollbar bg-app-base"></div>
+                <div class="p-4 bg-app-panel border-t border-[color:var(--card-border)] shrink-0">
+                    <div class="flex justify-between items-center mb-3"><span class="text-gray-400 font-bold uppercase text-xs tracking-wider">Total a cobrar:</span><span id="totalCarrito" class="text-3xl font-black text-green-400">$0.00</span></div>
+                    
+                    <div id="btnGroupCliente" class="hidden">
+                        <button onclick="procesarEnvioOrden()" type="button" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl text-sm shadow-lg transition active:scale-95">ENVIAR MI PEDIDO</button>
+                    </div>
+                    
+                    <div id="btnGroupCaja" class="hidden flex gap-2">
+                        <button onclick="procesarEnvioOrden()" type="button" class="w-1/2 bg-yellow-600 hover:bg-yellow-500 text-white font-black py-3 rounded-xl text-xs transition active:scale-95 shadow-lg">SOLO ENVIAR</button>
+                        <button onclick="procesarYCobrar()" type="button" class="w-1/2 bg-green-500 hover:bg-green-400 text-black font-black py-3 rounded-xl text-xs transition active:scale-95 shadow-lg">COBRAR AHORA</button>
+                    </div>
                 </div>
             </div>
         </div>
     </main>
 
-<!-- MONITOR CLIENTE (PANTALLA COMPLETA 100% ALTURA) -->
-<main id="vista-pantalla-cliente" class="hidden fixed inset-0 z-[200] bg-[#050505] p-4 flex flex-col overflow-hidden">
-    <div class="flex justify-between items-center mb-4 shrink-0">
-        <button onclick="document.exitFullscreen ? document.exitFullscreen() : null; cerrarSesion();" class="bg-card border border-[color:var(--card-border)] text-gray-300 px-4 py-2 rounded-xl text-sm font-bold hover:text-white transition shadow-lg">⬅ Salir del Monitor</button>
-        <button onclick="togglePantallaCompleta()" class="bg-accent bg-opacity-30 border border-accent text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-opacity-100 transition shadow-lg">🔲 Pantalla Completa</button>
-    </div>
-    
-    <div class="flex-1 flex flex-col lg:flex-row gap-6 h-full min-h-0 overflow-hidden">
-        <div class="w-full lg:w-1/4 bg-card border border-[color:var(--card-border)] p-5 rounded-3xl shadow-2xl flex flex-col h-full overflow-hidden">
-            <h3 class="text-base font-black text-accent mb-4 flex items-center gap-2 shrink-0"><span>📺</span> ESTADO DE ÓRDENES</h3>
-            <div id="gridPantallaEstado" class="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar"></div>
+    <!-- MONITOR CLIENTE (PANTALLA COMPLETA 100% - YOUTUBE Y FOTOS EXPANDIDAS) -->
+    <main id="vista-pantalla-cliente" class="hidden fixed inset-0 z-[200] bg-[#050505] p-4 flex flex-col overflow-hidden">
+        <div class="flex justify-between items-center mb-4 shrink-0">
+            <button onclick="document.exitFullscreen ? document.exitFullscreen() : null; cerrarSesion();" class="bg-card border border-[color:var(--card-border)] text-gray-300 px-4 py-2 rounded-xl text-sm font-bold hover:text-white transition shadow-lg">⬅ Salir del Monitor</button>
+            <button onclick="togglePantallaCompleta()" class="bg-accent bg-opacity-30 border border-accent text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-opacity-100 transition shadow-lg">🔲 Pantalla Completa</button>
         </div>
-        <div class="w-full lg:w-3/4 bg-card border border-[color:var(--card-border)] rounded-3xl shadow-2xl relative overflow-hidden">
-            <div id="contenedorMediaCentral" class="absolute inset-0 w-full h-full flex items-center justify-center bg-app-base"></div>
+        
+        <div class="flex-1 flex flex-col lg:flex-row gap-6 h-full min-h-0 overflow-hidden">
+            <div class="w-full lg:w-1/4 bg-card border border-[color:var(--card-border)] p-5 rounded-3xl shadow-2xl flex flex-col h-full overflow-hidden">
+                <h3 class="text-base font-black text-accent mb-4 flex items-center gap-2 shrink-0"><span>📺</span> ESTADO DE ÓRDENES</h3>
+                <div id="gridPantallaEstado" class="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar"></div>
+            </div>
+            <!-- Contenedor multimedia a pantalla completa absoluta (Sin franjas negras) -->
+            <div class="w-full lg:w-3/4 bg-card border border-[color:var(--card-border)] rounded-3xl shadow-2xl relative overflow-hidden bg-black">
+                <div id="contenedorMediaCentral" class="absolute inset-0 w-full h-full flex items-center justify-center bg-black"></div>
+            </div>
         </div>
-    </div>
-</main>
+    </main>
 
     <!-- MODAL DETALLE PRODUCTO -->
     <div id="modal-detalle-producto" class="fixed inset-0 bg-black bg-opacity-90 z-[120] hidden flex items-center justify-center p-4">
@@ -711,12 +708,14 @@ function procesarYCobrar() {
                 <h3 class="font-black text-green-400 text-xs uppercase">➕ Agregar/Editar Producto</h3>
                 <input type="text" id="prodNombre" placeholder="Nombre platillo *" class="w-full bg-app-input border border-[color:var(--card-border)] rounded-xl px-3 py-2 text-xs text-white">
                 <div class="grid grid-cols-2 gap-2"><input type="number" step="0.01" id="prodCosto" placeholder="Costo ($)" class="w-full bg-app-input border border-[color:var(--card-border)] rounded-xl px-3 py-2 text-xs text-white"><input type="number" step="0.01" id="prodPrecio" placeholder="Venta ($) *" class="w-full bg-app-input border border-[color:var(--card-border)] rounded-xl px-3 py-2 text-xs text-white"></div>
-                <div class="grid grid-cols-2 gap-2"><input type="number" id="prodStock" placeholder="Stock" class="w-full bg-app-input border border-[color:var(--card-border)] rounded-xl px-3 py-2 text-xs text-white"><select id="prodCategoria" class="w-full bg-app-input border border-[color:var(--card-border)] rounded-xl px-2 py-2 text-xs text-white"><option value="Alitas">Alitas</option><option value="Combos">Combos</option><option value="Bebidas">Bebidas</option></select></div>
-            
-            <!-- NUEVO: Selector de Imagen para el Producto -->
-            <select id="prodImagenUrl" class="w-full bg-app-input border border-[color:var(--card-border)] rounded-xl px-3 py-2 text-xs text-white"><option value="">Sin imagen (Subir a public/imagenes)</option></select>
-            
-            <button id="btnGuardarProducto" onclick="guardarProducto()" type="button" class="w-full bg-green-500 text-black font-extrabold py-2.5 rounded-xl text-xs mt-2">Guardar en Catálogo</button>
+                <div class="grid grid-cols-3 gap-2">
+                    <input type="number" id="prodStock" placeholder="Stock Actual" class="w-full bg-app-input border border-[color:var(--card-border)] rounded-xl px-3 py-2 text-xs text-white">
+                    <input type="number" id="prodStockMinimo" placeholder="Aviso Mínimo" class="w-full bg-app-input border border-[color:var(--card-border)] rounded-xl px-3 py-2 text-xs text-white">
+                    <select id="prodCategoria" class="w-full bg-app-input border border-[color:var(--card-border)] rounded-xl px-2 py-2 text-xs text-white"><option value="Alitas">Alitas</option><option value="Combos">Combos</option><option value="Bebidas">Bebidas</option></select>
+                </div>
+                <select id="prodImagenUrl" class="w-full bg-app-input border border-[color:var(--card-border)] rounded-xl px-3 py-2 text-xs text-white"><option value="">Sin imagen (Subir a public/imagenes)</option></select>
+                <button id="btnGuardarProducto" onclick="guardarProducto()" type="button" class="w-full bg-green-500 text-black font-extrabold py-2.5 rounded-xl text-xs mt-2">Guardar en Catálogo</button>
+                <button id="btnCancelarEdicion" onclick="limpiarFormProducto()" class="hidden w-full bg-app-panel text-gray-300 font-bold py-2 rounded-xl text-xs mt-2 border border-[color:var(--card-border)]">Cancelar Edición</button>
             </div>
         </div>
         <div class="lg:col-span-2 bg-card p-4 rounded-3xl border border-[color:var(--card-border)] mt-6"><h3 class="font-black text-white text-xs mb-3 uppercase">Catálogo de Productos</h3><div id="listaAdminProductos" class="space-y-2 max-h-inv overflow-y-auto no-scrollbar"></div></div>
@@ -799,7 +798,7 @@ function procesarYCobrar() {
     </main>
 
     <!-- MODAL DE COBRO REDISEÑADO -->
-  <div id="modal-cobro" class="fixed inset-0 bg-black bg-opacity-95 z-[9999] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+    <div id="modal-cobro" class="fixed inset-0 bg-black bg-opacity-95 z-[9999] hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-card border border-[color:var(--card-border)] p-6 rounded-3xl max-w-4xl w-full shadow-2xl grid grid-cols-1 md:grid-cols-12 gap-6 relative">
             <button onclick="cerrarCobro()" class="absolute -top-4 -right-4 bg-red-600 text-white w-10 h-10 rounded-full font-black text-lg border-2 border-black shadow-lg">X</button>
             <div class="md:col-span-7 flex flex-col space-y-5">
