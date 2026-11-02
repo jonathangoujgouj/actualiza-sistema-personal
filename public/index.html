@@ -2,49 +2,61 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <!-- Etiquetas para Modo Aplicación Independiente (Sin barras de navegador en iPad / Android) -->
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="La Barrita POS">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#05050a">
+  <meta name="theme-color" content="#07060e">
   <title>LA BARRITA POS // Cyber-Neon Suite</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    :root {
-      --neon-pink: #ec4899;
-      --neon-emerald: #10b981;
-      --neon-cyan: #06b6d4;
-      --bg-cyber: #07060e;
+    /* BLINDAJE CRÍTICO PARA IPAD / SAFARI (Evita que se vean todas las ventanas juntas si Tailwind CDN tarda o falla) */
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      height: 100vh;
+      height: -webkit-fill-available;
+      overflow: hidden;
+      background-color: #07060e;
+      color: #f1f5f9;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    body.skin-cyan {
-      --neon-pink: #06b6d4;
-      --neon-emerald: #22d3ee;
-    }
-    body.skin-gold {
-      --neon-pink: #f59e0b;
-      --neon-emerald: #10b981;
-    }
+    .hidden { display: none !important; }
+    .vista-modulo { display: none; width: 100%; height: 100%; }
+    .vista-modulo.activa { display: flex !important; }
+
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-    /* Animación fluida para la Barra de Scroll (Marquee) */
+    /* Animación para la Barra de Scroll de la Pantalla TV */
+    @-webkit-keyframes tickerMove {
+      0% { -webkit-transform: translateX(0%); transform: translateX(0%); }
+      100% { -webkit-transform: translateX(-50%); transform: translateX(-50%); }
+    }
     @keyframes tickerMove {
       0% { transform: translateX(0%); }
       100% { transform: translateX(-50%); }
     }
     .marquee-track {
+      display: -webkit-box;
+      display: -webkit-flex;
       display: flex;
       width: max-content;
+      -webkit-animation: tickerMove 26s linear infinite;
       animation: tickerMove 26s linear infinite;
-    }
-    .marquee-track:hover {
-      animation-play-state: paused;
     }
 
     @media print {
       body * { visibility: hidden; }
       #zona-impresion-ticket, #zona-impresion-ticket * { visibility: visible; }
       #zona-impresion-ticket {
+        display: block !important;
         position: absolute;
         left: 0;
         top: 0;
@@ -55,127 +67,222 @@
     }
   </style>
 </head>
-<body class="h-dvh w-screen overflow-hidden bg-[#07060e] text-slate-100 font-sans select-none flex flex-col">
+<body class="w-full h-full overflow-hidden bg-[#07060e] text-slate-100 select-none flex flex-col">
 
   <!-- ========================================================================= -->
-  <!-- BARRA SUPERIOR SIEMPRE VISIBLE (CON BOTÓN DE REGRESAR Y ACCESOS RÁPIDOS)  -->
+  <!-- PANTALLA 0: LOBBY DE ACCESO INDEPENDIENTE POR PERFIL Y PIN DE SEGURIDAD   -->
+  <!-- (Permite abrir cada módulo como App dedicada y bloquea accesos sin PIN)   -->
   <!-- ========================================================================= -->
-  <header id="main-header" class="h-12 bg-[#0c0a18] border-b border-pink-500/30 px-3 flex items-center justify-between shrink-0 z-40">
-    <div class="flex items-center gap-2">
-      <!-- BOTÓN REGRESAR / MENÚ DE MÓDULOS (Soluciona que no desplegaba el botón de regresar) -->
-      <button onclick="abrirMenuModulos()" class="px-3 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/40 border border-rose-500/60 text-rose-300 font-black text-xs flex items-center gap-1.5 shadow-[0_0_12px_rgba(244,63,94,0.3)] transition active:scale-95">
-        <span>⬅</span> <span>Módulos / Regresar</span>
-      </button>
+  <div id="modal-lobby-acceso" class="fixed inset-0 bg-[#07060e] z-50 flex flex-col items-center justify-center p-4 overflow-y-auto">
+    <div class="w-full max-w-3xl bg-[#0e0b1c] border-2 border-pink-500/50 rounded-3xl p-6 shadow-[0_0_50px_rgba(236,72,153,0.25)] space-y-5">
+      
+      <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-800 pb-4">
+        <div class="flex items-center gap-3">
+          <span class="h-3.5 w-3.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_12px_#10b981]"></span>
+          <div>
+            <h1 class="text-xl sm:text-2xl font-black tracking-wider text-pink-400">LA BARRITA POS // LAUNCHER DE PERFILES</h1>
+            <p class="text-xs text-slate-400">Selecciona la terminal que vas a usar en este dispositivo (PC, iPad, Android o Smart TV)</p>
+          </div>
+        </div>
+        <button onclick="activarPantallaCompletaApp()" class="px-3 py-2 rounded-xl bg-cyan-500/20 border border-cyan-400 text-cyan-300 font-black text-xs">
+          📲 Modo App Pantalla Completa
+        </button>
+      </div>
 
-      <div class="hidden sm:flex items-center gap-2 ml-2">
-        <span class="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#10b981]"></span>
-        <span class="font-black tracking-wider text-xs md:text-sm text-pink-400">LA BARRITA POS</span>
+      <!-- Tarjetas de Acceso por Usuario (Con protección de PIN para Admin y Caja) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        
+        <button onclick="iniciarSesionRol('admin', true)" class="p-4 rounded-2xl bg-[#151029] hover:bg-pink-950/40 border border-pink-500/50 text-left transition flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center">
+              <span class="text-2xl">👑</span>
+              <span class="px-2 py-0.5 rounded bg-pink-500/20 text-pink-300 text-[10px] font-black">🔒 Requiere PIN</span>
+            </div>
+            <div class="text-sm font-black text-white mt-2">Administrador Total</div>
+            <div class="text-[11px] text-slate-400 mt-1">Acceso a los 6 módulos, Corte de Caja, Inventarios, Métricas y GitHub.</div>
+          </div>
+          <div class="mt-3 text-[11px] font-bold text-pink-400">PIN por defecto: 1234 ➔</div>
+        </button>
+
+        <button onclick="iniciarSesionRol('cajero', true)" class="p-4 rounded-2xl bg-[#151029] hover:bg-emerald-950/40 border border-emerald-500/50 text-left transition flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center">
+              <span class="text-2xl">💵</span>
+              <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-black">🔒 Requiere PIN</span>
+            </div>
+            <div class="text-sm font-black text-white mt-2">Terminal de Caja</div>
+            <div class="text-[11px] text-slate-400 mt-1">Floor Plan, Cobros, Gastos y Corte (Bloquea Admin y GitHub).</div>
+          </div>
+          <div class="mt-3 text-[11px] font-bold text-emerald-400">Entrar a Caja ➔</div>
+        </button>
+
+        <button onclick="iniciarSesionRol('mesero', false)" class="p-4 rounded-2xl bg-[#151029] hover:bg-cyan-950/40 border border-cyan-500/50 text-left transition flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center">
+              <span class="text-2xl">🍽️</span>
+              <span class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 text-[10px] font-black">Acceso Rápido</span>
+            </div>
+            <div class="text-sm font-black text-white mt-2">Comandera Mesero (iPad/Móvil)</div>
+            <div class="text-[11px] text-slate-400 mt-1">Solo levantar órdenes en mesas y validar pedidos QR de clientes.</div>
+          </div>
+          <div class="mt-3 text-[11px] font-bold text-cyan-400">Abrir Comandera ➔</div>
+        </button>
+
+        <button onclick="iniciarSesionRol('cocina', false)" class="p-4 rounded-2xl bg-[#151029] hover:bg-amber-950/40 border border-amber-500/50 text-left transition flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center">
+              <span class="text-2xl">🔥</span>
+              <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-black">Monitor KDS</span>
+            </div>
+            <div class="text-sm font-black text-white mt-2">Monitor Cocina y Barra</div>
+            <div class="text-[11px] text-slate-400 mt-1">Tocar órdenes para atender en TV y reportar insumos faltantes.</div>
+          </div>
+          <div class="mt-3 text-[11px] font-bold text-amber-400">Abrir Cocina/Barra ➔</div>
+        </button>
+
+        <button onclick="iniciarSesionRol('tv', false)" class="p-4 rounded-2xl bg-[#151029] hover:bg-emerald-950/40 border border-emerald-400/60 text-left transition flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center">
+              <span class="text-2xl">📺</span>
+              <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-black">Smart TV / Monitor 2</span>
+            </div>
+            <div class="text-sm font-black text-white mt-2">Pantalla Pública Clientes (TV)</div>
+            <div class="text-[11px] text-slate-400 mt-1">Turnos en vivo, 2 reproductores de video/imagen y Barra Scroll.</div>
+          </div>
+          <div class="mt-3 text-[11px] font-bold text-emerald-400">Lanzar Pantalla TV ➔</div>
+        </button>
+
+        <button onclick="iniciarSesionRol('cliente_qr', false)" class="p-4 rounded-2xl bg-[#151029] hover:bg-purple-950/40 border border-purple-400/60 text-left transition flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center">
+              <span class="text-2xl">📱</span>
+              <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[10px] font-black">Vista Cliente QR</span>
+            </div>
+            <div class="text-sm font-black text-white mt-2">Menú Digital Auto-Pedido QR</div>
+            <div class="text-[11px] text-slate-400 mt-1">Vista exclusiva para clientes: eligen mesa, piden y notifican al mesero.</div>
+          </div>
+          <div class="mt-3 text-[11px] font-bold text-purple-400">Abrir Menú Cliente ➔</div>
+        </button>
+
+      </div>
+
+      <div class="bg-slate-950/90 border border-slate-800 rounded-2xl p-3 text-[11px] text-slate-400 flex flex-wrap justify-between items-center gap-2">
+        <span>💡 <b>Tip para iPad / Android como App Independiente:</b> En Safari o Chrome toca "Compartir ➔ Agregar a pantalla de inicio". Este Lobby siempre estará accesible desde el botón superior izquierdo <b>🏠 Cambiar Perfil</b>.</span>
       </div>
     </div>
+  </div>
 
-    <!-- Reloj Central estilo tu Captura 2 -->
-    <div class="px-3 py-1 rounded-xl bg-slate-900/90 border border-emerald-500/40 text-emerald-400 font-mono font-bold text-xs shadow-[0_0_10px_rgba(16,185,129,0.2)]" id="reloj-header">
+  <!-- ========================================================================= -->
+  <!-- BARRA SUPERIOR SIEMPRE VISIBLE (CON BOTÓN AL LOBBY Y MÓDULOS PERMITIDOS)  -->
+  <!-- ========================================================================= -->
+  <header id="main-header" class="h-12 bg-[#0c0a18] border-b border-pink-500/30 px-2.5 flex items-center justify-between shrink-0 z-30">
+    <div class="flex items-center gap-1.5">
+      <!-- Botón que abre siempre el Lobby de Perfiles sin salir de la App -->
+      <button onclick="abrirLobbyPerfiles()" class="px-2.5 py-1.5 rounded-xl bg-pink-600/25 hover:bg-pink-600/40 border border-pink-500/60 text-pink-300 font-black text-xs flex items-center gap-1">
+        <span>🏠</span> <span>Perfil / App</span>
+      </button>
+
+      <!-- Botón Menú de los 6 Módulos (Solo muestra los permitidos al rol actual) -->
+      <button id="btn-abrir-drawer" onclick="abrirMenuModulos()" class="px-2.5 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/40 border border-rose-500/60 text-rose-300 font-black text-xs flex items-center gap-1">
+        <span>☰</span> <span>Módulos</span>
+      </button>
+
+      <span id="badge-rol-actual" class="hidden md:inline-block ml-1 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] font-bold text-cyan-300">
+        ROL: ADMIN
+      </span>
+    </div>
+
+    <!-- Reloj Central -->
+    <div class="px-2.5 py-1 rounded-xl bg-slate-900 border border-emerald-500/40 text-emerald-400 font-mono font-bold text-xs" id="reloj-header">
       12:30 p.m.
     </div>
 
-    <!-- Botones de Vista Rápida: TV Clientes, Pedidos QR, Cocina, Refrescar y Rescate -->
+    <!-- Botones de Acceso Rápido Condicionados por Permiso -->
     <div class="flex items-center gap-1.5">
-      <button onclick="activarModulo('tv')" class="px-2.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/50 text-emerald-300 font-black text-xs flex items-center gap-1 transition">
-        <span>📺</span> <span class="hidden md:inline">Pantalla TV</span>
+      <button id="top-btn-tv" onclick="activarModulo('tv')" class="px-2 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 font-black text-xs">
+        📺 <span class="hidden sm:inline">TV</span>
       </button>
 
-      <button onclick="activarModulo('cocina')" class="px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-300 font-black text-xs flex items-center gap-1 transition">
-        <span>🔥</span> <span class="hidden md:inline">Cocina/Barra</span>
-        <span id="badge-cocina-header" class="px-1.5 bg-amber-400 text-slate-950 rounded-full text-[10px] font-black">5</span>
+      <button id="top-btn-cocina" onclick="activarModulo('cocina')" class="px-2 py-1.5 rounded-xl bg-amber-500/20 border border-amber-400/50 text-amber-300 font-black text-xs">
+        🔥 <span class="hidden sm:inline">Cocina</span>
+        <span id="badge-cocina-header" class="px-1 bg-amber-400 text-slate-950 rounded-full text-[10px] font-black">5</span>
       </button>
 
-      <button onclick="abrirModalBandejaQR()" class="px-2.5 py-1.5 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 border border-pink-400/50 text-pink-300 font-black text-xs flex items-center gap-1 transition">
-        <span>📲</span> <span class="hidden lg:inline">QR Mesero</span>
-        <span id="badge-qr-header" class="px-1.5 bg-pink-400 text-slate-950 rounded-full text-[10px] font-black">1</span>
+      <button id="top-btn-qr" onclick="abrirModalBandejaQR()" class="px-2 py-1.5 rounded-xl bg-pink-500/20 border border-pink-400/50 text-pink-300 font-black text-xs">
+        📲 <span class="hidden lg:inline">QR</span>
+        <span id="badge-qr-header" class="px-1 bg-pink-400 text-slate-950 rounded-full text-[10px] font-black">1</span>
       </button>
 
-      <button onclick="window.location.reload()" title="Refrescar Pantalla" class="px-2 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-cyan-300 text-xs font-bold">
+      <button onclick="activarPantallaCompletaApp()" title="Pantalla Completa sin bordes" class="px-2 py-1.5 rounded-xl bg-slate-800 border border-cyan-500/40 text-cyan-300 text-xs font-bold">
+        ⛶
+      </button>
+
+      <button onclick="window.location.reload()" title="Refrescar" class="px-2 py-1.5 rounded-xl bg-slate-800 border border-slate-600 text-cyan-300 text-xs font-bold">
         🔄
-      </button>
-
-      <button onclick="toggleModalRescate()" title="Scripts de Servidor" class="px-2 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-950 border border-rose-500/40 text-rose-300 text-xs font-bold">
-        🛠️
       </button>
     </div>
   </header>
 
   <!-- ========================================================================= -->
-  <!-- DRAWER / MENÚ DESPLEGABLE DE LOS 6 MÓDULOS Y PERMISOS DE ROL              -->
+  <!-- DRAWER DE LOS 6 MÓDULOS (FILTRADO POR PERMISOS DEL ROL ACTIVO)            -->
   <!-- ========================================================================= -->
-  <div id="drawer-modulos" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex">
-    <div class="w-80 max-w-[85vw] bg-[#0e0b1c] border-r border-pink-500/40 h-full p-5 flex flex-col justify-between shadow-[0_0_40px_rgba(236,72,153,0.3)]">
+  <div id="drawer-modulos" class="hidden fixed inset-0 bg-black/80 z-40 flex">
+    <div class="w-80 max-w-[85vw] bg-[#0e0b1c] border-r border-pink-500/40 h-full p-5 flex flex-col justify-between overflow-y-auto">
       <div class="space-y-4">
         <div class="flex justify-between items-center border-b border-slate-800 pb-3">
           <div>
-            <span class="text-[10px] text-pink-400 uppercase font-bold tracking-widest">Navegación Central</span>
-            <h2 class="text-lg font-black text-white">6 Módulos del Sistema</h2>
+            <span class="text-[10px] text-pink-400 uppercase font-bold">Navegación Autorizada</span>
+            <h2 class="text-lg font-black text-white">Módulos Disponibles</h2>
           </div>
           <button onclick="cerrarMenuModulos()" class="text-slate-400 hover:text-white text-2xl">&times;</button>
         </div>
 
-        <!-- Selector de Rol con Permisos -->
-        <div class="bg-slate-900/90 border border-pink-500/30 rounded-xl p-3">
-          <label class="text-[11px] text-slate-400 block mb-1">Rol Activo (Permisos):</label>
-          <select id="select-rol-sistema" onchange="aplicarPermisosRol(this.value)" class="w-full bg-slate-950 border border-emerald-500/40 rounded-lg px-2.5 py-1.5 text-xs font-bold text-emerald-300">
-            <option value="admin">👑 Administrador (Acceso Total)</option>
-            <option value="cajero">💵 Cajero (Caja, Stock, TV)</option>
-            <option value="mesero">🍽️ Mesero (Mesas, QR, Cocina)</option>
-            <option value="cocina">🔥 Cocina / Barra (Comandas y Stock)</option>
-          </select>
-        </div>
-
-        <!-- Lista de los 6 Módulos + Pantalla TV -->
         <nav class="space-y-2 text-xs font-bold">
           <button data-mod="caja" onclick="activarModulo('caja')" class="w-full p-3 rounded-xl bg-pink-500/20 border border-pink-500/50 text-pink-300 flex items-center gap-3 text-left">
             <span>💰</span>
             <div>
               <div>1. Caja, Floor Plan y Menú</div>
-              <div class="text-[10px] text-slate-400 font-normal">Mesas, cobro, fondo de caja, gastos y corte</div>
+              <div class="text-[10px] text-slate-400 font-normal">Mesas, órdenes y cobros</div>
             </div>
           </button>
 
-          <button data-mod="inventario" onclick="activarModulo('inventario')" class="w-full p-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 flex items-center gap-3 text-left">
+          <button data-mod="inventario" onclick="activarModulo('inventario')" class="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 flex items-center gap-3 text-left">
             <span>📦</span>
             <div>
               <div>2. Inventarios / Stock</div>
-              <div class="text-[10px] text-slate-400 font-normal">Catálogo, alertas de stock mínimo e impresión</div>
+              <div class="text-[10px] text-slate-400 font-normal">Existencias, alertas y reporte</div>
             </div>
           </button>
 
-          <button data-mod="cocina" onclick="activarModulo('cocina')" class="w-full p-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 flex items-center gap-3 text-left">
+          <button data-mod="cocina" onclick="activarModulo('cocina')" class="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 flex items-center gap-3 text-left">
             <span>🔥</span>
             <div>
               <div>3. Cocina / Barra / Comandas</div>
-              <div class="text-[10px] text-slate-400 font-normal">Tocar orden para atender en TV e insumos faltantes</div>
+              <div class="text-[10px] text-slate-400 font-normal">Atender órdenes y faltantes</div>
             </div>
           </button>
 
-          <button data-mod="admin" onclick="activarModulo('admin')" class="w-full p-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 flex items-center gap-3 text-left">
+          <button data-mod="admin" onclick="activarModulo('admin')" class="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 flex items-center gap-3 text-left">
             <span>📊</span>
             <div>
-              <div>4. Administración</div>
-              <div class="text-[10px] text-slate-400 font-normal">Rendimiento por mesero, métricas y ventas</div>
+              <div>4. Administración (Solo Admin)</div>
+              <div class="text-[10px] text-slate-400 font-normal">Métricas y rendimiento de meseros</div>
             </div>
           </button>
 
-          <button data-mod="config" onclick="activarModulo('config')" class="w-full p-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 flex items-center gap-3 text-left">
+          <button data-mod="config" onclick="activarModulo('config')" class="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 flex items-center gap-3 text-left">
             <span>⚙️</span>
             <div>
-              <div>5. Configuración y Publicidad TV</div>
-              <div class="text-[10px] text-slate-400 font-normal">Tickets 58/80mm, texto Scroll, 2 contenedores TV y Redes</div>
+              <div>5. Configuración y TV (Solo Admin)</div>
+              <div class="text-[10px] text-slate-400 font-normal">Tickets 58/80mm, Videos TV y Scroll</div>
             </div>
           </button>
 
-          <button data-mod="respaldo" onclick="activarModulo('respaldo')" class="w-full p-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 flex items-center gap-3 text-left">
+          <button data-mod="respaldo" onclick="activarModulo('respaldo')" class="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 flex items-center gap-3 text-left">
             <span>☁️</span>
             <div>
-              <div>6. Actualizaciones / Respaldo</div>
-              <div class="text-[10px] text-slate-400 font-normal">Sincronización GitHub y backup JSON</div>
+              <div>6. GitHub y Respaldo (Solo Admin)</div>
+              <div class="text-[10px] text-slate-400 font-normal">Sincronización y backups</div>
             </div>
           </button>
 
@@ -183,18 +290,18 @@
             <span>📺</span>
             <div>
               <div>Pantalla Pública Clientes (TV)</div>
-              <div class="text-[10px] text-emerald-200/70 font-normal">Turnos enriquecidos, 2 pantallas video y Marquee</div>
+              <div class="text-[10px] text-emerald-200/70 font-normal">Turnos, 2 contenedores video y Scroll</div>
             </div>
           </button>
         </nav>
       </div>
 
       <div class="pt-3 border-t border-slate-800 flex justify-between items-center text-xs">
-        <button onclick="irAlControlRemoto()" class="px-3 py-2 rounded-xl bg-purple-600/30 border border-purple-400/40 text-purple-200 font-bold">
-          📱 Ir al Puerto 3001
+        <button onclick="abrirLobbyPerfiles()" class="px-3 py-2 rounded-xl bg-pink-500/20 border border-pink-400 text-pink-300 font-bold">
+          🔐 Cambiar Usuario / PIN
         </button>
         <button onclick="cerrarMenuModulos()" class="px-3 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold">
-          Cerrar Menú
+          Cerrar
         </button>
       </div>
     </div>
@@ -202,17 +309,17 @@
   </div>
 
   <!-- ========================================================================= -->
-  <!-- MÓDULO 1: VISTA POS (PRODUCT MENU + FLOOR PLAN + CHECKOUT CORREGIDOS)     -->
+  <!-- MÓDULO 1: VISTA POS (PRODUCT MENU + FLOOR PLAN + CHECKOUT)                -->
   <!-- ========================================================================= -->
-  <main id="vista-modulo-caja" class="vista-modulo flex-1 min-h-0 flex flex-col overflow-hidden p-2 sm:p-3 gap-2">
+  <main id="vista-modulo-caja" class="vista-modulo activa flex-1 min-h-0 flex-col overflow-hidden p-2 sm:p-3 gap-2">
 
-    <!-- Sub-barra rápida de Caja (Fondo, Gastos, Corte y Editor de Mesas) -->
-    <div class="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-[#100d22] border border-pink-500/25 shrink-0 overflow-x-auto no-scrollbar text-xs">
+    <!-- Sub-barra financiera (Se oculta automáticamente si el rol es Mesero) -->
+    <div id="barra-finanzas-caja" class="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-[#100d22] border border-pink-500/25 shrink-0 overflow-x-auto no-scrollbar text-xs">
       <div class="flex items-center gap-2 shrink-0">
         <span class="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-bold">
           💰 Fondo: $<span id="ui-fondo-caja">1500.00</span>
         </span>
-        <button onclick="ajustarFondoCaja()" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">✏️ Fondo</button>
+        <button onclick="ajustarFondoCaja()" class="px-2 py-1 rounded-lg bg-slate-800 text-slate-300">✏️ Fondo</button>
         <button onclick="registrarGastoCaja()" class="px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/40 text-rose-300 font-bold">
           ➖ Gasto ($<span id="ui-gastos-caja">0.00</span>)
         </button>
@@ -223,78 +330,59 @@
 
       <div class="flex items-center gap-2 shrink-0">
         <button onclick="simularLlegadaPedidoQR()" class="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-400/40 text-amber-300 font-bold">
-          📲 + Simular Pedido QR Cliente
+          📲 + Simular Pedido QR
         </button>
         <button id="btn-toggle-mover-mesas" onclick="toggleModoMoverMesas()" class="px-2.5 py-1 rounded-lg bg-slate-800 border border-pink-500/40 text-pink-300 font-bold">
-          🔓 Editar Ubicación Mesas: OFF
+          🔓 Mover Mesas: OFF
         </button>
       </div>
     </div>
 
-    <!-- GRID DE 3 COLUMNAS FIEL A TU IMAGEN 1 PERO SIN ESTIRARSE NI DEFORMARSE -->
-    <div class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3 overflow-hidden">
+    <!-- GRID DE 3 COLUMNAS ADAPTATIVO PARA PC, IPAD HORIZONTAL Y MÓVIL -->
+    <div class="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12 gap-2.5 overflow-hidden">
 
-      <!-- COLUMNA IZQUIERDA: PRODUCT MENU (3 cols en PC) -->
-      <section id="panel-pos-menu" class="lg:col-span-3 min-h-0 flex flex-col bg-[#0e0b1a] border border-pink-500/40 rounded-2xl p-3 overflow-hidden shadow-[0_0_20px_rgba(236,72,153,0.1)]">
+      <!-- COLUMNA 1: PRODUCT MENU -->
+      <section id="panel-pos-menu" class="md:col-span-4 lg:col-span-3 min-h-0 flex flex-col bg-[#0e0b1a] border border-pink-500/40 rounded-2xl p-2.5 overflow-hidden">
         <h2 class="text-xs font-black tracking-wider text-pink-500 uppercase mb-2 shrink-0">PRODUCT MENU</h2>
-
-        <!-- Selectores de Categoría e Input de Búsqueda -->
-        <div class="space-y-2 mb-3 shrink-0">
-          <select id="select-categoria-pos" onchange="filtrarMenuPOS(this.value)" class="w-full px-3 py-2 rounded-xl bg-[#161229] border border-pink-500/40 text-xs font-bold text-white focus:outline-none">
+        <div class="space-y-1.5 mb-2.5 shrink-0">
+          <select id="select-categoria-pos" onchange="filtrarMenuPOS(this.value)" class="w-full px-2.5 py-1.5 rounded-xl bg-[#161229] border border-pink-500/40 text-xs font-bold text-white">
             <option value="Todos">🍔 All Food / Drinks</option>
             <option value="Alitas">🍗 Alitas & Snacks</option>
             <option value="Cervezas">🍺 Micheladas & Cervezas</option>
             <option value="Cocteles">🍸 Coctelería</option>
           </select>
-          <input id="input-buscar-pos" oninput="renderizarMenuPOS()" type="text" placeholder="🔍 Filtrar platillo o bebida..." class="w-full px-3 py-1.5 rounded-xl bg-[#161229] border border-pink-500/30 text-xs text-white focus:outline-none">
+          <input id="input-buscar-pos" oninput="renderizarMenuPOS()" type="text" placeholder="🔍 Buscar platillo..." class="w-full px-2.5 py-1.5 rounded-xl bg-[#161229] border border-pink-500/30 text-xs text-white">
         </div>
-
-        <!-- Tarjetas con altura controlada (content-start + h-28) para que NUNCA se estiren como en la Imagen 1 -->
-        <div id="contenedor-tarjetas-menu" class="flex-1 min-h-0 overflow-y-auto grid grid-cols-2 gap-2.5 pr-1 content-start">
-          <!-- Inyectado por JS -->
-        </div>
+        <div id="contenedor-tarjetas-menu" class="flex-1 min-h-0 overflow-y-auto grid grid-cols-2 gap-2 pr-1 content-start"></div>
       </section>
 
-      <!-- COLUMNA CENTRAL: FLOOR PLAN — DINING AREA (6 cols en PC) -->
-      <section id="panel-pos-mapa" class="hidden lg:flex lg:col-span-6 min-h-0 flex-col bg-[#0e0b1a] border border-pink-500/40 rounded-2xl p-3 overflow-hidden">
-        <div class="flex justify-between items-center mb-2.5 shrink-0">
+      <!-- COLUMNA 2: FLOOR PLAN — DINING AREA -->
+      <section id="panel-pos-mapa" class="hidden md:flex md:col-span-5 lg:col-span-6 min-h-0 flex-col bg-[#0e0b1a] border border-pink-500/40 rounded-2xl p-2.5 overflow-hidden">
+        <div class="flex justify-between items-center mb-2 shrink-0">
           <h2 class="text-xs font-black tracking-wider text-pink-500 uppercase">FLOOR PLAN — DINING AREA</h2>
-          <div class="flex items-center gap-2">
-            <span class="text-[11px] text-slate-400 hidden sm:inline">Toca una mesa para ver cuenta o asignar orden</span>
-            <button onclick="cambiarModoVisualMapa()" id="btn-vista-mapa-tipo" class="px-2 py-0.5 rounded bg-slate-800 text-[10px] text-emerald-300 border border-emerald-500/30 font-bold">
-              Vista: Tarjetas / Libre
-            </button>
-          </div>
+          <button onclick="cambiarModoVisualMapa()" class="px-2 py-0.5 rounded bg-slate-800 text-[10px] text-emerald-300 border border-emerald-500/30 font-bold">
+            Alternar Vista: Tarjetas / Libre
+          </button>
         </div>
-
-        <!-- Lienzo del Mapa de Mesas (Se adapta en Grid limpio o Coordenadas libres sin estirar los botones) -->
-        <div id="lienzo-floor-plan" class="flex-1 min-h-0 overflow-y-auto p-2 rounded-xl bg-[#130f26]/90 border border-pink-500/20 relative">
-          <!-- Inyectado por JS -->
-        </div>
+        <div id="lienzo-floor-plan" class="flex-1 min-h-0 overflow-y-auto p-2 rounded-xl bg-[#130f26]/90 border border-pink-500/20 relative"></div>
       </section>
 
-      <!-- COLUMNA DERECHA: CHECKOUT / BILLING (3 cols en PC) -->
-      <section id="panel-pos-checkout" class="hidden lg:flex lg:col-span-3 min-h-0 flex-col bg-[#0e0b1a] border border-pink-500/40 rounded-2xl p-3 overflow-hidden justify-between">
+      <!-- COLUMNA 3: CHECKOUT / BILLING -->
+      <section id="panel-pos-checkout" class="hidden md:flex md:col-span-3 lg:col-span-3 min-h-0 flex-col bg-[#0e0b1a] border border-pink-500/40 rounded-2xl p-2.5 overflow-hidden justify-between">
         <div class="shrink-0">
-          <div class="flex justify-between items-center mb-2">
+          <div class="flex justify-between items-center mb-1.5">
             <h2 class="text-xs font-black tracking-wider text-pink-500 uppercase">CHECKOUT / BILLING</h2>
-            <select id="select-tipo-orden" onchange="cambiarMesaDesdeSelector(this.value)" class="bg-[#161229] border border-pink-500/40 rounded-lg px-2 py-1 text-[11px] text-white font-bold">
-              <!-- Opciones de mesas -->
-            </select>
+            <select id="select-tipo-orden" onchange="cambiarMesaDesdeSelector(this.value)" class="bg-[#161229] border border-pink-500/40 rounded-lg px-2 py-1 text-[11px] text-white font-bold"></select>
           </div>
-          <div class="text-xs font-mono text-slate-300 border-b border-slate-800 pb-2">
-            <span id="checkout-label-mesa" class="text-emerald-400 font-bold">Mesa 3</span> - Server: <span id="checkout-label-mesero">General</span>
+          <div class="text-xs font-mono text-slate-300 border-b border-slate-800 pb-1.5">
+            <span id="checkout-label-mesa" class="text-emerald-400 font-bold">Mesa 3</span> • <span id="checkout-label-mesero">General</span>
           </div>
         </div>
 
-        <!-- Lista de Productos de la Cuenta -->
-        <div id="checkout-lista-items" class="flex-1 min-h-0 overflow-y-auto my-2.5 space-y-2 pr-1">
-          <!-- Items de la mesa activa -->
-        </div>
+        <div id="checkout-lista-items" class="flex-1 min-h-0 overflow-y-auto my-2 space-y-1.5 pr-1"></div>
 
-        <!-- Totales y Botones Send Order / Pay Now (Cobrar Reparado) -->
-        <div class="shrink-0 pt-2.5 border-t border-slate-800 space-y-3">
-          <div class="bg-[#141026] border border-slate-800 rounded-xl p-2.5 space-y-1">
+        <div class="shrink-0 pt-2 border-t border-slate-800 space-y-2">
+          <div class="bg-[#141026] border border-slate-800 rounded-xl p-2 space-y-0.5">
             <div class="flex justify-between text-xs text-slate-400">
               <span>Subtotal:</span>
               <span id="checkout-subtotal">$0.00</span>
@@ -305,12 +393,12 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-2">
-            <button onclick="enviarOrdenACocinaYTV()" class="py-2.5 px-3 rounded-xl bg-transparent hover:bg-pink-500/20 border border-pink-500 text-white font-bold text-xs transition active:scale-95">
+          <div class="grid grid-cols-2 gap-1.5">
+            <button onclick="enviarOrdenACocinaYTV()" class="py-2.5 px-2 rounded-xl border border-pink-500 text-white font-bold text-xs">
               Send Order
             </button>
-            <button id="btn-cobrar" data-action="cobrar" class="py-2.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-[0_0_15px_rgba(16,185,129,0.5)] transition active:scale-95">
-              Pay Now / Cobrar
+            <button id="btn-cobrar" data-action="cobrar" class="py-2.5 px-2 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs">
+              Pay Now
             </button>
           </div>
         </div>
@@ -318,133 +406,114 @@
 
     </div>
 
-    <!-- Barra Inferior Android para alternar las 3 columnas en celulares sin encimar -->
-    <footer class="lg:hidden h-12 bg-[#0e0b1a] border border-pink-500/30 rounded-xl grid grid-cols-3 gap-1 p-1 shrink-0">
+    <!-- Barra Inferior para Teléfonos / Pantallas Verticales (< 768px) -->
+    <footer class="md:hidden h-12 bg-[#0e0b1a] border border-pink-500/30 rounded-xl grid grid-cols-3 gap-1 p-1 shrink-0">
       <button onclick="cambiarTabMovilPOS('menu')" class="rounded-lg bg-pink-500/20 text-pink-300 font-bold text-xs">🍔 Menú</button>
       <button onclick="cambiarTabMovilPOS('mapa')" class="rounded-lg text-slate-300 font-bold text-xs">📍 Mesas</button>
-      <button onclick="cambiarTabMovilPOS('checkout')" class="rounded-lg text-emerald-300 font-bold text-xs">💳 Cobrar</button>
+      <button onclick="cambiarTabMovilPOS('checkout')" class="rounded-lg text-emerald-300 font-bold text-xs">💳 Cuenta</button>
     </footer>
   </main>
 
   <!-- ========================================================================= -->
-  <!-- PANTALLA PÚBLICA DE CLIENTES / TV (CON TODAS TUS SUGERENCIAS DE IMAGEN 2) -->
+  <!-- PANTALLA PÚBLICA DE CLIENTES / TV                                         -->
   <!-- ========================================================================= -->
-  <main id="vista-modulo-tv" class="vista-modulo hidden flex-1 min-h-0 flex-col bg-[#050807] overflow-hidden">
-    
-    <!-- Cuerpo Principal de la Pantalla TV (Izquierda: Órdenes + Video 2 + Redes | Derecha: Video/Imagen Grande 1) -->
+  <main id="vista-modulo-tv" class="vista-modulo flex-1 min-h-0 flex-col bg-[#050807] overflow-hidden">
     <div class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 overflow-hidden">
-
-      <!-- COLUMNA IZQUIERDA (4 cols): ESTADO DE ÓRDENES ENRIQUECIDO + CONTENEDOR MULTIMEDIA INDEPENDIENTE #2 + WIDGET REDES -->
       <div class="lg:col-span-4 min-h-0 flex flex-col gap-3 overflow-hidden">
-
-        <!-- 1. LISTA DE ESTADO DE ÓRDENES (Con zona central llena de datos para que NO se vea vacío) -->
         <section class="flex-1 min-h-0 flex flex-col bg-[#071510] border border-emerald-500/40 rounded-2xl p-3 overflow-hidden">
           <div class="flex justify-between items-center border-b border-emerald-500/20 pb-2 mb-2 shrink-0">
-            <h2 class="text-xs font-black tracking-wider text-emerald-400 uppercase flex items-center gap-1.5">
-              <span>📋</span> <span>ESTADO DE ÓRDENES EN VIVO</span>
-            </h2>
-            <span class="text-[10px] text-emerald-300/80 font-mono">Actualización en tiempo real</span>
+            <h2 class="text-xs font-black tracking-wider text-emerald-400 uppercase">📋 ESTADO DE ÓRDENES</h2>
+            <span class="text-[10px] text-emerald-300/80 font-mono">En Vivo</span>
           </div>
-
-          <div id="tv-lista-ordenes" class="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
-            <!-- Filas de órdenes con centro enriquecido (Resumen de platillos, tiempo, mesero y estado) -->
-          </div>
+          <div id="tv-lista-ordenes" class="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1"></div>
         </section>
 
-        <!-- 2. CONTENEDOR MULTIMEDIA INDEPENDIENTE #2 (ESQUINA INFERIOR IZQUIERDA QUE SEÑALASTE EN LA IMAGEN 2) + WIDGET REDES -->
-        <section class="h-56 sm:h-64 shrink-0 bg-[#071510] border-2 border-emerald-500/50 rounded-2xl overflow-hidden flex flex-col justify-between relative shadow-[0_0_25px_rgba(16,185,129,0.15)]">
-          <!-- Cabecera flotante del Contenedor Independiente #2 -->
-          <div class="absolute top-2 left-2 right-2 flex justify-between items-center z-10 pointer-events-none">
-            <span class="px-2 py-0.5 rounded bg-black/75 border border-emerald-400/40 text-[10px] font-black text-emerald-300">
-              🎬 PROMO / REEL #2 (INDEPENDIENTE)
-            </span>
-            <button onclick="siguienteMediaSecundario()" class="pointer-events-auto px-2 py-0.5 rounded bg-black/80 hover:bg-emerald-900 text-[10px] text-white border border-emerald-500/40">
-              ⏭️ Sig.
-            </button>
+        <section class="h-56 shrink-0 bg-[#071510] border-2 border-emerald-500/50 rounded-2xl overflow-hidden flex flex-col justify-between relative">
+          <div class="absolute top-2 left-2 right-2 flex justify-between items-center z-10">
+            <span class="px-2 py-0.5 rounded bg-black/75 border border-emerald-400/40 text-[10px] font-black text-emerald-300">🎬 PROMO #2</span>
+            <button onclick="siguienteMediaSecundario()" class="px-2 py-0.5 rounded bg-black/80 text-[10px] text-white border border-emerald-500/40">⏭️ Sig.</button>
           </div>
-
-          <!-- Visor de Video / Imagen Publicitaria #2 -->
-          <div id="tv-media-box-secundario" class="flex-1 min-h-0 w-full bg-black flex items-center justify-center overflow-hidden">
-            <!-- Renderizado por JS -->
-          </div>
-
-          <!-- WIDGET INTEGRADO DE REDES SOCIALES (Tu sugerencia de agregar un widget de redes) -->
-          <div class="bg-[#040d0a] border-t border-emerald-500/30 px-2.5 py-2 flex items-center justify-between gap-1 shrink-0">
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="px-2 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[10px] font-black">💬 WhatsApp</span>
-              <span class="px-2 py-1 rounded-lg bg-pink-500/20 border border-pink-400/40 text-pink-300 text-[10px] font-black">📸 @LaBarritaPOS</span>
-              <span class="px-2 py-1 rounded-lg bg-blue-500/20 border border-blue-400/40 text-blue-300 text-[10px] font-black">📘 /LaBarrita</span>
-              <span class="px-2 py-1 rounded-lg bg-slate-800 border border-slate-600 text-white text-[10px] font-black">🎵 TikTok</span>
-            </div>
-            <div class="text-[10px] text-emerald-400 font-bold shrink-0">📲 Pide por QR</div>
+          <div id="tv-media-box-secundario" class="flex-1 min-h-0 w-full bg-black flex items-center justify-center overflow-hidden"></div>
+          <div class="bg-[#040d0a] border-t border-emerald-500/30 px-2.5 py-1.5 flex items-center justify-between text-[10px] font-black">
+            <span class="text-emerald-300">💬 WhatsApp</span>
+            <span class="text-pink-300">📸 @LaBarrita</span>
+            <span class="text-blue-300">📘 /LaBarrita</span>
+            <span class="text-white">🎵 TikTok</span>
           </div>
         </section>
-
       </div>
 
-      <!-- COLUMNA DERECHA (8 cols): VENTANA MULTIMEDIA PRINCIPAL GRANDE (#1 INDEPENDIENTE) -->
-      <section class="lg:col-span-8 min-h-0 bg-black border-2 border-emerald-500/40 rounded-2xl overflow-hidden relative flex flex-col justify-between shadow-[0_0_30px_rgba(16,185,129,0.15)]">
-        
-        <!-- Banner flotante de "¡ATENDIENDO AHORA!" cuando Cocina o Barra toca una orden -->
-        <div class="absolute top-3 left-3 right-3 flex justify-between items-center z-20 pointer-events-none">
-          <div class="px-4 py-2 rounded-2xl bg-black/85 border-2 border-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.5)] flex items-center gap-3">
-            <span class="text-xl animate-bounce">🔔</span>
+      <section class="lg:col-span-8 min-h-0 bg-black border-2 border-emerald-500/40 rounded-2xl overflow-hidden relative flex flex-col justify-between">
+        <div class="absolute top-3 left-3 right-3 flex justify-between items-center z-20">
+          <div class="px-4 py-2 rounded-2xl bg-black/85 border-2 border-amber-400 flex items-center gap-3">
+            <span class="text-xl">🔔</span>
             <div>
-              <div class="text-[10px] text-amber-300 font-bold uppercase tracking-wider">Atendiendo en Cocina / Barra</div>
-              <div id="tv-banner-orden-actual" class="text-lg font-black text-white">#T-295 (Mesa 3)</div>
+              <div class="text-[10px] text-amber-300 font-bold uppercase">Atendiendo en Cocina / Barra</div>
+              <div id="tv-banner-orden-actual" class="text-base font-black text-white">#T-295 (Mesa 3)</div>
             </div>
           </div>
-
-          <button onclick="siguienteMediaPrincipal()" class="pointer-events-auto px-3 py-1.5 rounded-xl bg-black/80 hover:bg-emerald-900 border border-emerald-400/50 text-emerald-300 text-xs font-bold">
-            ⏭️ Cambiar Media Principal #1
+          <button onclick="siguienteMediaPrincipal()" class="px-3 py-1.5 rounded-xl bg-black/80 border border-emerald-400/50 text-emerald-300 text-xs font-bold">
+            ⏭️ Cambiar Media #1
           </button>
         </div>
-
-        <!-- Contenedor Principal #1 de Imágenes / Videos Publicitarios -->
-        <div id="tv-media-box-principal" class="flex-1 min-h-0 w-full h-full flex items-center justify-center overflow-hidden bg-slate-950">
-          <!-- Renderizado por JS -->
-        </div>
-
+        <div id="tv-media-box-principal" class="flex-1 min-h-0 w-full h-full flex items-center justify-center overflow-hidden bg-slate-950"></div>
       </section>
-
     </div>
 
-    <!-- BARRA DE SCROLL INFERIOR (MARQUEE) CON TEXTO PROPIO + COLA DE COMANDAS PRÓXIMAS EN ORDEN -->
-    <footer class="h-12 bg-[#071510] border-t-2 border-emerald-500/60 flex items-center overflow-hidden shrink-0 relative">
-      <div class="bg-emerald-500 text-slate-950 font-black text-xs px-4 h-full flex items-center shrink-0 z-10 shadow-[10px_0_20px_rgba(0,0,0,0.8)]">
-        🔥 FILA DE ORDENES
-      </div>
+    <footer class="h-11 bg-[#071510] border-t-2 border-emerald-500/60 flex items-center overflow-hidden shrink-0">
+      <div class="bg-emerald-500 text-slate-950 font-black text-xs px-3 h-full flex items-center shrink-0 z-10">🔥 FILA DE ORDENES</div>
       <div class="flex-1 overflow-hidden">
-        <div id="tv-marquee-content" class="marquee-track text-sm font-black tracking-wide text-emerald-200 items-center gap-12 whitespace-nowrap pl-6">
-          <!-- Texto personalizado + Cola de comandas próximas inyectada en vivo -->
-        </div>
+        <div id="tv-marquee-content" class="marquee-track text-sm font-black text-emerald-200 items-center gap-12 whitespace-nowrap pl-6"></div>
       </div>
     </footer>
-
   </main>
 
   <!-- ========================================================================= -->
-  <!-- MÓDULO 3: COCINA / BARRA (AL TOCAR UNA ORDEN SE ACTUALIZA LA PANTALLA TV) -->
+  <!-- VISTA EXCLUSIVA CLIENTE QR (AUTO-PEDIDO DESDE SU CELULAR O IPAD EN MESA)  -->
   <!-- ========================================================================= -->
-  <main id="vista-modulo-cocina" class="vista-modulo hidden flex-1 min-h-0 flex-col p-4 overflow-y-auto space-y-4">
+  <main id="vista-modulo-cliente_qr" class="vista-modulo flex-1 min-h-0 flex-col p-4 overflow-y-auto space-y-4 bg-[#07060e]">
+    <div class="max-w-xl mx-auto w-full space-y-4">
+      <div class="bg-[#120e24] border border-pink-500/40 rounded-2xl p-4 flex justify-between items-center">
+        <div>
+          <span class="text-[10px] text-pink-400 font-bold uppercase">Menú Digital Interactivo</span>
+          <h2 class="text-lg font-black text-white">📲 Pide desde tu Mesa (QR)</h2>
+        </div>
+        <select id="qr-cliente-mesa-select" class="bg-slate-950 border border-emerald-400 rounded-xl px-3 py-2 text-xs font-black text-emerald-300">
+          <option value="1">Mesa 1</option>
+          <option value="2">Mesa 2</option>
+          <option value="3" selected>Mesa 3</option>
+          <option value="4">Mesa 4</option>
+          <option value="5">Mesa 5</option>
+        </select>
+      </div>
+      <div id="qr-cliente-grid-productos" class="grid grid-cols-2 gap-2.5"></div>
+      <div class="bg-[#120e24] border border-emerald-500/40 rounded-2xl p-4 space-y-3">
+        <h3 class="text-xs font-black text-emerald-400 uppercase">Tu Pedido por Enviar al Mesero:</h3>
+        <div id="qr-cliente-carrito" class="text-xs text-slate-300 space-y-1">Selecciona productos arriba...</div>
+        <button onclick="enviarPedidoDesdeVistaClienteQR()" class="w-full py-3 rounded-xl bg-emerald-500 text-slate-950 font-black text-sm">
+          🛎️ Enviar Pedido al Mesero para Validación
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- MÓDULO 3: COCINA / BARRA                                                  -->
+  <!-- ========================================================================= -->
+  <main id="vista-modulo-cocina" class="vista-modulo flex-1 min-h-0 flex-col p-4 overflow-y-auto space-y-4">
     <div class="flex flex-wrap justify-between items-center gap-2 border-b border-pink-500/30 pb-3">
       <div>
-        <h2 class="text-lg font-black text-amber-400">🔥 MÓDULO 3: MONITOR INTERACTIVO DE COCINA Y BARRA</h2>
-        <p class="text-xs text-slate-300">
-          👉 <b>Toca el botón "🔥 Atender Ahora"</b> en cualquier comanda para que la Pantalla TV muestre esa orden como actual y actualice la fila de próximas órdenes en la barra de Scroll.
-        </p>
+        <h2 class="text-lg font-black text-amber-400">🔥 MÓDULO 3: MONITOR DE COCINA Y BARRA</h2>
+        <p class="text-xs text-slate-300">Toca <b>"🔥 Atender Ahora"</b> para mostrar la orden en la Pantalla TV y actualizar la fila de próximas comandas.</p>
       </div>
       <button onclick="agregarInsumoFaltantePrompt()" class="px-3 py-2 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 font-bold text-xs">
         ⚠️ + Reportar Insumo Faltante
       </button>
     </div>
-
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-      <div id="cocina-grid-comandas" class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-3 content-start">
-        <!-- Tarjetas de comandas para tocar y atender -->
-      </div>
+      <div id="cocina-grid-comandas" class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-3 content-start"></div>
       <div class="lg:col-span-4 bg-[#100d22] border border-rose-500/30 rounded-2xl p-4">
-        <h3 class="text-sm font-black text-rose-400 mb-3">📋 Insumos Faltantes en Barra / Cocina</h3>
+        <h3 class="text-sm font-black text-rose-400 mb-3">📋 Insumos Faltantes</h3>
         <ul id="cocina-lista-insumos" class="space-y-2 text-xs"></ul>
       </div>
     </div>
@@ -453,12 +522,12 @@
   <!-- ========================================================================= -->
   <!-- MÓDULO 2: INVENTARIOS / STOCK                                             -->
   <!-- ========================================================================= -->
-  <main id="vista-modulo-inventario" class="vista-modulo hidden flex-1 min-h-0 flex-col p-4 overflow-y-auto space-y-4">
+  <main id="vista-modulo-inventario" class="vista-modulo flex-1 min-h-0 flex-col p-4 overflow-y-auto space-y-4">
     <div class="flex justify-between items-center border-b border-pink-500/30 pb-3">
-      <h2 class="text-lg font-black text-pink-400">📦 MÓDULO 2: INVENTARIOS, STOCK MÍNIMO Y ALERTAS</h2>
+      <h2 class="text-lg font-black text-pink-400">📦 MÓDULO 2: INVENTARIOS Y ALERTAS DE STOCK</h2>
       <div class="flex gap-2">
         <button onclick="nuevoProductoPrompt()" class="px-3 py-2 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs">+ Nuevo Producto</button>
-        <button onclick="window.print()" class="px-3 py-2 rounded-xl bg-slate-800 border border-pink-500/40 text-pink-300 font-bold text-xs">🖨️ Imprimir Stock</button>
+        <button onclick="window.print()" class="px-3 py-2 rounded-xl bg-slate-800 border border-pink-500/40 text-pink-300 font-bold text-xs">🖨️ Imprimir Reporte</button>
       </div>
     </div>
     <div class="bg-[#100d22] border border-pink-500/30 rounded-2xl p-3 overflow-x-auto">
@@ -468,9 +537,9 @@
             <th class="py-2 px-3">Producto</th>
             <th class="py-2 px-3">Categoría</th>
             <th class="py-2 px-3">Precio</th>
-            <th class="py-2 px-3">Existencia</th>
+            <th class="py-2 px-3">Stock</th>
             <th class="py-2 px-3">Mínimo</th>
-            <th class="py-2 px-3">Acciones</th>
+            <th class="py-2 px-3">Ajustar</th>
           </tr>
         </thead>
         <tbody id="inventario-tbody" class="divide-y divide-slate-800"></tbody>
@@ -479,13 +548,13 @@
   </main>
 
   <!-- ========================================================================= -->
-  <!-- MÓDULO 4: ADMINISTRACIÓN (MÉTRICAS Y RENDIMIENTO POR MESERO)              -->
+  <!-- MÓDULO 4: ADMINISTRACIÓN                                                  -->
   <!-- ========================================================================= -->
-  <main id="vista-modulo-admin" class="vista-modulo hidden flex-1 min-h-0 flex-col p-4 overflow-y-auto space-y-4">
-    <h2 class="text-lg font-black text-pink-400 border-b border-pink-500/30 pb-3">📊 MÓDULO 4: ADMINISTRACIÓN Y RENDIMIENTO DE MESEROS</h2>
+  <main id="vista-modulo-admin" class="vista-modulo flex-1 min-h-0 flex-col p-4 overflow-y-auto space-y-4">
+    <h2 class="text-lg font-black text-pink-400 border-b border-pink-500/30 pb-3">📊 MÓDULO 4: ADMINISTRACIÓN Y RENDIMIENTO</h2>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
       <div class="bg-[#100d22] border border-emerald-500/30 rounded-2xl p-4">
-        <span class="text-xs text-slate-400">Ventas Cobradas Hoy</span>
+        <span class="text-xs text-slate-400">Ventas Hoy</span>
         <div id="admin-ventas-hoy" class="text-2xl font-black text-emerald-400 mt-1">$0.00</div>
       </div>
       <div class="bg-[#100d22] border border-pink-500/30 rounded-2xl p-4">
@@ -493,7 +562,7 @@
         <div id="admin-cuentas-hoy" class="text-2xl font-black text-pink-400 mt-1">0</div>
       </div>
       <div class="bg-[#100d22] border border-amber-500/30 rounded-2xl p-4">
-        <span class="text-xs text-slate-400">Efectivo Esperado en Caja</span>
+        <span class="text-xs text-slate-400">Efectivo en Caja</span>
         <div id="admin-efectivo-caja" class="text-2xl font-black text-amber-400 mt-1">$1500.00</div>
       </div>
     </div>
@@ -501,72 +570,35 @@
   </main>
 
   <!-- ========================================================================= -->
-  <!-- MÓDULO 5: CONFIGURACIÓN (TEXTO DE BARRA SCROLL, 2 CONTENEDORES TV Y TICKET)-->
+  <!-- MÓDULO 5: CONFIGURACIÓN                                                   -->
   <!-- ========================================================================= -->
-  <main id="vista-modulo-config" class="vista-modulo hidden flex-1 min-h-0 flex-col p-4 overflow-y-auto space-y-4">
-    <h2 class="text-lg font-black text-pink-400 border-b border-pink-500/30 pb-3">⚙️ MÓDULO 5: CONFIGURACIÓN DE PANTALLA TV, BARRA SCROLL, TICKETS Y REDES</h2>
-
+  <main id="vista-modulo-config" class="vista-modulo flex-1 min-h-0 flex-col p-4 overflow-y-auto space-y-4">
+    <h2 class="text-lg font-black text-pink-400 border-b border-pink-500/30 pb-3">⚙️ MÓDULO 5: CONFIGURACIÓN, PANTALLA TV Y REDES</h2>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <!-- 1. Personalizar Barra de Scroll (Marquee) y los 2 Contenedores de Publicidad -->
       <div class="bg-[#100d22] border border-emerald-500/40 rounded-2xl p-4 space-y-3">
-        <h3 class="text-sm font-black text-emerald-400">📺 Barra Scroll y Contenedores TV Independientes</h3>
-        <div>
-          <label class="text-xs text-slate-300 block mb-1">Texto Personalizado de la Barra Scroll:</label>
-          <input id="input-texto-marquee" type="text" value="🎉 ¡BIENVENIDOS A LA BARRITA POS! PROMO HOY: 2x1 EN MICHELADAS Y ALITAS BBQ • SÍGUENOS EN REDES SOCIALES 🎉" oninput="actualizarTextoMarquee(this.value)" class="w-full bg-slate-950 border border-emerald-500/40 rounded-xl px-3 py-2 text-xs text-white">
-          <p class="text-[10px] text-slate-400 mt-1">A este texto se le pegan automáticamente los números de las próximas comandas a atenderse en orden.</p>
-        </div>
-
-        <div>
-          <label class="text-xs text-slate-300 block mb-1">URL Imagen/Video Contenedor Grande (#1):</label>
-          <input id="input-media-1" type="text" placeholder="Ej. /publicidad/promo1.jpg o .mp4" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white">
-          <button onclick="agregarMediaAContenedor(1)" class="mt-1.5 w-full py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-bold text-xs">
-            + Agregar al Contenedor Grande #1
-          </button>
-        </div>
-
-        <div>
-          <label class="text-xs text-slate-300 block mb-1">URL Imagen/Video Contenedor Esquina Izq. (#2):</label>
-          <input id="input-media-2" type="text" placeholder="Ej. /publicidad/promo2.jpg o .mp4" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white">
-          <button onclick="agregarMediaAContenedor(2)" class="mt-1.5 w-full py-1.5 rounded-lg bg-pink-500/20 border border-pink-400 text-pink-300 font-bold text-xs">
-            + Agregar al Contenedor Independiente #2
-          </button>
-        </div>
+        <h3 class="text-sm font-black text-emerald-400">📺 Texto Barra Scroll y Contenedores TV</h3>
+        <input id="input-texto-marquee" type="text" value="🎉 ¡BIENVENIDOS A LA BARRITA POS! PROMO HOY: 2x1 EN MICHELADAS Y ALITAS BBQ 🎉" oninput="actualizarTextoMarquee(this.value)" class="w-full bg-slate-950 border border-emerald-500/40 rounded-xl px-3 py-2 text-xs text-white">
+        <input id="input-media-1" type="text" placeholder="URL Video/Imagen Contenedor Grande #1" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white">
+        <button onclick="agregarMediaAContenedor(1)" class="w-full py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-bold text-xs">+ Agregar a Contenedor #1</button>
+        <input id="input-media-2" type="text" placeholder="URL Video/Imagen Contenedor Izq. #2" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white">
+        <button onclick="agregarMediaAContenedor(2)" class="w-full py-1.5 rounded-lg bg-pink-500/20 border border-pink-400 text-pink-300 font-bold text-xs">+ Agregar a Contenedor #2</button>
       </div>
 
-      <!-- 2. Impresión Térmica 58mm / 80mm y PDF -->
       <div class="bg-[#100d22] border border-pink-500/30 rounded-2xl p-4 space-y-3">
-        <h3 class="text-sm font-black text-pink-400">🖨️ Tickets Térmicos 58mm / 80mm y PDF</h3>
+        <h3 class="text-sm font-black text-pink-400">🖨️ Impresión Térmica 58mm / 80mm y PIN</h3>
         <select id="config-medida-ticket" class="w-full bg-slate-950 border border-pink-500/40 rounded-xl px-3 py-2 text-xs text-white font-bold">
           <option value="58mm">Impresora Térmica 58mm</option>
           <option value="80mm" selected>Impresora Térmica 80mm</option>
         </select>
         <input id="config-nombre-negocio" type="text" value="LA BARRITA POS - CYBER BAR" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
-        <button onclick="imprimirTicketPrueba()" class="w-full py-2.5 rounded-xl bg-pink-500 text-white font-black text-xs">
-          🖨️ Imprimir Prueba / Guardar PDF
-        </button>
-
-        <div class="pt-2 border-t border-slate-800 space-y-2">
-          <div class="text-xs font-bold text-slate-300">🎨 Cambiar Skin Visual:</div>
-          <div class="grid grid-cols-3 gap-1.5 text-[11px] font-bold">
-            <button onclick="cambiarSkin('default')" class="py-2 rounded-lg bg-pink-500/20 border border-pink-400 text-pink-300">Neon Pink</button>
-            <button onclick="cambiarSkin('cyan')" class="py-2 rounded-lg bg-cyan-500/20 border border-cyan-400 text-cyan-300">Cyber Cyan</button>
-            <button onclick="cambiarSkin('gold')" class="py-2 rounded-lg bg-amber-500/20 border border-amber-400 text-amber-300">VIP Gold</button>
-          </div>
-        </div>
+        <button onclick="imprimirTicketPrueba()" class="w-full py-2.5 rounded-xl bg-pink-500 text-white font-black text-xs">🖨️ Probar Impresión / PDF</button>
       </div>
 
-      <!-- 3. Redes Sociales y Envío de Ticket Digital -->
       <div class="bg-[#100d22] border border-pink-500/30 rounded-2xl p-4 space-y-3">
-        <h3 class="text-sm font-black text-pink-400">🌐 Módulo de Redes Sociales y WhatsApp</h3>
+        <h3 class="text-sm font-black text-pink-400">🌐 Redes Sociales y Ticket WhatsApp</h3>
         <div class="flex gap-2">
-          <input id="input-wa-ticket" type="tel" placeholder="WhatsApp Cliente (10 dígitos)" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+          <input id="input-wa-ticket" type="tel" placeholder="WhatsApp Cliente" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
           <button onclick="enviarTicketWhatsApp()" class="px-3 py-2 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs">📲 Enviar</button>
-        </div>
-        <div class="grid grid-cols-2 gap-2 pt-2 text-xs font-bold">
-          <a href="https://web.whatsapp.com" target="_blank" class="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-center">💬 WhatsApp</a>
-          <a href="https://facebook.com" target="_blank" class="p-2.5 rounded-xl bg-blue-500/20 border border-blue-400/40 text-blue-300 text-center">📘 Facebook</a>
-          <a href="https://instagram.com" target="_blank" class="p-2.5 rounded-xl bg-pink-500/20 border border-pink-400/40 text-pink-300 text-center">📸 Instagram</a>
-          <a href="https://tiktok.com" target="_blank" class="p-2.5 rounded-xl bg-slate-800 border border-slate-600 text-white text-center">🎵 TikTok</a>
         </div>
       </div>
     </div>
@@ -575,42 +607,27 @@
   <!-- ========================================================================= -->
   <!-- MÓDULO 6: ACTUALIZACIONES GITHUB Y RESPALDO                               -->
   <!-- ========================================================================= -->
-  <main id="vista-modulo-respaldo" class="vista-modulo hidden flex-1 min-h-0 flex-col p-4 overflow-y-auto space-y-4">
-    <h2 class="text-lg font-black text-pink-400 border-b border-pink-500/30 pb-3">☁️ MÓDULO 6: SINCRONIZACIÓN GITHUB Y RESPALDO LOCAL</h2>
+  <main id="vista-modulo-respaldo" class="vista-modulo flex-1 min-h-0 flex-col p-4 overflow-y-auto space-y-4">
+    <h2 class="text-lg font-black text-pink-400 border-b border-pink-500/30 pb-3">☁️ MÓDULO 6: SINCRONIZACIÓN GITHUB Y BACKUP</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div class="bg-[#100d22] border border-pink-500/30 rounded-2xl p-4 space-y-3">
         <h3 class="text-sm font-bold text-pink-300">🔗 GitHub Sync</h3>
-        <p class="text-xs font-mono text-slate-400">https://github.com/jonathangoujgouj/actualiza-sistema-personal.git</p>
-        <div class="flex gap-2">
-          <button onclick="comandoServidor('git-push')" class="px-4 py-2 rounded-xl bg-pink-500 text-white font-black text-xs">⬆️ Subir a GitHub</button>
-          <button onclick="comandoServidor('git-pull')" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-200 font-bold text-xs">⬇️ Git Pull</button>
-        </div>
-      </div>
-      <div class="bg-[#100d22] border border-emerald-500/30 rounded-2xl p-4 space-y-3">
-        <h3 class="text-sm font-bold text-emerald-300">💾 Copia de Seguridad JSON</h3>
-        <button onclick="exportarRespaldoJSON()" class="px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs">📥 Descargar Respaldo Completo</button>
+        <button onclick="exportarRespaldoJSON()" class="px-4 py-2.5 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs">📥 Descargar Backup Local (.json)</button>
       </div>
     </div>
   </main>
 
-  <!-- ========================================================================= -->
-  <!-- MODAL DE COBRO (PAY NOW) BLINDADO CONTRA NULL                             -->
-  <!-- ========================================================================= -->
-  <div id="modal-cobro" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-50 items-center justify-center p-4">
-    <div class="bg-[#110e20] border-2 border-emerald-400/60 rounded-2xl w-full max-w-md p-5 shadow-[0_0_40px_rgba(16,185,129,0.3)] space-y-4">
+  <!-- MODAL DE COBRO -->
+  <div id="modal-cobro" class="hidden fixed inset-0 bg-black/85 z-50 items-center justify-center p-4">
+    <div class="bg-[#110e20] border-2 border-emerald-400/60 rounded-2xl w-full max-w-md p-5 space-y-4">
       <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-        <div>
-          <span class="text-[10px] text-emerald-400 uppercase font-bold">Ventana de Pago Instantánea</span>
-          <h3 id="cobro-mesa-titulo" class="text-xl font-black text-white">MESA 3</h3>
-        </div>
-        <button onclick="cerrarVentanaCobro()" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+        <h3 id="cobro-mesa-titulo" class="text-xl font-black text-white">MESA 3</h3>
+        <button onclick="cerrarVentanaCobro()" class="text-slate-400 text-2xl">&times;</button>
       </div>
-
       <div class="bg-slate-950 border border-emerald-500/30 rounded-xl p-3.5 flex justify-between items-center">
         <span class="text-xs text-slate-400 font-bold">Total a Cobrar:</span>
         <span id="cobro-total-display" class="text-3xl font-black text-emerald-400">$0.00</span>
       </div>
-
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="text-xs text-slate-400 block mb-1">Recibido ($)</label>
@@ -619,18 +636,16 @@
         <div>
           <label class="text-xs text-slate-400 block mb-1">Propina</label>
           <select id="select-propina" onchange="calcularCambioModal()" class="w-full bg-slate-950 border border-emerald-500/40 rounded-xl px-3 py-2.5 text-xs font-bold text-white">
-            <option value="0">0% (Sin propina)</option>
-            <option value="10">10% Sugerida</option>
-            <option value="15">15% Excelente</option>
+            <option value="0">0%</option>
+            <option value="10">10%</option>
+            <option value="15">15%</option>
           </select>
         </div>
       </div>
-
       <div class="flex justify-between items-center px-3 py-2 bg-emerald-950/40 border border-emerald-500/30 rounded-xl">
         <span class="text-xs text-emerald-300 font-bold">Cambio:</span>
         <span id="cobro-cambio-display" class="text-xl font-black text-emerald-400">$0.00</span>
       </div>
-
       <div class="grid grid-cols-3 gap-2">
         <button onclick="cerrarVentanaCobro()" class="py-3 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs">Cancelar</button>
         <button onclick="procesarCobroFinal(false)" class="py-3 rounded-xl bg-pink-600 text-white font-bold text-xs">Solo Cobrar</button>
@@ -639,54 +654,40 @@
     </div>
   </div>
 
-  <!-- MODAL BANDEJA DE PEDIDOS QR (CLIENTE ➔ MESERO ➔ COCINA) -->
-  <div id="modal-bandeja-qr" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-50 items-center justify-center p-4">
+  <!-- MODAL BANDEJA QR MESERO -->
+  <div id="modal-bandeja-qr" class="hidden fixed inset-0 bg-black/85 z-50 items-center justify-center p-4">
     <div class="bg-[#110e20] border border-pink-500/50 rounded-2xl w-full max-w-lg p-5 space-y-4">
       <div class="flex justify-between items-center border-b border-slate-800 pb-2">
         <h3 class="text-base font-black text-pink-400">📲 Bandeja de Validación QR (Cliente ➔ Mesero)</h3>
-        <button onclick="cerrarModalBandejaQR()" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+        <button onclick="cerrarModalBandejaQR()" class="text-slate-400 text-2xl">&times;</button>
       </div>
       <div id="lista-bandeja-qr" class="space-y-2.5 max-h-80 overflow-y-auto"></div>
-    </div>
-  </div>
-
-  <!-- MODAL SCRIPTS DE RESCATE SERVIDOR -->
-  <div id="modal-rescate" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-50 items-center justify-center p-4">
-    <div class="bg-[#110e20] border border-rose-500/50 rounded-2xl w-full max-w-lg p-5 space-y-4">
-      <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-        <h3 class="text-base font-black text-rose-400">🛠️ Scripts de Emergencia y Puertos (3000 / 3001)</h3>
-        <button onclick="toggleModalRescate()" class="text-slate-400 hover:text-white text-2xl">&times;</button>
-      </div>
-      <div class="grid grid-cols-3 gap-2 text-xs font-bold">
-        <button onclick="comandoServidor('restart')" class="p-3 rounded-xl bg-slate-800 border border-cyan-500/40 text-cyan-300">⚡ Reiniciar Node</button>
-        <button onclick="comandoServidor('kill-ports')" class="p-3 rounded-xl bg-slate-800 border border-rose-500/40 text-rose-300">🔓 Liberar Puertos</button>
-        <button onclick="localStorage.clear();location.reload();" class="p-3 rounded-xl bg-slate-800 border border-emerald-500/40 text-emerald-300">🧹 Limpiar Caché</button>
-      </div>
-      <pre id="consola-rescate-texto" class="bg-black p-3 rounded-xl text-[11px] font-mono text-emerald-400 h-28 overflow-y-auto">[OK]: Puertos 3000 y 3001 sincronizados.</pre>
     </div>
   </div>
 
   <div id="zona-impresion-ticket" class="hidden p-4 font-mono text-xs"></div>
 
   <!-- ========================================================================= -->
-  <!-- LÓGICA INTEGRAL DEL SISTEMA                                               -->
+  <!-- JAVASCRIPT COMPATIBLE CON IPAD SAFARI (SIN OPERADORES QUE ROMPAN IOS)     -->
   <!-- ========================================================================= -->
   <script>
-    const socket = typeof io !== 'undefined' ? io() : { emit: () => {}, on: () => {} };
+    var socket = (typeof io !== 'undefined') ? io() : { emit: function(){}, on: function(){} };
 
-    let estado = {
+    var estado = {
+      rolActual: 'admin',
+      pinAdmin: '1234',
       mesaSeleccionadaId: 3,
       modoMoverMesas: false,
-      vistaMapaColumnas: true, // Alterna entre columnas estilo Imagen 1 o mapa libre
+      vistaMapaColumnas: true,
       categoriaActual: 'Todos',
       fondoCaja: 1500,
       gastosCaja: 0,
       ventasHoy: 0,
       cuentasCerradas: 0,
-      textoPersonalizadoMarquee: '🎉 ¡BIENVENIDOS A LA BARRITA POS! PROMO HOY: 2x1 EN MICHELADAS Y ALITAS BBQ • ESCANEA EL QR DE TU MESA Y SÍGUENOS EN REDES 🎉',
+      carritoClienteQR: [],
+      textoPersonalizadoMarquee: '🎉 ¡BIENVENIDOS A LA BARRITA POS! PROMO HOY: 2x1 EN MICHELADAS Y ALITAS BBQ • ESCANEA EL QR DE TU MESA 🎉',
       idxMedia1: 0,
       idxMedia2: 0,
-      // Lista de medios independientes para la Ventana Grande (#1) y la Ventana Esquina Inferior Izquierda (#2)
       listaMediaPrincipal1: [
         { tipo: 'img', url: 'https://images.unsplash.com/photo-1561758033-d89a9ad46330?auto=format&fit=crop&w=1200&q=80', titulo: 'Salchipapas & Snacks Especiales La Barrita' },
         { tipo: 'img', url: 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=1200&q=80', titulo: 'Noches Cyber-Neon Coctelería 2x1' }
@@ -713,13 +714,12 @@
         { id: 5, nombre: 'Salchipapas Especiales', categoria: 'Alitas', precio: 85, stock: 22, min: 5 },
         { id: 6, nombre: 'Cyber Margarita Blue', categoria: 'Cocteles', precio: 120, stock: 18, min: 4 }
       ],
-      // Órdenes de Cocina/Barra y Pantalla TV (Con datos enriquecidos para que el centro no se vea vacío)
       ordenesTV: [
-        { folio: 'T-295', destino: 'Mesa 3', resumen: '5x Nachos Especiales + Queso Extra', mesero: 'General', tiempo: '04:12 min', estado: 'ATENDIENDO', prioridad: 1 },
-        { folio: 'T-840', destino: 'Mesa 2', resumen: '1x Alitas BBQ (10 pz), 1x Papas Francesa', mesero: 'Carlos', tiempo: '06:30 min', estado: 'PREPARANDO', prioridad: 2 },
-        { folio: 'T-985', destino: 'Para Llevar', resumen: '3x Alitas BBQ, 2x Michelada Familiar', mesero: 'Caja', tiempo: '08:15 min', estado: 'PREPARANDO', prioridad: 3 },
-        { folio: 'T-717', destino: 'Mesa 4', resumen: '1x Michelada Familiar, 1x Alitas BBQ', mesero: 'Ana', tiempo: '09:40 min', estado: 'PREPARANDO', prioridad: 4 },
-        { folio: 'T-789', destino: 'Para Llevar', resumen: '2x Salchipapas Especiales con Aderezos', mesero: 'Luis', tiempo: '¡Entregar!', estado: 'LISTO', prioridad: 5 }
+        { folio: 'T-295', destino: 'Mesa 3', resumen: '5x Nachos Especiales + Queso Extra', mesero: 'General', tiempo: '04:12 min', estado: 'ATENDIENDO' },
+        { folio: 'T-840', destino: 'Mesa 2', resumen: '1x Alitas BBQ (10 pz), 1x Papas Francesa', mesero: 'Carlos', tiempo: '06:30 min', estado: 'PREPARANDO' },
+        { folio: 'T-985', destino: 'Para Llevar', resumen: '3x Alitas BBQ, 2x Michelada Familiar', mesero: 'Caja', tiempo: '08:15 min', estado: 'PREPARANDO' },
+        { folio: 'T-717', destino: 'Mesa 4', resumen: '1x Michelada Familiar, 1x Alitas BBQ', mesero: 'Ana', tiempo: '09:40 min', estado: 'PREPARANDO' },
+        { folio: 'T-789', destino: 'Para Llevar', resumen: '2x Salchipapas Especiales con Aderezos', mesero: 'Luis', tiempo: '¡Entregar!', estado: 'LISTO' }
       ],
       pedidosQR: [
         { id: 'QR-501', mesaId: 3, cliente: 'Cliente QR Mesa 3', items: [{ id: 5, nombre: 'Salchipapas Especiales', precio: 85, cant: 2 }] }
@@ -733,79 +733,141 @@
     };
 
     function setTxt(id, val) {
-      const el = document.getElementById(id);
+      var el = document.getElementById(id);
       if (el) el.textContent = val;
     }
 
-    // --- NAVEGACIÓN Y BOTÓN DE REGRESAR ---
+    function getVal(id, def) {
+      var el = document.getElementById(id);
+      return (el && typeof el.value !== 'undefined') ? el.value : (def || '');
+    }
+
+    // --- SISTEMA DE ROLES, BLOQUEO POR PIN Y MODO APP INDEPENDIENTE ---
+    function abrirLobbyPerfiles() {
+      var lob = document.getElementById('modal-lobby-acceso');
+      if (lob) lob.classList.remove('hidden');
+      cerrarMenuModulos();
+    }
+
+    function iniciarSesionRol(rol, pedirPin) {
+      if (pedirPin) {
+        var pinIngresado = prompt('🔒 Ingresa el PIN de seguridad (Por defecto: 1234):');
+        if (pinIngresado !== estado.pinAdmin) {
+          alert('❌ PIN incorrecto. Acceso denegado.');
+          return;
+        }
+      }
+
+      estado.rolActual = rol;
+      setTxt('badge-rol-actual', 'ROL: ' + rol.toUpperCase());
+
+      // Mapa estricto de permisos por Rol
+      var mapaPermisos = {
+        admin: ['caja', 'inventario', 'cocina', 'admin', 'config', 'respaldo', 'tv'],
+        cajero: ['caja', 'inventario', 'tv'],
+        mesero: ['caja', 'cocina'],
+        cocina: ['cocina', 'inventario'],
+        tv: ['tv'],
+        cliente_qr: ['cliente_qr']
+      };
+
+      var permitidos = mapaPermisos[rol] || ['caja'];
+
+      // Filtrar botones del Drawer
+      var botonesDrawer = document.querySelectorAll('#drawer-modulos button[data-mod]');
+      for (var i = 0; i < botonesDrawer.length; i++) {
+        var b = botonesDrawer[i];
+        var m = b.getAttribute('data-mod');
+        b.style.display = (permitidos.indexOf(m) !== -1) ? 'flex' : 'none';
+      }
+
+      // Ocultar controles financieros y de cobro si es Mesero
+      var barraFinanzas = document.getElementById('barra-finanzas-caja');
+      var btnCobrar = document.getElementById('btn-cobrar');
+      if (barraFinanzas) barraFinanzas.style.display = (rol === 'mesero') ? 'none' : 'flex';
+      if (btnCobrar) btnCobrar.style.display = (rol === 'mesero') ? 'none' : 'block';
+
+      // Ocultar header de administración si es Vista Cliente QR
+      var btnDrawer = document.getElementById('btn-abrir-drawer');
+      var topTv = document.getElementById('top-btn-tv');
+      var topCocina = document.getElementById('top-btn-cocina');
+      var topQr = document.getElementById('top-btn-qr');
+      var ocultarTop = (rol === 'cliente_qr' || rol === 'tv');
+      if (btnDrawer) btnDrawer.style.display = ocultarTop ? 'none' : 'flex';
+      if (topTv) topTv.style.display = (rol === 'cliente_qr') ? 'none' : 'inline-block';
+      if (topCocina) topCocina.style.display = (rol === 'cliente_qr' || rol === 'tv') ? 'none' : 'inline-block';
+      if (topQr) topQr.style.display = (rol === 'cliente_qr' || rol === 'tv') ? 'none' : 'inline-block';
+
+      var lob = document.getElementById('modal-lobby-acceso');
+      if (lob) lob.classList.add('hidden');
+
+      // Abrir directamente el módulo principal correspondiente al perfil
+      if (rol === 'cocina') activarModulo('cocina');
+      else if (rol === 'tv') activarModulo('tv');
+      else if (rol === 'cliente_qr') activarModulo('cliente_qr');
+      else activarModulo('caja');
+    }
+
+    function activarPantallaCompletaApp() {
+      var docEl = document.documentElement;
+      if (docEl.requestFullscreen) docEl.requestFullscreen();
+      else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
+    }
+
     function abrirMenuModulos() {
-      const d = document.getElementById('drawer-modulos');
+      var d = document.getElementById('drawer-modulos');
       if (d) d.classList.remove('hidden');
     }
     function cerrarMenuModulos() {
-      const d = document.getElementById('drawer-modulos');
+      var d = document.getElementById('drawer-modulos');
       if (d) d.classList.add('hidden');
     }
 
     function activarModulo(mod) {
-      document.querySelectorAll('.vista-modulo').forEach(v => {
-        v.classList.add('hidden');
-        v.classList.remove('flex');
-      });
-      const target = document.getElementById(`vista-modulo-${mod}`);
+      var vistas = document.querySelectorAll('.vista-modulo');
+      for (var i = 0; i < vistas.length; i++) {
+        vistas[i].classList.remove('activa');
+        vistas[i].classList.add('hidden');
+      }
+      var target = document.getElementById('vista-modulo-' + mod);
       if (target) {
         target.classList.remove('hidden');
-        target.classList.add('flex');
+        target.classList.add('activa');
       }
       cerrarMenuModulos();
       renderizarTodo();
     }
 
-    function aplicarPermisosRol(rol) {
-      const permisos = {
-        admin: ['caja', 'inventario', 'cocina', 'admin', 'config', 'respaldo', 'tv'],
-        cajero: ['caja', 'inventario', 'tv'],
-        mesero: ['caja', 'cocina', 'tv'],
-        cocina: ['cocina', 'inventario', 'tv']
-      };
-      const activos = permisos[rol] || permisos.admin;
-      document.querySelectorAll('#drawer-modulos button[data-mod]').forEach(b => {
-        b.style.display = activos.includes(b.getAttribute('data-mod')) ? 'flex' : 'none';
-      });
-    }
-
-    // --- 1. PRODUCT MENU (TARJETAS COMPACTAS QUE NO SE ESTIRAN) ---
+    // --- 1. PRODUCT MENU ---
     function filtrarMenuPOS(cat) {
       estado.categoriaActual = cat;
       renderizarMenuPOS();
     }
 
     function renderizarMenuPOS() {
-      const cont = document.getElementById('contenedor-tarjetas-menu');
+      var cont = document.getElementById('contenedor-tarjetas-menu');
       if (!cont) return;
-      const busq = (document.getElementById('input-buscar-pos')?.value || '').toLowerCase();
+      var busq = getVal('input-buscar-pos', '').toLowerCase();
 
-      const lista = estado.productos.filter(p => {
-        const okCat = estado.categoriaActual === 'Todos' || p.categoria === estado.categoriaActual;
-        const okTxt = p.nombre.toLowerCase().includes(busq);
-        return okCat && okTxt;
-      });
-
-      cont.innerHTML = lista.map(p => `
-        <div onclick="agregarItemAMesa(${p.id})" class="h-28 p-2.5 rounded-xl bg-[#141024] hover:bg-[#1d1736] border border-pink-500/40 hover:border-pink-400 flex flex-col justify-between cursor-pointer transition active:scale-95">
-          <div>
-            <div class="text-xs font-extrabold text-white leading-tight line-clamp-2">${p.nombre}</div>
-            <div class="text-[10px] text-slate-400 mt-0.5">${p.categoria}</div>
-          </div>
-          <div class="flex justify-between items-center pt-1">
-            <span class="text-xs font-black text-pink-400">$${p.precio.toFixed(2)}</span>
-            <span class="w-6 h-6 rounded-full bg-pink-500 text-white font-black text-xs flex items-center justify-center shadow-[0_0_8px_#ec4899]">+</span>
-          </div>
-        </div>
-      `).join('');
+      var html = '';
+      for (var i = 0; i < estado.productos.length; i++) {
+        var p = estado.productos[i];
+        var okCat = (estado.categoriaActual === 'Todos' || p.categoria === estado.categoriaActual);
+        var okTxt = (p.nombre.toLowerCase().indexOf(busq) !== -1);
+        if (okCat && okTxt) {
+          html += '<div onclick="agregarItemAMesa(' + p.id + ')" class="h-28 p-2.5 rounded-xl bg-[#141024] hover:bg-[#1d1736] border border-pink-500/40 flex flex-col justify-between cursor-pointer">' +
+            '<div><div class="text-xs font-extrabold text-white leading-tight">' + p.nombre + '</div>' +
+            '<div class="text-[10px] text-slate-400 mt-0.5">' + p.categoria + '</div></div>' +
+            '<div class="flex justify-between items-center pt-1">' +
+            '<span class="text-xs font-black text-pink-400">$' + p.precio.toFixed(2) + '</span>' +
+            '<span class="w-6 h-6 rounded-full bg-pink-500 text-white font-black text-xs flex items-center justify-center">+</span>' +
+            '</div></div>';
+        }
+      }
+      cont.innerHTML = html;
     }
 
-    // --- 2. FLOOR PLAN (RESPETA TU ESTILO Y EVITA COLUMNAS GIGANTES DEFORMADAS) ---
+    // --- 2. FLOOR PLAN ---
     function cambiarModoVisualMapa() {
       estado.vistaMapaColumnas = !estado.vistaMapaColumnas;
       renderizarFloorPlanPOS();
@@ -814,109 +876,97 @@
     function toggleModoMoverMesas() {
       estado.modoMoverMesas = !estado.modoMoverMesas;
       if (estado.modoMoverMesas) estado.vistaMapaColumnas = false;
-      const btn = document.getElementById('btn-toggle-mover-mesas');
+      var btn = document.getElementById('btn-toggle-mover-mesas');
       if (btn) {
-        btn.textContent = estado.modoMoverMesas ? '🔒 Editar Ubicación Mesas: ON (Arrastra)' : '🔓 Editar Ubicación Mesas: OFF';
-        btn.className = estado.modoMoverMesas
-          ? 'px-2.5 py-1 rounded-lg bg-amber-400 text-slate-950 font-black'
-          : 'px-2.5 py-1 rounded-lg bg-slate-800 border border-pink-500/40 text-pink-300 font-bold';
+        btn.textContent = estado.modoMoverMesas ? '🔒 Mover Mesas: ON' : '🔓 Mover Mesas: OFF';
       }
       renderizarFloorPlanPOS();
     }
 
     function renderizarFloorPlanPOS() {
-      const lienzo = document.getElementById('lienzo-floor-plan');
+      var lienzo = document.getElementById('lienzo-floor-plan');
       if (!lienzo) return;
       lienzo.innerHTML = '';
 
-      // Actualizar selector superior derecho del Checkout
-      const sel = document.getElementById('select-tipo-orden');
+      var sel = document.getElementById('select-tipo-orden');
       if (sel) {
-        sel.innerHTML = estado.mesas.map(m => `<option value="${m.id}" ${m.id === estado.mesaSeleccionadaId ? 'selected' : ''}>${m.nombre}</option>`).join('');
+        var opts = '';
+        for (var j = 0; j < estado.mesas.length; j++) {
+          var ms = estado.mesas[j];
+          opts += '<option value="' + ms.id + '" ' + (ms.id === estado.mesaSeleccionadaId ? 'selected' : '') + '>' + ms.nombre + '</option>';
+        }
+        sel.innerHTML = opts;
       }
 
       if (estado.vistaMapaColumnas && !estado.modoMoverMesas) {
-        // Vista Grid de Tarjetas Proporcionadas (No se estiran de arriba a abajo)
-        lienzo.className = 'flex-1 min-h-0 overflow-y-auto p-3 rounded-xl bg-[#130f26]/90 border border-pink-500/20 grid grid-cols-2 sm:grid-cols-4 gap-3 content-start';
-        estado.mesas.forEach(m => {
-          const ocupada = m.cuenta.length > 0;
-          const totalM = m.cuenta.reduce((acc, i) => acc + (i.precio * i.cant), 0);
-          const activa = m.id === estado.mesaSeleccionadaId;
+        lienzo.className = 'flex-1 min-h-0 overflow-y-auto p-2.5 rounded-xl bg-[#130f26]/90 border border-pink-500/20 grid grid-cols-2 sm:grid-cols-4 gap-2.5 content-start';
+        for (var i = 0; i < estado.mesas.length; i++) {
+          (function(m) {
+            var ocupada = m.cuenta.length > 0;
+            var totalM = 0;
+            for (var k = 0; k < m.cuenta.length; k++) totalM += m.cuenta[k].precio * m.cuenta[k].cant;
+            var activa = (m.id === estado.mesaSeleccionadaId);
 
-          const card = document.createElement('div');
-          card.onclick = () => seleccionarMesaPOS(m.id);
-          card.className = `h-36 rounded-2xl p-3 flex flex-col items-center justify-center text-center cursor-pointer transition border ${
-            activa ? 'ring-2 ring-pink-400 shadow-[0_0_20px_rgba(236,72,153,0.4)]' : ''
-          } ${
-            ocupada
-              ? 'bg-[#1c1638] border-purple-400/60 text-purple-200'
-              : 'bg-[#0b1f22] border-emerald-400/70 text-emerald-200'
-          }`;
+            var card = document.createElement('div');
+            card.onclick = function() { seleccionarMesaPOS(m.id); };
+            card.className = 'h-32 rounded-2xl p-2.5 flex flex-col items-center justify-center text-center cursor-pointer border ' +
+              (activa ? 'ring-2 ring-pink-400 ' : '') +
+              (ocupada ? 'bg-[#1c1638] border-purple-400/60 text-purple-200' : 'bg-[#0b1f22] border-emerald-400/70 text-emerald-200');
 
-          card.innerHTML = `
-            <div class="text-base mb-1">${ocupada ? '🔔' : '🍽️'}</div>
-            <div class="text-xs font-black tracking-wide text-white">${m.nombre}</div>
-            <div class="text-[11px] ${ocupada ? 'text-purple-300' : 'text-emerald-300'} font-semibold mt-0.5">
-              ${ocupada ? 'Ready / Deliver' : 'Available'}
-            </div>
-            ${ocupada ? `<span class="mt-1.5 px-2.5 py-0.5 rounded bg-black/60 text-emerald-400 font-black text-xs">$${totalM.toFixed(0)}</span>` : ''}
-          `;
-          lienzo.appendChild(card);
-        });
+            card.innerHTML = '<div class="text-base mb-0.5">' + (ocupada ? '🔔' : '🍽️') + '</div>' +
+              '<div class="text-xs font-black text-white">' + m.nombre + '</div>' +
+              '<div class="text-[10px] font-semibold mt-0.5">' + (ocupada ? 'Ready / Deliver' : 'Available') + '</div>' +
+              (ocupada ? '<span class="mt-1 px-2 py-0.5 rounded bg-black/60 text-emerald-400 font-black text-xs">$' + totalM.toFixed(0) + '</span>' : '');
+            lienzo.appendChild(card);
+          })(estado.mesas[i]);
+        }
       } else {
-        // Vista Editor Interactivo Libre (Arrastrar y soltar en porcentajes %)
         lienzo.className = 'flex-1 min-h-0 relative overflow-auto rounded-xl bg-[#130f26]/90 border border-dashed border-pink-500/40';
-        estado.mesas.forEach(m => {
-          const ocupada = m.cuenta.length > 0;
-          const totalM = m.cuenta.reduce((acc, i) => acc + (i.precio * i.cant), 0);
-          const div = document.createElement('div');
-          div.style.left = `${m.x}%`;
-          div.style.top = `${m.y}%`;
-          div.className = `absolute w-28 p-2.5 rounded-2xl border text-center cursor-move select-none ${
-            ocupada ? 'bg-[#1c1638] border-purple-400' : 'bg-[#0b1f22] border-emerald-400'
-          }`;
-          div.innerHTML = `
-            <div class="text-xs font-black text-white">${m.nombre}</div>
-            <div class="text-[10px] text-emerald-400 font-bold">${ocupada ? '$' + totalM : 'Available'}</div>
-          `;
-          div.addEventListener('pointerdown', () => {
-            seleccionarMesaPOS(m.id);
-            if (!estado.modoMoverMesas) return;
-            const rect = lienzo.getBoundingClientRect();
-            const move = (ev) => {
-              m.x = Math.max(2, Math.min(78, Math.round(((ev.clientX - rect.left - 45) / rect.width) * 100)));
-              m.y = Math.max(2, Math.min(75, Math.round(((ev.clientY - rect.top - 25) / rect.height) * 100)));
-              div.style.left = `${m.x}%`;
-              div.style.top = `${m.y}%`;
-            };
-            const up = () => {
-              window.removeEventListener('pointermove', move);
-              window.removeEventListener('pointerup', up);
-            };
-            window.addEventListener('pointermove', move);
-            window.addEventListener('pointerup', up);
-          });
-          lienzo.appendChild(div);
-        });
+        for (var mIdx = 0; mIdx < estado.mesas.length; mIdx++) {
+          (function(m) {
+            var ocupada = m.cuenta.length > 0;
+            var div = document.createElement('div');
+            div.style.left = m.x + '%';
+            div.style.top = m.y + '%';
+            div.className = 'absolute w-24 p-2 rounded-2xl border text-center cursor-pointer ' +
+              (ocupada ? 'bg-[#1c1638] border-purple-400' : 'bg-[#0b1f22] border-emerald-400');
+            div.innerHTML = '<div class="text-xs font-black text-white">' + m.nombre + '</div>';
+            div.onclick = function() { seleccionarMesaPOS(m.id); };
+            lienzo.appendChild(div);
+          })(estado.mesas[mIdx]);
+        }
       }
     }
 
     function seleccionarMesaPOS(id) {
-      estado.mesaSeleccionadaId = parseInt(id);
+      estado.mesaSeleccionadaId = parseInt(id, 10);
       renderizarFloorPlanPOS();
       renderizarCheckoutPOS();
     }
 
     function cambiarMesaDesdeSelector(val) {
-      seleccionarMesaPOS(parseInt(val));
+      seleccionarMesaPOS(parseInt(val, 10));
+    }
+
+    function buscarMesaPorId(id) {
+      for (var i = 0; i < estado.mesas.length; i++) {
+        if (estado.mesas[i].id === id) return estado.mesas[i];
+      }
+      return estado.mesas[0];
     }
 
     function agregarItemAMesa(prodId) {
-      const mesa = estado.mesas.find(m => m.id === estado.mesaSeleccionadaId);
-      const prod = estado.productos.find(p => p.id === prodId);
+      var mesa = buscarMesaPorId(estado.mesaSeleccionadaId);
+      var prod = null;
+      for (var i = 0; i < estado.productos.length; i++) {
+        if (estado.productos[i].id === prodId) prod = estado.productos[i];
+      }
       if (!mesa || !prod) return;
 
-      const item = mesa.cuenta.find(i => i.id === prodId);
+      var item = null;
+      for (var j = 0; j < mesa.cuenta.length; j++) {
+        if (mesa.cuenta[j].id === prodId) item = mesa.cuenta[j];
+      }
       if (item) item.cant += 1;
       else mesa.cuenta.push({ id: prod.id, nombre: prod.nombre, precio: prod.precio, cant: 1 });
 
@@ -925,73 +975,84 @@
       renderizarCheckoutPOS();
     }
 
-    // --- 3. CHECKOUT Y REPARACIÓN DEL BOTÓN DE COBRO ---
+    // --- 3. CHECKOUT Y COBRO ---
     function renderizarCheckoutPOS() {
-      const mesa = estado.mesas.find(m => m.id === estado.mesaSeleccionadaId);
+      var mesa = buscarMesaPorId(estado.mesaSeleccionadaId);
       if (!mesa) return;
 
       setTxt('checkout-label-mesa', mesa.nombre);
       setTxt('checkout-label-mesero', mesa.mesero);
 
-      const total = mesa.cuenta.reduce((acc, i) => acc + (i.precio * i.cant), 0);
-      setTxt('checkout-subtotal', `$${total.toFixed(2)}`);
-      setTxt('total-amount', `$${total.toFixed(2)}`);
+      var total = 0;
+      for (var i = 0; i < mesa.cuenta.length; i++) {
+        total += mesa.cuenta[i].precio * mesa.cuenta[i].cant;
+      }
+      setTxt('checkout-subtotal', '$' + total.toFixed(2));
+      setTxt('total-amount', '$' + total.toFixed(2));
 
-      const lista = document.getElementById('checkout-lista-items');
+      var lista = document.getElementById('checkout-lista-items');
       if (!lista) return;
 
       if (mesa.cuenta.length === 0) {
-        lista.innerHTML = `<div class="text-xs text-slate-500 text-center py-8">Cuenta vacía. Toca un producto del menú izquierdo.</div>`;
+        lista.innerHTML = '<div class="text-xs text-slate-500 text-center py-8">Cuenta vacía. Toca un producto del menú.</div>';
         return;
       }
 
-      lista.innerHTML = mesa.cuenta.map(i => `
-        <div class="p-2.5 rounded-xl bg-[#151126] border border-slate-800 flex items-center justify-between text-xs">
-          <div class="truncate pr-2">
-            <div class="font-bold text-white truncate">${i.nombre}</div>
-            <div class="text-[10px] text-slate-400">$${i.precio.toFixed(2)}</div>
-          </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <button onclick="modificarCantCheckout(${i.id}, -1)" class="w-6 h-6 rounded bg-slate-800 text-pink-400 font-black">-</button>
-            <span class="font-black text-white">${i.cant}</span>
-            <button onclick="modificarCantCheckout(${i.id}, 1)" class="w-6 h-6 rounded bg-slate-800 text-emerald-400 font-black">+</button>
-            <span class="text-emerald-400 font-bold ml-1">$${(i.precio * i.cant).toFixed(2)}</span>
-          </div>
-        </div>
-      `).join('');
+      var html = '';
+      for (var k = 0; k < mesa.cuenta.length; k++) {
+        var it = mesa.cuenta[k];
+        html += '<div class="p-2 rounded-xl bg-[#151126] border border-slate-800 flex items-center justify-between text-xs">' +
+          '<div class="truncate pr-2"><div class="font-bold text-white truncate">' + it.nombre + '</div>' +
+          '<div class="text-[10px] text-slate-400">$' + it.precio.toFixed(2) + '</div></div>' +
+          '<div class="flex items-center gap-1.5 shrink-0">' +
+          '<button onclick="modificarCantCheckout(' + it.id + ', -1)" class="w-6 h-6 rounded bg-slate-800 text-pink-400 font-black">-</button>' +
+          '<span class="font-black text-white">' + it.cant + '</span>' +
+          '<button onclick="modificarCantCheckout(' + it.id + ', 1)" class="w-6 h-6 rounded bg-slate-800 text-emerald-400 font-black">+</button>' +
+          '<span class="text-emerald-400 font-bold ml-1">$' + (it.precio * it.cant).toFixed(2) + '</span>' +
+          '</div></div>';
+      }
+      lista.innerHTML = html;
     }
 
     function modificarCantCheckout(id, delta) {
-      const mesa = estado.mesas.find(m => m.id === estado.mesaSeleccionadaId);
+      var mesa = buscarMesaPorId(estado.mesaSeleccionadaId);
       if (!mesa) return;
-      const it = mesa.cuenta.find(x => x.id === id);
-      if (!it) return;
-      it.cant += delta;
-      if (it.cant <= 0) mesa.cuenta = mesa.cuenta.filter(x => x.id !== id);
+      var nuevaCuenta = [];
+      for (var i = 0; i < mesa.cuenta.length; i++) {
+        var it = mesa.cuenta[i];
+        if (it.id === id) it.cant += delta;
+        if (it.cant > 0) nuevaCuenta.push(it);
+      }
+      mesa.cuenta = nuevaCuenta;
       renderizarCheckoutPOS();
       renderizarFloorPlanPOS();
     }
 
-    // Listener global para Pay Now / Cobrar sin errores de null
-    document.addEventListener('click', (e) => {
-      const btn = e.target.closest('#btn-cobrar, [data-action="cobrar"]');
-      if (btn) {
-        e.preventDefault();
-        abrirVentanaCobro();
+    document.addEventListener('click', function(e) {
+      var target = e.target;
+      while (target && target !== document) {
+        if (target.id === 'btn-cobrar' || target.getAttribute('data-action') === 'cobrar') {
+          e.preventDefault();
+          abrirVentanaCobro();
+          return;
+        }
+        target = target.parentNode;
       }
     });
 
     function abrirVentanaCobro() {
-      const mesa = estado.mesas.find(m => m.id === estado.mesaSeleccionadaId);
-      const modal = document.getElementById('modal-cobro');
+      var mesa = buscarMesaPorId(estado.mesaSeleccionadaId);
+      var modal = document.getElementById('modal-cobro');
       if (!mesa || !modal) return;
 
-      const total = mesa.cuenta.reduce((acc, i) => acc + (i.precio * i.cant), 0);
+      var total = 0;
+      for (var i = 0; i < mesa.cuenta.length; i++) total += mesa.cuenta[i].precio * mesa.cuenta[i].cant;
+
       setTxt('cobro-mesa-titulo', mesa.nombre);
-      setTxt('cobro-total-display', `$${total.toFixed(2)}`);
+      setTxt('cobro-total-display', '$' + total.toFixed(2));
       setTxt('cobro-cambio-display', '$0.00');
 
-      const inp = document.getElementById('input-monto-recibido');
+      var inp = document.getElementById('input-monto-recibido');
       if (inp) inp.value = total.toFixed(2);
 
       modal.classList.remove('hidden');
@@ -999,28 +1060,30 @@
     }
 
     function cerrarVentanaCobro() {
-      const modal = document.getElementById('modal-cobro');
+      var modal = document.getElementById('modal-cobro');
       if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
     }
 
     function calcularCambioModal() {
-      const mesa = estado.mesas.find(m => m.id === estado.mesaSeleccionadaId);
+      var mesa = buscarMesaPorId(estado.mesaSeleccionadaId);
       if (!mesa) return;
-      const base = mesa.cuenta.reduce((acc, i) => acc + (i.precio * i.cant), 0);
-      const propina = parseFloat(document.getElementById('select-propina')?.value || 0);
-      const totalConProp = base * (1 + propina / 100);
-      const recibido = parseFloat(document.getElementById('input-monto-recibido')?.value || 0);
+      var base = 0;
+      for (var i = 0; i < mesa.cuenta.length; i++) base += mesa.cuenta[i].precio * mesa.cuenta[i].cant;
+      var propina = parseFloat(getVal('select-propina', '0')) || 0;
+      var totalConProp = base * (1 + propina / 100);
+      var recibido = parseFloat(getVal('input-monto-recibido', '0')) || 0;
 
-      setTxt('cobro-total-display', `$${totalConProp.toFixed(2)}`);
-      setTxt('cobro-cambio-display', `$${Math.max(0, recibido - totalConProp).toFixed(2)}`);
+      setTxt('cobro-total-display', '$' + totalConProp.toFixed(2));
+      setTxt('cobro-cambio-display', '$' + Math.max(0, recibido - totalConProp).toFixed(2));
     }
 
     function procesarCobroFinal(imprimir) {
-      const mesa = estado.mesas.find(m => m.id === estado.mesaSeleccionadaId);
+      var mesa = buscarMesaPorId(estado.mesaSeleccionadaId);
       if (!mesa) return;
-      const base = mesa.cuenta.reduce((acc, i) => acc + (i.precio * i.cant), 0);
-      const propina = parseFloat(document.getElementById('select-propina')?.value || 0);
-      const totalFinal = base * (1 + propina / 100);
+      var base = 0;
+      for (var i = 0; i < mesa.cuenta.length; i++) base += mesa.cuenta[i].precio * mesa.cuenta[i].cant;
+      var propina = parseFloat(getVal('select-propina', '0')) || 0;
+      var totalFinal = base * (1 + propina / 100);
 
       estado.ventasHoy += totalFinal;
       estado.cuentasCerradas += 1;
@@ -1031,230 +1094,146 @@
       renderizarTodo();
     }
 
-    // --- 4. ENVIAR ORDEN A COCINA/BARRA Y SINCRONIZAR PANTALLA TV + MARQUEE ---
+    // --- 4. ENVIAR A COCINA Y ACTUALIZAR TV ---
     function enviarOrdenACocinaYTV() {
-      const mesa = estado.mesas.find(m => m.id === estado.mesaSeleccionadaId);
+      var mesa = buscarMesaPorId(estado.mesaSeleccionadaId);
       if (!mesa || mesa.cuenta.length === 0) return;
 
-      const nuevoFolio = 'T-' + Math.floor(Math.random() * 899 + 100);
-      const resumenPlatillos = mesa.cuenta.map(i => `${i.cant}x ${i.nombre}`).join(', ');
+      var nuevoFolio = 'T-' + Math.floor(Math.random() * 899 + 100);
+      var partes = [];
+      for (var i = 0; i < mesa.cuenta.length; i++) {
+        partes.push(mesa.cuenta[i].cant + 'x ' + mesa.cuenta[i].nombre);
+      }
 
       estado.ordenesTV.push({
         folio: nuevoFolio,
         destino: mesa.nombre,
-        resumen: resumenPlatillos,
+        resumen: partes.join(', '),
         mesero: mesa.mesero,
         tiempo: 'Recién enviada',
-        estado: 'PREPARANDO',
-        prioridad: estado.ordenesTV.length + 1
+        estado: 'PREPARANDO'
       });
 
       renderizarTodo();
-      socket.emit('nueva-comanda-tv', estado.ordenesTV);
-      alert(`✅ Orden #${nuevoFolio} (${mesa.nombre}) enviada a Cocina/Barra y agregada a la fila de la Pantalla TV.`);
+      alert('✅ Orden #' + nuevoFolio + ' enviada a Cocina y Pantalla TV.');
     }
 
-    // --- 5. PANTALLA TV: FILAS RELLENAS + 2 CONTENEDORES DE VIDEO + MARQUEE CON COLA ---
+    // --- 5. PANTALLA TV Y COCINA ---
     function renderizarPantallaTV() {
-      setTxt('badge-cocina-header', estado.ordenesTV.filter(o => o.estado !== 'LISTO').length);
+      var pendientes = 0;
+      for (var i = 0; i < estado.ordenesTV.length; i++) {
+        if (estado.ordenesTV[i].estado !== 'LISTO') pendientes++;
+      }
+      setTxt('badge-cocina-header', pendientes);
 
-      // A) Renderizar lista de órdenes con datos en el centro (Para que NO se vea vacío como en la Imagen 2)
-      const contOrdenes = document.getElementById('tv-lista-ordenes');
+      var contOrdenes = document.getElementById('tv-lista-ordenes');
       if (contOrdenes) {
-        contOrdenes.innerHTML = estado.ordenesTV.map(o => {
-          const esAtendiendo = o.estado === 'ATENDIENDO';
-          const esListo = o.estado === 'LISTO';
-
-          return `
-            <div class="px-3 py-2.5 rounded-xl border grid grid-cols-12 items-center gap-2 ${
-              esListo
-                ? 'bg-emerald-900/50 border-emerald-400'
-                : esAtendiendo
-                ? 'bg-amber-950/60 border-amber-400 ring-1 ring-amber-400'
-                : 'bg-[#0b1f17] border-emerald-500/25'
-            }">
-              <!-- Izquierda: Folio y Mesa -->
-              <div class="col-span-3">
-                <div class="text-sm font-black text-white">#${o.folio}</div>
-                <div class="text-[11px] text-emerald-400 font-semibold">${o.destino}</div>
-              </div>
-
-              <!-- CENTRO RELLENO (Lo que encerraste en círculo blanco en la Imagen 2) -->
-              <div class="col-span-6 border-l border-r border-emerald-500/20 px-2.5">
-                <div class="text-xs font-bold text-slate-100 truncate">🍔 ${o.resumen}</div>
-                <div class="flex items-center gap-2 text-[10px] text-emerald-300/80 mt-0.5">
-                  <span>👤 ${o.mesero}</span>
-                  <span>•</span>
-                  <span>⏱️ ${o.tiempo}</span>
-                </div>
-              </div>
-
-              <!-- Derecha: Estado -->
-              <div class="col-span-3 text-right">
-                <span class="px-2 py-1 rounded text-[10px] font-black uppercase ${
-                  esListo
-                    ? 'bg-emerald-400 text-slate-950'
-                    : esAtendiendo
-                    ? 'bg-amber-400 text-slate-950 animate-pulse'
-                    : 'bg-purple-600/80 text-white'
-                }">
-                  ${o.estado}
-                </span>
-              </div>
-            </div>
-          `;
-        }).join('');
+        var html = '';
+        for (var j = 0; j < estado.ordenesTV.length; j++) {
+          var o = estado.ordenesTV[j];
+          var esAtendiendo = (o.estado === 'ATENDIENDO');
+          var esListo = (o.estado === 'LISTO');
+          html += '<div class="px-3 py-2 rounded-xl border grid grid-cols-12 items-center gap-2 ' +
+            (esListo ? 'bg-emerald-900/50 border-emerald-400' : esAtendiendo ? 'bg-amber-950/60 border-amber-400' : 'bg-[#0b1f17] border-emerald-500/25') + '">' +
+            '<div class="col-span-3"><div class="text-sm font-black text-white">#' + o.folio + '</div><div class="text-[11px] text-emerald-400 font-semibold">' + o.destino + '</div></div>' +
+            '<div class="col-span-6 border-l border-r border-emerald-500/20 px-2"><div class="text-xs font-bold text-slate-100 truncate">🍔 ' + o.resumen + '</div>' +
+            '<div class="text-[10px] text-emerald-300/80">👤 ' + o.mesero + ' • ⏱️ ' + o.tiempo + '</div></div>' +
+            '<div class="col-span-3 text-right"><span class="px-2 py-1 rounded text-[10px] font-black uppercase ' +
+            (esListo ? 'bg-emerald-400 text-slate-950' : esAtendiendo ? 'bg-amber-400 text-slate-950' : 'bg-purple-600 text-white') + '">' + o.estado + '</span></div></div>';
+        }
+        contOrdenes.innerHTML = html;
       }
 
-      // Actualizar el Banner superior de la orden que están atendiendo en Cocina/Barra
-      const ordenAtendiendo = estado.ordenesTV.find(o => o.estado === 'ATENDIENDO') || estado.ordenesTV[0];
-      if (ordenAtendiendo) {
-        setTxt('tv-banner-orden-actual', `#${ordenAtendiendo.folio} — ${ordenAtendiendo.destino} (${ordenAtendiendo.resumen})`);
+      var ordenActual = estado.ordenesTV[0];
+      for (var a = 0; a < estado.ordenesTV.length; a++) {
+        if (estado.ordenesTV[a].estado === 'ATENDIENDO') { ordenActual = estado.ordenesTV[a]; break; }
+      }
+      if (ordenActual) {
+        setTxt('tv-banner-orden-actual', '#' + ordenActual.folio + ' — ' + ordenActual.destino + ' (' + ordenActual.resumen + ')');
       }
 
-      // B) Actualizar la Barra de Scroll (Marquee): Texto Personalizado + Números de Comandas Próximas en Orden
-      const marquee = document.getElementById('tv-marquee-content');
+      var marquee = document.getElementById('tv-marquee-content');
       if (marquee) {
-        const atendiendoAhora = estado.ordenesTV.filter(o => o.estado === 'ATENDIENDO').map(o => `#${o.folio} (${o.destino})`).join(', ') || 'Ninguna';
-        const proximasEnOrden = estado.ordenesTV.filter(o => o.estado === 'PREPARANDO').map((o, idx) => `${idx + 1}° #${o.folio} (${o.destino})`).join(' ➔ ') || 'Sin fila pendiente';
-        const listasParaEntregar = estado.ordenesTV.filter(o => o.estado === 'LISTO').map(o => `#${o.folio}`).join(', ') || ' - ';
-
-        const bloqueTexto = `
-          <span>${estado.textoPersonalizadoMarquee}</span>
-          <span class="text-amber-300">🔥 PREPARANDO EN COCINA/BARRA AHORA: ${atendiendoAhora}</span>
-          <span class="text-cyan-300">⏳ PRÓXIMAS COMANDAS EN ORDEN: ${proximasEnOrden}</span>
-          <span class="text-emerald-400">✅ LISTAS PARA ENTREGAR: ${listasParaEntregar}</span>
-        `;
-        marquee.innerHTML = bloqueTexto + bloqueTexto;
+        var atendiendoArr = [];
+        var proximasArr = [];
+        for (var m = 0; m < estado.ordenesTV.length; m++) {
+          var ord = estado.ordenesTV[m];
+          if (ord.estado === 'ATENDIENDO') atendiendoArr.push('#' + ord.folio + ' (' + ord.destino + ')');
+          if (ord.estado === 'PREPARANDO') proximasArr.push((proximasArr.length + 1) + '° #' + ord.folio + ' (' + ord.destino + ')');
+        }
+        var b = '<span>' + estado.textoPersonalizadoMarquee + '</span>' +
+          '<span class="text-amber-300">🔥 ATENDIENDO AHORA: ' + (atendiendoArr.join(', ') || 'Ninguna') + '</span>' +
+          '<span class="text-cyan-300">⏳ PRÓXIMAS EN ORDEN: ' + (proximasArr.join(' ➔ ') || 'Sin fila') + '</span>';
+        marquee.innerHTML = b + b;
       }
 
       renderizarContenedoresMultimediaTV();
     }
 
     function renderizarContenedoresMultimediaTV() {
-      // Contenedor Grande #1
-      const box1 = document.getElementById('tv-media-box-principal');
-      const media1 = estado.listaMediaPrincipal1[estado.idxMedia1 % estado.listaMediaPrincipal1.length];
+      var box1 = document.getElementById('tv-media-box-principal');
+      var media1 = estado.listaMediaPrincipal1[estado.idxMedia1 % estado.listaMediaPrincipal1.length];
       if (box1 && media1) {
-        box1.innerHTML = media1.url.endsWith('.mp4')
-          ? `<video src="${media1.url}" autoplay muted loop class="w-full h-full object-cover"></video>`
-          : `<div class="relative w-full h-full">
-               <img src="${media1.url}" class="w-full h-full object-cover" alt="Promo Principal">
-               <div class="absolute bottom-3 left-3 bg-black/75 border border-emerald-400/40 px-4 py-2 rounded-xl text-sm font-black text-white">${media1.titulo}</div>
-             </div>`;
+        box1.innerHTML = '<div class="relative w-full h-full"><img src="' + media1.url + '" class="w-full h-full object-cover"><div class="absolute bottom-3 left-3 bg-black/75 border border-emerald-400/40 px-4 py-2 rounded-xl text-sm font-black text-white">' + media1.titulo + '</div></div>';
       }
-
-      // Contenedor Independiente #2 (Esquina Inferior Izquierda)
-      const box2 = document.getElementById('tv-media-box-secundario');
-      const media2 = estado.listaMediaSecundario2[estado.idxMedia2 % estado.listaMediaSecundario2.length];
+      var box2 = document.getElementById('tv-media-box-secundario');
+      var media2 = estado.listaMediaSecundario2[estado.idxMedia2 % estado.listaMediaSecundario2.length];
       if (box2 && media2) {
-        box2.innerHTML = media2.url.endsWith('.mp4')
-          ? `<video src="${media2.url}" autoplay muted loop class="w-full h-full object-cover"></video>`
-          : `<div class="relative w-full h-full">
-               <img src="${media2.url}" class="w-full h-full object-cover" alt="Promo Secundaria">
-               <div class="absolute bottom-1.5 left-2 bg-black/80 px-2.5 py-0.5 rounded text-[11px] font-bold text-emerald-300">${media2.titulo}</div>
-             </div>`;
+        box2.innerHTML = '<div class="relative w-full h-full"><img src="' + media2.url + '" class="w-full h-full object-cover"><div class="absolute bottom-1.5 left-2 bg-black/80 px-2 py-0.5 rounded text-[11px] font-bold text-emerald-300">' + media2.titulo + '</div></div>';
       }
     }
 
-    function siguienteMediaPrincipal() {
-      estado.idxMedia1 += 1;
-      renderizarContenedoresMultimediaTV();
-    }
+    function siguienteMediaPrincipal() { estado.idxMedia1 += 1; renderizarContenedoresMultimediaTV(); }
+    function siguienteMediaSecundario() { estado.idxMedia2 += 1; renderizarContenedoresMultimediaTV(); }
 
-    function siguienteMediaSecundario() {
-      estado.idxMedia2 += 1;
-      renderizarContenedoresMultimediaTV();
-    }
-
-    function agregarMediaAContenedor(numContenedor) {
-      const url = document.getElementById(`input-media-${numContenedor}`)?.value.trim();
-      if (!url) return;
-      if (numContenedor === 1) {
-        estado.listaMediaPrincipal1.push({ tipo: 'img', url, titulo: 'Promoción La Barrita' });
-        estado.idxMedia1 = estado.listaMediaPrincipal1.length - 1;
-      } else {
-        estado.listaMediaSecundario2.push({ tipo: 'img', url, titulo: 'Destacado del Día' });
-        estado.idxMedia2 = estado.listaMediaSecundario2.length - 1;
-      }
-      renderizarContenedoresMultimediaTV();
-      alert(`✅ Contenido agregado al Contenedor Independiente #${numContenedor}`);
-    }
-
-    function actualizarTextoMarquee(nuevoTexto) {
-      estado.textoPersonalizadoMarquee = nuevoTexto;
-      renderizarPantallaTV();
-    }
-
-    // --- 6. INTERACCIÓN COCINA / BARRA: TOCAR ORDEN PARA ATENDER EN PANTALLA ---
     function renderizarCocinaKDS() {
-      const grid = document.getElementById('cocina-grid-comandas');
+      var grid = document.getElementById('cocina-grid-comandas');
       if (grid) {
-        grid.innerHTML = estado.ordenesTV.map((o, idx) => `
-          <div class="p-4 rounded-2xl border ${
-            o.estado === 'ATENDIENDO'
-              ? 'bg-amber-950/40 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.25)]'
-              : o.estado === 'LISTO'
-              ? 'bg-emerald-950/30 border-emerald-500/40'
-              : 'bg-[#100d22] border-pink-500/30'
-          } space-y-2.5">
-            <div class="flex justify-between items-center">
-              <span class="text-base font-black text-white">#${o.folio} — ${o.destino}</span>
-              <span class="px-2.5 py-0.5 rounded text-[10px] font-black ${
-                o.estado === 'ATENDIENDO' ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-300'
-              }">${o.estado}</span>
-            </div>
-            <div class="text-xs font-bold text-emerald-300 bg-black/40 p-2.5 rounded-xl">${o.resumen}</div>
-            <div class="grid grid-cols-3 gap-2 pt-1 text-xs font-black">
-              <button onclick="tocarOrdenParaAtender('${o.folio}')" class="py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950">
-                🔥 Atender Ahora
-              </button>
-              <button onclick="marcarOrdenListaTV('${o.folio}')" class="py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950">
-                ✅ Lista
-              </button>
-              <button onclick="eliminarOrdenTV(${idx})" class="py-2 rounded-xl bg-slate-800 hover:bg-rose-900 text-slate-300">
-                🗑️ Entregada
-              </button>
-            </div>
-          </div>
-        `).join('');
+        var html = '';
+        for (var i = 0; i < estado.ordenesTV.length; i++) {
+          var o = estado.ordenesTV[i];
+          html += '<div class="p-4 rounded-2xl border bg-[#100d22] border-pink-500/30 space-y-2.5">' +
+            '<div class="flex justify-between items-center"><span class="text-base font-black text-white">#' + o.folio + ' — ' + o.destino + '</span>' +
+            '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-slate-800 text-amber-300">' + o.estado + '</span></div>' +
+            '<div class="text-xs font-bold text-emerald-300 bg-black/40 p-2.5 rounded-xl">' + o.resumen + '</div>' +
+            '<div class="grid grid-cols-3 gap-2 pt-1 text-xs font-black">' +
+            '<button onclick="tocarOrdenParaAtender(\'' + o.folio + '\')" class="py-2 rounded-xl bg-amber-400 text-slate-950">🔥 Atender Ahora</button>' +
+            '<button onclick="marcarOrdenListaTV(\'' + o.folio + '\')" class="py-2 rounded-xl bg-emerald-500 text-slate-950">✅ Lista</button>' +
+            '<button onclick="eliminarOrdenTV(' + i + ')" class="py-2 rounded-xl bg-slate-800 text-slate-300">🗑️ Entregada</button>' +
+            '</div></div>';
+        }
+        grid.innerHTML = html;
       }
 
-      const ulIns = document.getElementById('cocina-lista-insumos');
+      var ulIns = document.getElementById('cocina-lista-insumos');
       if (ulIns) {
-        ulIns.innerHTML = estado.insumosFaltantes.map((ins, i) => `
-          <li class="flex justify-between items-center bg-slate-950 p-2.5 rounded-xl border border-rose-500/30">
-            <span>⚠️ ${ins}</span>
-            <button onclick="estado.insumosFaltantes.splice(${i},1);renderizarCocinaKDS();" class="text-emerald-400 font-bold">OK</button>
-          </li>
-        `).join('');
+        var insHtml = '';
+        for (var j = 0; j < estado.insumosFaltantes.length; j++) {
+          insHtml += '<li class="flex justify-between items-center bg-slate-950 p-2.5 rounded-xl border border-rose-500/30"><span>⚠️ ' + estado.insumosFaltantes[j] + '</span>' +
+            '<button onclick="estado.insumosFaltantes.splice(' + j + ',1);renderizarCocinaKDS();" class="text-emerald-400 font-bold">OK</button></li>';
+        }
+        ulIns.innerHTML = insHtml;
       }
     }
 
-    // Cuando en Cocina o Barra tocan la orden que van a atender, sube al primer lugar y actualiza la TV y el Scroll
     function tocarOrdenParaAtender(folio) {
-      estado.ordenesTV.forEach(o => {
-        if (o.folio === folio) {
-          o.estado = 'ATENDIENDO';
-          o.tiempo = 'Preparando ahora';
-        } else if (o.estado === 'ATENDIENDO') {
-          o.estado = 'PREPARANDO';
+      for (var i = 0; i < estado.ordenesTV.length; i++) {
+        if (estado.ordenesTV[i].folio === folio) {
+          estado.ordenesTV[i].estado = 'ATENDIENDO';
+          estado.ordenesTV[i].tiempo = 'Preparando ahora';
+        } else if (estado.ordenesTV[i].estado === 'ATENDIENDO') {
+          estado.ordenesTV[i].estado = 'PREPARANDO';
         }
-      });
-      // Reordenar para que la orden atendida quede hasta arriba seguida de las próximas en orden
-      estado.ordenesTV.sort((a, b) => {
-        const peso = { 'ATENDIENDO': 1, 'PREPARANDO': 2, 'LISTO': 3 };
-        return (peso[a.estado] || 9) - (peso[b.estado] || 9);
-      });
+      }
       renderizarTodo();
-      socket.emit('orden-atendida-tv', folio);
     }
 
     function marcarOrdenListaTV(folio) {
-      const ord = estado.ordenesTV.find(o => o.folio === folio);
-      if (ord) {
-        ord.estado = 'LISTO';
-        ord.tiempo = '¡Entregar!';
+      for (var i = 0; i < estado.ordenesTV.length; i++) {
+        if (estado.ordenesTV[i].folio === folio) {
+          estado.ordenesTV[i].estado = 'LISTO';
+          estado.ordenesTV[i].tiempo = '¡Entregar!';
+        }
       }
       renderizarTodo();
     }
@@ -1265,25 +1244,79 @@
     }
 
     function agregarInsumoFaltantePrompt() {
-      const txt = prompt('Nombre del insumo faltante:');
+      var txt = prompt('Nombre del insumo faltante:');
       if (txt) { estado.insumosFaltantes.push(txt); renderizarCocinaKDS(); }
     }
 
-    // --- 7. FLUJO CLIENTE QR ➔ BANDEJA MESERO ---
+    // --- 6. VISTA EXCLUSIVA CLIENTE QR Y BANDEJA DE VALIDACIÓN DEL MESERO ---
+    function renderizarVistaClienteQR() {
+      var grid = document.getElementById('qr-cliente-grid-productos');
+      if (!grid) return;
+      var html = '';
+      for (var i = 0; i < estado.productos.length; i++) {
+        var p = estado.productos[i];
+        html += '<button onclick="agregarAlCarritoClienteQR(' + p.id + ')" class="p-3 rounded-xl bg-[#141024] border border-pink-500/30 text-left flex flex-col justify-between">' +
+          '<div class="text-xs font-bold text-white">' + p.nombre + '</div>' +
+          '<div class="text-xs font-black text-emerald-400 mt-2">$' + p.precio.toFixed(2) + ' +</div></button>';
+      }
+      grid.innerHTML = html;
+
+      var car = document.getElementById('qr-cliente-carrito');
+      if (car) {
+        if (estado.carritoClienteQR.length === 0) {
+          car.innerHTML = 'Toca los platillos arriba para armar tu orden...';
+        } else {
+          var cHtml = '';
+          for (var j = 0; j < estado.carritoClienteQR.length; j++) {
+            var it = estado.carritoClienteQR[j];
+            cHtml += '<div>• ' + it.cant + 'x ' + it.nombre + ' ($' + (it.cant * it.precio).toFixed(2) + ')</div>';
+          }
+          car.innerHTML = cHtml;
+        }
+      }
+    }
+
+    function agregarAlCarritoClienteQR(prodId) {
+      for (var i = 0; i < estado.productos.length; i++) {
+        if (estado.productos[i].id === prodId) {
+          estado.carritoClienteQR.push({ id: prodId, nombre: estado.productos[i].nombre, precio: estado.productos[i].precio, cant: 1 });
+          break;
+        }
+      }
+      renderizarVistaClienteQR();
+    }
+
+    function enviarPedidoDesdeVistaClienteQR() {
+      if (estado.carritoClienteQR.length === 0) {
+        alert('Agrega al menos un producto a tu orden.');
+        return;
+      }
+      var mesaId = parseInt(getVal('qr-cliente-mesa-select', '3'), 10);
+      estado.pedidosQR.unshift({
+        id: 'QR-' + Math.floor(Math.random() * 899 + 100),
+        mesaId: mesaId,
+        cliente: 'Cliente QR Mesa ' + mesaId,
+        items: estado.carritoClienteQR.slice()
+      });
+      estado.carritoClienteQR = [];
+      renderizarTodo();
+      alert('✅ ¡Tu pedido fue enviado al mesero de tu mesa para validación!');
+    }
+
     function abrirModalBandejaQR() {
       renderizarBandejaQR();
-      const m = document.getElementById('modal-bandeja-qr');
+      var m = document.getElementById('modal-bandeja-qr');
       if (m) { m.classList.remove('hidden'); m.classList.add('flex'); }
     }
     function cerrarModalBandejaQR() {
-      const m = document.getElementById('modal-bandeja-qr');
+      var m = document.getElementById('modal-bandeja-qr');
       if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
     }
     function simularLlegadaPedidoQR() {
       estado.pedidosQR.unshift({
         id: 'QR-' + Math.floor(Math.random() * 899 + 100),
         mesaId: estado.mesaSeleccionadaId,
-        cliente: `Cliente QR (Mesa ${estado.mesaSeleccionadaId})`,
+        cliente: 'Cliente QR (Mesa ' + estado.mesaSeleccionadaId + ')',
         items: [{ id: 1, nombre: 'Alitas BBQ (10 pz)', precio: 110, cant: 1 }]
       });
       renderizarBandejaQR();
@@ -1291,159 +1324,144 @@
     }
     function renderizarBandejaQR() {
       setTxt('badge-qr-header', estado.pedidosQR.length);
-      const cont = document.getElementById('lista-bandeja-qr');
+      var cont = document.getElementById('lista-bandeja-qr');
       if (!cont) return;
       if (estado.pedidosQR.length === 0) {
-        cont.innerHTML = `<div class="text-xs text-slate-400 text-center py-6">Sin pedidos QR pendientes.</div>`;
+        cont.innerHTML = '<div class="text-xs text-slate-400 text-center py-6">Sin pedidos QR pendientes.</div>';
         return;
       }
-      cont.innerHTML = estado.pedidosQR.map((p, idx) => `
-        <div class="p-3 rounded-xl bg-slate-950 border border-pink-500/40 space-y-2 text-xs">
-          <div class="font-black text-pink-400">${p.cliente} (${p.id})</div>
-          <div>${p.items.map(i => `${i.cant}x ${i.nombre}`).join(', ')}</div>
-          <div class="flex gap-2">
-            <button onclick="aprobarQR(${idx})" class="flex-1 py-1.5 rounded-lg bg-emerald-500 text-slate-950 font-black">✅ Aprobar y Enviar a Cocina</button>
-            <button onclick="estado.pedidosQR.splice(${idx},1);renderizarBandejaQR();" class="px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-300 font-bold">✕</button>
-          </div>
-        </div>
-      `).join('');
+      var html = '';
+      for (var i = 0; i < estado.pedidosQR.length; i++) {
+        var p = estado.pedidosQR[i];
+        var desc = [];
+        for (var j = 0; j < p.items.length; j++) desc.push(p.items[j].cant + 'x ' + p.items[j].nombre);
+        html += '<div class="p-3 rounded-xl bg-slate-950 border border-pink-500/40 space-y-2 text-xs">' +
+          '<div class="font-black text-pink-400">' + p.cliente + ' (' + p.id + ')</div>' +
+          '<div>' + desc.join(', ') + '</div>' +
+          '<div class="flex gap-2">' +
+          '<button onclick="aprobarQR(' + i + ')" class="flex-1 py-1.5 rounded-lg bg-emerald-500 text-slate-950 font-black">✅ Validar y Pasar a Cocina</button>' +
+          '<button onclick="estado.pedidosQR.splice(' + i + ',1);renderizarBandejaQR();" class="px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-300 font-bold">✕</button>' +
+          '</div></div>';
+      }
+      cont.innerHTML = html;
     }
     function aprobarQR(idx) {
-      const p = estado.pedidosQR[idx];
+      var p = estado.pedidosQR[idx];
       if (!p) return;
-      const mesa = estado.mesas.find(m => m.id === p.mesaId) || estado.mesas[0];
-      p.items.forEach(i => mesa.cuenta.push({ ...i }));
+      var mesa = buscarMesaPorId(p.mesaId);
+      var resumenArr = [];
+      for (var i = 0; i < p.items.length; i++) {
+        mesa.cuenta.push(p.items[i]);
+        resumenArr.push(p.items[i].cant + 'x ' + p.items[i].nombre);
+      }
       estado.ordenesTV.push({
         folio: p.id,
         destino: mesa.nombre,
-        resumen: p.items.map(i => `${i.cant}x ${i.nombre}`).join(', '),
+        resumen: resumenArr.join(', '),
         mesero: mesa.mesero,
         tiempo: 'Validado QR',
-        estado: 'PREPARANDO',
-        prioridad: 9
+        estado: 'PREPARANDO'
       });
       estado.pedidosQR.splice(idx, 1);
       cerrarModalBandejaQR();
       renderizarTodo();
     }
 
-    // --- 8. INVENTARIO, ADMIN, CAJA Y TICKETS ---
+    // --- 7. INVENTARIO, ADMIN, CAJA Y UTILIDADES ---
     function renderizarInventarioModulo() {
-      const tb = document.getElementById('inventario-tbody');
+      var tb = document.getElementById('inventario-tbody');
       if (!tb) return;
-      tb.innerHTML = estado.productos.map(p => `
-        <tr>
-          <td class="py-2 px-3 font-bold text-white">${p.nombre}</td>
-          <td class="py-2 px-3 text-slate-400">${p.categoria}</td>
-          <td class="py-2 px-3 text-emerald-400 font-bold">$${p.precio.toFixed(2)}</td>
-          <td class="py-2 px-3 font-black ${p.stock <= p.min ? 'text-rose-400' : 'text-white'}">${p.stock}</td>
-          <td class="py-2 px-3 text-slate-400">${p.min}</td>
-          <td class="py-2 px-3 flex gap-1">
-            <button onclick="pStock(${p.id}, 5)" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">+5</button>
-            <button onclick="pStock(${p.id}, -1)" class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">-1</button>
-          </td>
-        </tr>
-      `).join('');
+      var html = '';
+      for (var i = 0; i < estado.productos.length; i++) {
+        var p = estado.productos[i];
+        html += '<tr><td class="py-2 px-3 font-bold text-white">' + p.nombre + '</td>' +
+          '<td class="py-2 px-3 text-slate-400">' + p.categoria + '</td>' +
+          '<td class="py-2 px-3 text-emerald-400 font-bold">$' + p.precio.toFixed(2) + '</td>' +
+          '<td class="py-2 px-3 font-black">' + p.stock + '</td>' +
+          '<td class="py-2 px-3 text-slate-400">' + p.min + '</td>' +
+          '<td class="py-2 px-3 flex gap-1">' +
+          '<button onclick="pStock(' + p.id + ', 5)" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">+5</button>' +
+          '<button onclick="pStock(' + p.id + ', -1)" class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">-1</button>' +
+          '</td></tr>';
+      }
+      tb.innerHTML = html;
     }
     function pStock(id, d) {
-      const pr = estado.productos.find(x => x.id === id);
-      if (pr) { pr.stock = Math.max(0, pr.stock + d); renderizarInventarioModulo(); }
+      for (var i = 0; i < estado.productos.length; i++) {
+        if (estado.productos[i].id === id) estado.productos[i].stock = Math.max(0, estado.productos[i].stock + d);
+      }
+      renderizarInventarioModulo();
     }
     function nuevoProductoPrompt() {
-      const nombre = prompt('Nombre del platillo o bebida:');
+      var nombre = prompt('Nombre del platillo o bebida:');
       if (!nombre) return;
-      const precio = parseFloat(prompt('Precio ($):', '85')) || 85;
-      estado.productos.push({ id: Date.now(), nombre, categoria: 'Alitas', precio, stock: 25, min: 5 });
+      var precio = parseFloat(prompt('Precio ($):', '85')) || 85;
+      estado.productos.push({ id: Date.now(), nombre: nombre, categoria: 'Alitas', precio: precio, stock: 25, min: 5 });
       renderizarTodo();
     }
 
     function renderizarAdminModulo() {
-      const neto = estado.fondoCaja + estado.ventasHoy - estado.gastosCaja;
-      setTxt('admin-ventas-hoy', `$${estado.ventasHoy.toFixed(2)}`);
+      var neto = estado.fondoCaja + estado.ventasHoy - estado.gastosCaja;
+      setTxt('admin-ventas-hoy', '$' + estado.ventasHoy.toFixed(2));
       setTxt('admin-cuentas-hoy', estado.cuentasCerradas);
-      setTxt('admin-efectivo-caja', `$${neto.toFixed(2)}`);
-      const c = document.getElementById('admin-tarjetas-meseros');
-      if (c) {
-        c.innerHTML = Object.entries(estado.meserosStats).map(([m, s]) => `
-          <div class="p-3 rounded-xl bg-[#100d22] border border-pink-500/30">
-            <div class="font-black text-pink-400">👤 Mesero: ${m}</div>
-            <div class="text-slate-300 mt-1">Ventas: <b class="text-emerald-400">$${s.ventas.toFixed(2)}</b> (${s.ordenes} órdenes)</div>
-          </div>
-        `).join('');
-      }
+      setTxt('admin-efectivo-caja', '$' + neto.toFixed(2));
     }
 
     function ajustarFondoCaja() {
-      const v = parseFloat(prompt('Fondo de caja inicial ($):', estado.fondoCaja));
+      var v = parseFloat(prompt('Fondo de caja inicial ($):', estado.fondoCaja));
       if (!isNaN(v)) { estado.fondoCaja = v; setTxt('ui-fondo-caja', v.toFixed(2)); renderizarAdminModulo(); }
     }
     function registrarGastoCaja() {
-      const g = parseFloat(prompt('Monto del gasto de caja ($):'));
+      var g = parseFloat(prompt('Monto del gasto ($):'));
       if (!isNaN(g) && g > 0) { estado.gastosCaja += g; setTxt('ui-gastos-caja', estado.gastosCaja.toFixed(2)); renderizarAdminModulo(); }
     }
     function abrirCorteCaja() {
-      const neto = estado.fondoCaja + estado.ventasHoy - estado.gastosCaja;
-      alert(`🧾 CORTE DE CAJA — LA BARRITA POS\n\nFondo: $${estado.fondoCaja.toFixed(2)}\nVentas: +$${estado.ventasHoy.toFixed(2)}\nGastos: -$${estado.gastosCaja.toFixed(2)}\n------------------------\nEFECTIVO EN CAJA: $${neto.toFixed(2)}`);
+      var neto = estado.fondoCaja + estado.ventasHoy - estado.gastosCaja;
+      alert('🧾 CORTE DE CAJA\nFondo: $' + estado.fondoCaja.toFixed(2) + '\nVentas: +$' + estado.ventasHoy.toFixed(2) + '\nGastos: -$' + estado.gastosCaja.toFixed(2) + '\nEFECTIVO EN CAJA: $' + neto.toFixed(2));
     }
 
     function imprimirTicketTermico(mesa, total) {
-      const z = document.getElementById('zona-impresion-ticket');
-      const neg = document.getElementById('config-nombre-negocio')?.value || 'LA BARRITA POS';
+      var z = document.getElementById('zona-impresion-ticket');
+      var neg = getVal('config-nombre-negocio', 'LA BARRITA POS');
       if (!z) return;
-      z.innerHTML = `
-        <div style="text-align:center;font-weight:bold;">${neg}</div>
-        <div>Mesa: ${mesa.nombre} | Fecha: ${new Date().toLocaleString()}</div>
-        <hr>
-        ${mesa.cuenta.map(i => `<div>${i.cant}x ${i.nombre} $${(i.cant * i.precio).toFixed(2)}</div>`).join('')}
-        <hr>
-        <div style="font-weight:bold;">TOTAL: $${total.toFixed(2)}</div>
-      `;
+      var itemsHtml = '';
+      for (var i = 0; i < mesa.cuenta.length; i++) {
+        var it = mesa.cuenta[i];
+        itemsHtml += '<div>' + it.cant + 'x ' + it.nombre + ' $' + (it.cant * it.precio).toFixed(2) + '</div>';
+      }
+      z.innerHTML = '<div style="text-align:center;font-weight:bold;">' + neg + '</div><div>Mesa: ' + mesa.nombre + '</div><hr>' + itemsHtml + '<hr><div>TOTAL: $' + total.toFixed(2) + '</div>';
       window.print();
     }
-    function imprimirTicketPrueba() {
-      imprimirTicketTermico(estado.mesas[2], 325);
+    function imprimirTicketPrueba() { imprimirTicketTermico(estado.mesas[2], 325); }
+    function actualizarTextoMarquee(val) { estado.textoPersonalizadoMarquee = val; renderizarPantallaTV(); }
+    function agregarMediaAContenedor(num) {
+      var url = getVal('input-media-' + num, '');
+      if (!url) return;
+      if (num === 1) estado.listaMediaPrincipal1.push({ tipo: 'img', url: url, titulo: 'Promo La Barrita' });
+      else estado.listaMediaSecundario2.push({ tipo: 'img', url: url, titulo: 'Destacado' });
+      renderizarContenedoresMultimediaTV();
     }
-
-    function cambiarSkin(skin) {
-      document.body.classList.remove('skin-cyan', 'skin-gold');
-      if (skin === 'cyan') document.body.classList.add('skin-cyan');
-      if (skin === 'gold') document.body.classList.add('skin-gold');
-    }
-
     function enviarTicketWhatsApp() {
-      const tel = (document.getElementById('input-wa-ticket')?.value || '').replace(/\D/g, '');
-      const msg = encodeURIComponent(`*LA BARRITA POS*\n¡Gracias por tu compra! Total pagado: $${estado.ventasHoy.toFixed(2)}`);
-      window.open(`https://wa.me/${tel}?text=${msg}`, '_blank');
+      var tel = getVal('input-wa-ticket', '').replace(/\D/g, '');
+      window.open('https://wa.me/' + tel + '?text=Gracias%20por%20tu%20visita%20a%20La%20Barrita%20POS', '_blank');
+    }
+    function exportarRespaldoJSON() {
+      var s = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(estado, null, 2));
+      var a = document.createElement('a');
+      a.href = s;
+      a.download = 'backup-la-barrita.json';
+      a.click();
     }
 
     function cambiarTabMovilPOS(vista) {
-      const ids = { menu: 'panel-pos-menu', mapa: 'panel-pos-mapa', checkout: 'panel-pos-checkout' };
-      Object.entries(ids).forEach(([k, id]) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        if (k === vista) { el.classList.remove('hidden'); el.classList.add('flex'); }
-        else { el.classList.add('hidden'); el.classList.remove('flex'); }
-      });
-    }
-
-    function toggleModalRescate() {
-      const m = document.getElementById('modal-rescate');
-      if (m) { m.classList.toggle('hidden'); m.classList.toggle('flex'); }
-    }
-    function comandoServidor(cmd) {
-      const c = document.getElementById('consola-rescate-texto');
-      if (c) c.textContent += `\n[EXEC]: ${cmd} enviado al servidor...`;
-      socket.emit('admin-command', { action: cmd });
-    }
-    function irAlControlRemoto() {
-      window.open(`http://${window.location.hostname || 'localhost'}:3001`, '_blank');
-    }
-    function exportarRespaldoJSON() {
-      const s = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(estado, null, 2));
-      const a = document.createElement('a');
-      a.href = s;
-      a.download = `la-barrita-backup-${Date.now()}.json`;
-      a.click();
+      var ids = { menu: 'panel-pos-menu', mapa: 'panel-pos-mapa', checkout: 'panel-pos-checkout' };
+      for (var k in ids) {
+        var el = document.getElementById(ids[k]);
+        if (el) {
+          if (k === vista) { el.classList.remove('hidden'); el.classList.add('flex'); }
+          else { el.classList.add('hidden'); el.classList.remove('flex'); }
+        }
+      }
     }
 
     function renderizarTodo() {
@@ -1455,13 +1473,17 @@
       renderizarInventarioModulo();
       renderizarAdminModulo();
       renderizarBandejaQR();
+      renderizarVistaClienteQR();
     }
 
-    setInterval(() => {
-      setTxt('reloj-header', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    setInterval(function() {
+      var d = new Date();
+      setTxt('reloj-header', d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     }, 1000);
 
-    document.addEventListener('DOMContentLoaded', renderizarTodo);
+    document.addEventListener('DOMContentLoaded', function() {
+      renderizarTodo();
+    });
   </script>
 </body>
 </html>
