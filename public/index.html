@@ -639,22 +639,25 @@
         </div>
     </main>
 
-    <!-- MONITOR CLIENTE (CON BOTONES VISIBLES) -->
-    <main id="vista-pantalla-cliente" class="hidden flex-1 flex-col h-screen w-full bg-app-base p-4 overflow-hidden relative z-[100]">
-        <div class="flex justify-between items-center mb-4 shrink-0">
-            <button onclick="document.exitFullscreen ? document.exitFullscreen() : null; cerrarSesion();" class="bg-card border border-[color:var(--card-border)] text-gray-300 px-4 py-2 rounded-xl text-sm font-bold hover:text-white transition shadow-lg">⬅ Salir del Monitor</button>
-            <button onclick="togglePantallaCompleta()" class="bg-accent bg-opacity-30 border border-accent text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-opacity-100 transition shadow-lg">🔲 Pantalla Completa</button>
+<!-- MONITOR CLIENTE (ALTURA CORREGIDA) -->
+<main id="vista-pantalla-cliente" class="hidden flex-1 flex-col h-screen w-full bg-app-base p-4 overflow-hidden relative z-[100]">
+    
+    <div class="flex justify-between items-center mb-4 shrink-0 h-10">
+        <button onclick="document.exitFullscreen ? document.exitFullscreen() : null; cerrarSesion();" class="bg-card border border-[color:var(--card-border)] text-gray-300 px-4 py-2 rounded-xl text-sm font-bold hover:text-white transition shadow-lg">⬅ Salir del Monitor</button>
+        <button onclick="togglePantallaCompleta()" class="bg-accent bg-opacity-30 border border-accent text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-opacity-100 transition shadow-lg">🔲 Pantalla Completa</button>
+    </div>
+    
+    <!-- Agregamos h-[calc(100%-3rem)] para forzar que ocupe el resto de la pantalla -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch h-[calc(100%-3rem)] w-full">
+        <div class="lg:col-span-1 bg-card border border-[color:var(--card-border)] p-5 rounded-3xl shadow-2xl flex flex-col h-full overflow-hidden">
+            <h3 class="text-base font-black text-accent mb-4 flex items-center gap-2 shrink-0"><span>📺</span> ESTADO DE ÓRDENES</h3>
+            <div id="gridPantallaEstado" class="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar"></div>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full items-stretch flex-1 min-h-0">
-            <div class="lg:col-span-1 bg-card border border-[color:var(--card-border)] p-5 rounded-3xl shadow-2xl flex flex-col h-full overflow-hidden">
-                <h3 class="text-base font-black text-accent mb-4 flex items-center gap-2 shrink-0"><span>📺</span> ESTADO DE ÓRDENES</h3>
-                <div id="gridPantallaEstado" class="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar"></div>
-            </div>
-            <div class="lg:col-span-3 bg-card border border-[color:var(--card-border)] p-2 rounded-3xl shadow-2xl flex items-center justify-center h-full overflow-hidden">
-                <div class="w-full h-full flex items-center justify-center bg-app-base rounded-2xl overflow-hidden relative" id="contenedorMediaCentral"></div>
-            </div>
+        <div class="lg:col-span-3 bg-card border border-[color:var(--card-border)] p-2 rounded-3xl shadow-2xl flex items-center justify-center h-full overflow-hidden">
+            <div class="w-full h-full flex items-center justify-center bg-app-base rounded-2xl overflow-hidden relative" id="contenedorMediaCentral"></div>
         </div>
-    </main>
+    </div>
+</main>
 
     <!-- MODAL DETALLE PRODUCTO -->
     <div id="modal-detalle-producto" class="fixed inset-0 bg-black bg-opacity-90 z-[120] hidden flex items-center justify-center p-4">
@@ -772,7 +775,7 @@
     </main>
 
     <!-- MODAL DE COBRO REDISEÑADO -->
-    <div id="modal-cobro" class="fixed inset-0 bg-black bg-opacity-95 z-[100] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+    <div id="modal-cobro" class="fixed inset-0 bg-black bg-opacity-95 z-[200] hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-card border border-[color:var(--card-border)] p-6 rounded-3xl max-w-4xl w-full shadow-2xl grid grid-cols-1 md:grid-cols-12 gap-6 relative">
             <button onclick="cerrarCobro()" class="absolute -top-4 -right-4 bg-red-600 text-white w-10 h-10 rounded-full font-black text-lg border-2 border-black shadow-lg">X</button>
             <div class="md:col-span-7 flex flex-col space-y-5">
