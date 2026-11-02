@@ -28,6 +28,7 @@
         .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         #pantalla-bienvenida { background-size: cover; background-position: center; background-repeat: no-repeat; }
         #logoBienvenida, #headerLogo { max-height: 80px; object-fit: contain; } #headerLogo { max-height: 30px; }
+        
     </style>
   <script>
         var socket = null; var usuarioActivo = null; var rolActivo = 'cliente'; var miMesaAsignada = 'Para Llevar';
@@ -84,7 +85,17 @@
             } catch (e) {}
         }
         function activarAudioNavegador() { reproducirAlertaSonora('nuevo'); if (typeof Notification !== 'undefined' && Notification.permission !== "granted") { Notification.requestPermission(); } var btn = document.getElementById('btnActivarAudio'); if (btn) btn.classList.add('hidden'); }
-
+function togglePantallaCompleta() {
+        var doc = window.document;
+        var docEl = doc.documentElement;
+        var requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+        var cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+        if(!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+            if(requestFullScreen) { requestFullScreen.call(docEl).catch(function(err){}); }
+        } else {
+            if(cancelFullScreen) { cancelFullScreen.call(doc); }
+        }
+    }
         // ====== NAVEGACIÓN Y VISTAS ======
         function entrarModo(modo, vistaInicial = 'comandas') {
             rolActivo = modo; 
@@ -668,18 +679,20 @@
         </div>
     </main>
 <!-- MONITOR CLIENTE PANTALLA COMPLETA REPARADO -->
-    <main id="vista-pantalla-cliente" class="hidden fixed inset-0 z-[200] bg-[#050505] p-4 flex flex-col overflow-hidden">
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full items-stretch flex-1 min-h-0 relative">
-            <div class="lg:col-span-1 bg-[#111] border border-gray-800 p-5 rounded-3xl shadow-2xl flex flex-col h-full overflow-hidden relative">
-                <button onclick="cerrarSesion()" class="absolute top-4 right-4 bg-gray-800 bg-opacity-60 border border-gray-700 text-gray-300 px-3 py-1.5 rounded-lg text-xs font-bold hover:text-white transition backdrop-blur-md z-10">⬅ Salir</button>
-                <h3 class="text-base font-black text-accent mb-4 flex items-center gap-2 shrink-0 pr-16"><span>📺</span> ESTADO DE ÓRDENES</h3>
-                <div id="gridPantallaEstado" class="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar mt-2"></div>
-            </div>
-            <div class="lg:col-span-3 bg-black border border-gray-800 p-2 rounded-3xl shadow-2xl flex items-center justify-center h-full relative overflow-hidden">
-                <div class="w-full h-full flex items-center justify-center bg-[#0a0a0a] rounded-2xl overflow-hidden relative" id="contenedorMediaCentral"></div>
-            </div>
+<main id="vista-pantalla-cliente" class="hidden fixed inset-0 z-[200] bg-[#050505] p-4 flex flex-col overflow-hidden">
+  <button onclick="togglePantallaCompleta(); entrarModo('monitor', 'monitor')" type="button" class="w-full bg-app-base hover:bg-gray-900 active:scale-95 text-gray-300 font-bold py-2.5 rounded-2xl text-xs transition border border-gray-800">📺 PANTALLA MONITOR</button>
+    <button onclick="document.exitFullscreen ? document.exitFullscreen() : null; cerrarSesion();" class="absolute top-4 left-4 z-[110] bg-black bg-opacity-60 border border-gray-700 text-gray-300 px-3 py-1.5 rounded-lg text-xs font-bold hover:text-white transition backdrop-blur-md">⬅ Salir</button>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full items-stretch flex-1 min-h-0 relative mt-8">
+        <div class="lg:col-span-1 bg-[#111] border border-gray-800 p-5 rounded-3xl shadow-2xl flex flex-col h-full overflow-hidden relative">
+            <h3 class="text-base font-black text-accent mb-4 flex items-center gap-2 shrink-0"><span>📺</span> ESTADO DE ÓRDENES</h3>
+            <div id="gridPantallaEstado" class="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar"></div>
         </div>
-    </main>
+        <div class="lg:col-span-3 bg-black border border-gray-800 p-2 rounded-3xl shadow-2xl flex items-center justify-center h-full relative overflow-hidden">
+            <div class="w-full h-full flex items-center justify-center bg-[#0a0a0a] rounded-2xl overflow-hidden relative" id="contenedorMediaCentral"></div>
+        </div>
+    </div>
+</main>
 
     <!-- MODAL DETALLE PRODUCTO -->
     <div id="modal-detalle-producto" class="fixed inset-0 bg-black bg-opacity-90 z-[120] hidden flex items-center justify-center p-4">
