@@ -18,11 +18,11 @@
         .bg-app-panel { background-color: #0a0a10 !important; } 
         .bg-app-input { background-color: #0d0d14 !important; }
         
-        /* Estilo Neón Futurista (Inspirado en la referencia) */
+        /* Marcos y divisiones con Neón Brillante */
         .neon-box {
-            background: linear-gradient(135deg, rgba(15,15,21,0.9), rgba(10,10,16,0.95));
+            background: linear-gradient(135deg, rgba(15,15,21,0.95), rgba(10,10,16,0.98));
             border: 1px solid var(--accent);
-            box-shadow: 0 0 15px var(--accent-glow), inset 0 0 10px rgba(0,0,0,0.5);
+            box-shadow: 0 0 15px var(--accent-glow), inset 0 0 10px rgba(0,0,0,0.6);
             backdrop-filter: blur(8px);
         }
         
@@ -42,8 +42,29 @@
             @page { margin: 0; size: auto; } 
         }
 
-        .mapa-container { position: relative; width: 100%; height: 60vh; min-height: 400px; background-color: #0d0d14; border-radius: 1rem; border: 1px solid var(--accent); overflow: hidden; box-shadow: 0 0 15px var(--accent-glow); }
-        .mesa-node { position: absolute; width: 100px; height: 100px; border-radius: 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; user-select: none; transition: transform 0.2s, box-shadow 0.2s; z-index: 10; border: 2px solid var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
+        /* Mapa de Mesas Organizado por Grid adaptable (Vertical / Horizontal) */
+        .mapa-grid-organizado {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 1rem;
+            width: 100%;
+            padding: 1rem;
+        }
+        .mesa-node-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border-radius: 1rem;
+            padding: 1rem;
+            border: 2px solid var(--accent);
+            box-shadow: 0 0 12px var(--accent-glow);
+        }
+
         #pantalla-bienvenida { background-size: cover; background-position: center; background-repeat: no-repeat; }
         .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .hidden { display: none !important; }
@@ -112,7 +133,6 @@
             document.getElementById('pantalla-bienvenida').classList.add('hidden');
             var btnAudio = document.getElementById('btnActivarAudio'); if(btnAudio) btnAudio.classList.remove('hidden');
             
-            // Actualizar nombre de usuario activo en la barra superior
             var lblUsr = document.getElementById('labelUsuarioActivoHeader');
             if(lblUsr) { lblUsr.textContent = usuarioActivo ? usuarioActivo.nombre : 'Cliente / Invitado'; }
 
@@ -219,16 +239,16 @@
             var container = document.getElementById('mapaContainerWrapper'); if (!container) return;
             container.innerHTML = mesasData.map(function(mesaObj) {
                 var mesa = mesaObj.id; var activas = comandas.filter(function(c) { return c.mesa === mesa; }); var totalMesa = activas.reduce(function(acc, c) { return acc + c.total; }, 0);
-                var colorClase = 'bg-gray-900 border-gray-700 text-gray-300'; var estadoTexto = 'Libre'; var icono = '🍽️'; var animacion = '';
+                var colorClase = 'bg-gray-900 border-gray-700 text-gray-300'; var estadoTexto = 'Libre'; var icono = '🍽️'; 
                 if (activas.length > 0) {
                     var hayListas = activas.some(function(c) { return c.estado === 'Listo'; });
-                    if (hayListas) { colorClase = 'bg-blue-900 border-blue-400 text-blue-100 shadow-[0_0_15px_rgba(59,130,246,0.5)]'; estadoTexto = 'Entregar'; icono = '🔔'; animacion = 'animate-pulse'; } 
+                    if (hayListas) { colorClase = 'bg-blue-900 border-blue-400 text-blue-100 shadow-[0_0_15px_rgba(59,130,246,0.5)]'; estadoTexto = 'Entregar'; icono = '🔔'; } 
                     else { colorClase = 'bg-red-900 border-red-500 text-red-100 shadow-[0_0_15px_rgba(239,68,68,0.3)]'; estadoTexto = 'Ocupada'; icono = '🔥'; }
                 }
-                return '<div data-id="'+mesa+'" onclick="gestionarClicMesa(\''+mesa+'\')" class="mesa-node '+colorClase+' '+animacion+'" style="left: '+mesaObj.x+'%; top: '+mesaObj.y+'%;">' +
-                    '<span class="text-3xl drop-shadow-md">' + icono + '</span><h3 class="font-black text-[11px] uppercase tracking-wide leading-tight mt-1">' + mesa + '</h3>' +
-                    '<span class="text-[9px] font-bold px-1.5 py-0.5 bg-black bg-opacity-50 rounded mt-0.5">' + estadoTexto + '</span>' +
-                    (activas.length > 0 ? '<span class="text-[10px] mt-1 text-green-400 font-black bg-black bg-opacity-60 px-2 py-0.5 rounded">$' + totalMesa.toFixed(0) + '</span>' : '') + '</div>';
+                return '<div data-id="'+mesa+'" onclick="gestionarClicMesa(\''+mesa+'\')" class="mesa-node-card '+colorClase+'">' +
+                    '<span class="text-3xl drop-shadow-md">' + icono + '</span><h3 class="font-black text-xs uppercase tracking-wide leading-tight mt-1">' + mesa + '</h3>' +
+                    '<span class="text-[10px] font-bold px-2 py-0.5 bg-black bg-opacity-60 rounded mt-1">' + estadoTexto + '</span>' +
+                    (activas.length > 0 ? '<span class="text-[11px] mt-1 text-green-400 font-black bg-black bg-opacity-80 px-2 py-0.5 rounded">$' + totalMesa.toFixed(0) + '</span>' : '') + '</div>';
             }).join('');
         }
         function gestionarClicMesa(mesa) {
@@ -350,7 +370,7 @@
             var grid = document.getElementById('gridComandasBarra'); if (!grid) return;
             grid.innerHTML = comandas.length === 0 ? '<p class="text-gray-500 col-span-full py-12 text-center text-xs">Sin comandas activas</p>' :
                 comandas.map(function(c) {
-                    return '<div class="bg-card p-4 rounded-3xl border ' + (c.estado === 'Listo' ? 'border-green-500' : 'border-[color:var(--card-border)]') + ' shadow-2xl">' +
+                    return '<div class="bg-card neon-box p-4 rounded-3xl border ' + (c.estado === 'Listo' ? 'border-green-500' : 'border-[color:var(--card-border)]') + ' shadow-2xl">' +
                         '<div class="flex justify-between items-center mb-2"><div><h3 class="font-black text-accent text-base">' + escapeHTML(c.mesa) + '</h3><span class="text-[11px] bg-accent text-white px-2 py-0.5 rounded-full font-mono font-bold">' + c.folio + '</span></div><span class="text-[10px] text-gray-400">' + c.hora + '</span></div>' +
                         '<ul class="text-xs space-y-1 divide-y divide-gray-800 mb-2">' + c.items.map(function(i) { return '<li class="py-1 flex justify-between"><span>' + i.cantidad + 'x ' + escapeHTML(i.nombre) + '</span></li>'; }).join('') + '</ul>' +
                         (c.estado !== 'Listo' ? '<button onclick="marcarListo(' + c.id + ')" class="w-full bg-green-500 text-black font-black py-2.5 rounded-2xl text-xs">🔔 ¡ORDEN LISTA!</button>' : '<div class="text-center py-1.5 bg-green-900 text-green-300 text-xs font-bold rounded-2xl border border-green-800">✓ Listo</div>') + '</div>';
@@ -454,7 +474,6 @@
             new QRCode(div, { text: finalUrl, width: 140, height: 140 });
         }
 
-        // Función para Imprimir Etiqueta Térmica con QR del Producto/Mesa
         function imprimirEtiquetaQR(nombreItem, urlDestino) {
             var area = document.getElementById('area-impresion-etiquetas');
             area.innerHTML = '<div style="font-weight:bold; font-size:14px; margin-bottom:5px;">' + config.nombreNegocio + '</div>' +
@@ -465,19 +484,15 @@
             var qrDiv = document.getElementById('qrPrintDiv');
             new QRCode(qrDiv, { text: urlDestino, width: 100, height: 100 });
             
-            setTimeout(function() {
-                window.print();
-            }, 300);
+            setTimeout(function() { window.print(); }, 300);
         }
 
-        // Generar Reporte de Inventario en Texto/HTML para asignar o imprimir
         function generarReporteInventario() {
             var contenidoReporte = "=== REPORTE DE INVENTARIO - " + config.nombreNegocio + " ===\nFecha: " + new Date().toLocaleDateString() + "\n\n";
             productos.forEach(function(p) {
                 var estadoStock = p.stock <= (p.stockMinimo || 5) ? "[URGENTE SURTIR]" : "[OK]";
                 contenidoReporte += `- ${p.nombre} (${p.categoria}) | Stock: ${p.stock} | Mínimo: ${p.stockMinimo || 5} ${estadoStock}\n`;
             });
-            
             var ventana = window.open('', '_blank');
             ventana.document.write('<pre style="font-family:monospace; font-size:14px; padding:20px;">' + contenidoReporte + '</pre>');
             ventana.document.close();
@@ -493,7 +508,7 @@
                 var colorStock = p.stock <= minStock ? 'text-red-500 font-black animate-pulse' : 'text-gray-400';
                 var qrUrl = window.location.protocol + '//' + ipServidor + '/?modo=cliente&producto=' + p.id;
                 return '<div class="flex justify-between items-center bg-app-base p-3 rounded-2xl border border-[color:var(--card-border)] text-xs"><div><div class="font-extrabold text-white">' + escapeHTML(p.nombre) + '</div><div class="text-gray-400 mt-1"><span>Costo: $' + (p.costo||0).toFixed(2) + '</span> | <span>Venta: $' + Number(p.precio).toFixed(2) + '</span> | <span class="'+colorStock+'">Stock: ' + p.stock + ' (Mín: ' + minStock + ')</span></div></div>' +
-                    '<div class="flex gap-2"><button onclick="imprimirEtiquetaQR(\''+escapeHTML(p.nombre)+'\', \''+qrUrl+'\')" class="bg-purple-900 text-purple-200 font-bold px-2 py-1 rounded"> etiqueta QR</button><button onclick="editarProducto(' + p.id + ')" class="text-blue-400 font-bold px-2">Editar</button><button onclick="eliminarProducto(' + p.id + ')" class="text-red-400 font-bold px-2">Borrar</button></div></div>';
+                    '<div class="flex gap-2"><button onclick="imprimirEtiquetaQR(\''+escapeHTML(p.nombre)+'\', \''+qrUrl+'\')" class="bg-purple-900 text-purple-200 font-bold px-2 py-1 rounded">🏷️ QR</button><button onclick="editarProducto(' + p.id + ')" class="text-blue-400 font-bold px-2">Editar</button><button onclick="eliminarProducto(' + p.id + ')" class="text-red-400 font-bold px-2">Borrar</button></div></div>';
             }).join('');
         }
         function editarProducto(id) {
@@ -534,6 +549,9 @@
             document.getElementById('nuevoUsuarioNick').value = u.usuario; document.getElementById('nuevoUsuarioNombre').value = u.nombre; document.getElementById('nuevoUsuarioPin').value = u.pin;
             document.getElementById('checkPermisoMenu').checked = u.permisos.menu; document.getElementById('checkPermisoMapa').checked = u.permisos.mapa; document.getElementById('checkPermisoAdmin').checked = u.permisos.admin;
             var btnGuardar = document.getElementById('btnGuardarNuevoUsuario'); btnGuardar.textContent = "Actualizar Usuario"; btnGuardar.setAttribute("data-edit-id", u.id);
+        }
+        function guardarNewUsuario() {
+            // alias seguro
         }
         function guardarNuevoUsuario() {
             var idEdicion = document.getElementById('btnGuardarNuevoUsuario').getAttribute('data-edit-id'); var usuario = document.getElementById('nuevoUsuarioNick').value.trim(); var nombre = document.getElementById('nuevoUsuarioNombre').value.trim(); var pin = document.getElementById('nuevoUsuarioPin').value.trim(); 
@@ -604,7 +622,7 @@
                     socket.on('notificacion_chat', function(msg) {
                         if (rolActivo === 'cliente' || rolActivo === 'monitor') return;
                         reproducirAlertaSonora('chat');
-                        if(document.getElementById('panelChatFlotante').classList.contains('hidden')) { document.getElementById('badgeChatNew').classList.remove('hidden'); }
+                        if(document.getElementById('panelChatFlotante').classList.contains('hidden')) { document.getElementById('badgeChatNew').classList.add('hidden'); }
                         renderizarChat();
                     });
                 }
@@ -643,7 +661,7 @@
         </div>
     </div>
 
-    <!-- BARRA SUPERIOR CON USUARIO ACTIVO (Estilo Cyberpunk de Referencia) -->
+    <!-- BARRA SUPERIOR CON USUARIO ACTIVO -->
     <header id="appTopBar" class="hidden bg-app-panel border-b border-[color:var(--card-border)] px-4 py-3 sticky top-0 z-40 flex justify-between items-center neon-box rounded-none">
         <div class="flex items-center gap-2"><span class="text-xl">🍺</span><h1 class="text-sm font-black text-accent tracking-wider">LA BARRITA</h1></div>
         <div class="flex items-center gap-4">
@@ -652,23 +670,24 @@
         </div>
     </header>
 
+    <!-- VISTA MAPA CON GRID ADAPTABLE -->
     <main id="vista-mapa" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto space-y-5">
         <div class="flex justify-between items-center border-b border-[color:var(--card-border)] pb-2">
             <h2 class="text-lg font-black text-white">🗺️ MAPA DE MESAS</h2>
             <button onclick="volverMenuAnterior()" class="bg-app-panel border border-[color:var(--card-border)] text-white px-3 py-1.5 rounded-lg text-xs font-bold">⬅ Volver</button>
         </div>
-        <div id="mapaContainerWrapper" class="mapa-container"></div>
+        <div id="mapaContainerWrapper" class="mapa-grid-organizado bg-card neon-box rounded-2xl min-h-[400px]"></div>
     </main>
 
-    <!-- VISTA COMANDAS / CAJA POS (Estilo Cyber-Neon 3 Columnas) -->
+    <!-- VISTA COMANDAS / CAJA POS (3 Columnas con Sidebar Visible y Marcos Neón) -->
     <main id="vista-comandas" class="hidden flex-1 p-2 w-full max-w-[1400px] mx-auto h-[calc(100vh-80px)] md:h-[calc(100vh-64px)] overflow-hidden relative">
         <button onclick="volverMenuAnterior()" class="md:hidden absolute top-2 left-4 z-10 bg-card border border-[color:var(--card-border)] text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg">⬅ Salir</button>
         
         <div class="flex flex-col md:flex-row h-full gap-3 pt-12 md:pt-0">
-      <!-- COLUMNA 1: SIDEBAR (Categorías y Chat Siempre Visible) -->
-<div class="flex flex-col w-56 lg:w-64 bg-card neon-box rounded-2xl overflow-hidden shadow-xl shrink-0">
+            <!-- COLUMNA 1: SIDEBAR (Siempre Visible y con Neón) -->
+            <div class="flex flex-col w-56 lg:w-64 bg-card neon-box rounded-2xl overflow-hidden shadow-xl shrink-0">
                 <div class="p-3 border-b border-[color:var(--card-border)] bg-app-panel">
-                    <h3 class="font-black text-white text-sm uppercase tracking-wider">Categorías</h3>
+                    <h3 class="font-black text-white text-sm uppercase tracking-wider">Product Menu</h3>
                 </div>
                 <div id="listaCategoriasSidebar" class="flex-1 overflow-y-auto p-2 space-y-1 no-scrollbar"></div>
                 
@@ -694,7 +713,7 @@
                 <div id="gridProductos" class="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 no-scrollbar content-start bg-app-base"></div>
             </div>
             
-            <!-- COLUMNA 3: TICKET / CUENTA -->
+            <!-- COLUMNA 3: CHECKOUT / BILLING -->
             <div class="w-full md:w-72 lg:w-80 flex flex-col bg-card neon-box rounded-2xl overflow-hidden shadow-xl shrink-0 h-[45vh] md:h-full">
                 <div class="bg-app-panel p-3 border-b border-[color:var(--card-border)] flex justify-between items-center">
                     <div class="flex items-center gap-2"><span class="bg-accent text-white p-1.5 rounded-lg text-xs box-glow">📝</span><h2 class="font-extrabold text-white text-sm">Checkout / Billing</h2></div>
@@ -747,7 +766,7 @@
         </div>
     </div>
 
-    <!-- VISTA BARRA (Cocina / Insumos Faltantes) -->
+    <!-- VISTA BARRA -->
     <main id="vista-barra" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto space-y-3">
         <div class="flex justify-between items-center border-b border-[color:var(--card-border)] pb-2">
             <h2 class="text-base font-black text-white">🍻 BARRA / COCINA (COMANDAS & INSUMOS)</h2>
@@ -761,7 +780,7 @@
         </div>
     </main>
 
-    <!-- VISTA INVENTARIO (Con Reporte y Generación de QR para etiquetas) -->
+    <!-- VISTA INVENTARIO -->
     <main id="vista-inventario" class="hidden flex-1 p-4 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 relative">
         <button onclick="volverMenuAnterior()" class="absolute -top-4 left-4 bg-app-panel border border-[color:var(--card-border)] text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg">⬅ Volver</button>
         <div class="space-y-4 mt-6">
@@ -779,7 +798,6 @@
                 <button id="btnCancelarEdicion" onclick="limpiarFormProducto()" class="hidden w-full bg-app-panel text-gray-300 font-bold py-2 rounded-xl text-xs mt-2 border border-[color:var(--card-border)]">Cancelar Edición</button>
             </div>
             
-            <!-- Botón para generar reporte completo de inventario -->
             <div class="bg-card neon-box p-4 rounded-3xl text-center">
                 <button onclick="generarReporteInventario()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-black py-3 rounded-2xl text-xs transition shadow-lg">📊 GENERAR REPORTE DE INVENTARIO</button>
             </div>
@@ -863,8 +881,8 @@
         </div>
     </main>
 
-    <!-- MODAL DE COBRO REDISEÑADO -->
-    <div id="modal-cobro" class="fixed inset-0 bg-black bg-opacity-95 z-[9999] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+    <!-- MODAL DE COBRO CON FONDO SÓLIDO (Evita que se encime con el mapa) -->
+    <div id="modal-cobro" class="fixed inset-0 bg-black bg-opacity-95 z-[9999] hidden flex items-center justify-center p-4 backdrop-blur-md">
         <div class="bg-card neon-box p-6 rounded-3xl max-w-4xl w-full shadow-2xl grid grid-cols-1 md:grid-cols-12 gap-6 relative">
             <button onclick="cerrarCobro()" class="absolute -top-4 -right-4 bg-red-600 text-white w-10 h-10 rounded-full font-black text-lg border-2 border-black shadow-lg">X</button>
             <div class="md:col-span-7 flex flex-col space-y-5">
