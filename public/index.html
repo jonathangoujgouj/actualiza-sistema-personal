@@ -28,7 +28,10 @@
         .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         #pantalla-bienvenida { background-size: cover; background-position: center; background-repeat: no-repeat; }
         #logoBienvenida, #headerLogo { max-height: 80px; object-fit: contain; } #headerLogo { max-height: 30px; }
-        
+        .no-scrollbar::-webkit-scrollbar { display: none; } 
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .hidden { display: none !important; } /* <--- AGREGA ESTA LÍNEA AQUÍ */
+    </style>
     </style>
   <script>
         var socket = null; var usuarioActivo = null; var rolActivo = 'cliente'; var miMesaAsignada = 'Para Llevar';
@@ -599,22 +602,58 @@ function togglePantallaCompleta() {
         <div id="mapaContainerWrapper" class="mapa-container"></div>
     </main>
 
-<!-- VISTA COMANDAS / CAJA POS (Diseño 3 Columnas) -->
+<!-- VISTA COMANDAS / CAJA POS (Adaptado al Skin) -->
     <main id="vista-comandas" class="hidden flex-1 p-2 w-full max-w-[1400px] mx-auto h-[calc(100vh-80px)] md:h-[calc(100vh-64px)] overflow-hidden relative">
-        <button onclick="volverMenuAnterior()" class="md:hidden absolute top-2 left-4 z-10 bg-gray-800 bg-opacity-70 text-white px-3 py-1.5 rounded-lg text-xs font-bold backdrop-blur-sm border border-gray-700">⬅ Salir</button>
+        <button onclick="volverMenuAnterior()" class="md:hidden absolute top-2 left-4 z-10 bg-card border border-[color:var(--card-border)] text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg">⬅ Salir</button>
         
         <div class="flex flex-col md:flex-row h-full gap-3 pt-12 md:pt-0">
-            
-            <!-- COLUMNA 1: SIDEBAR (Categorías y Chat) -->
-            <div class="hidden md:flex flex-col w-56 lg:w-64 bg-[#121212] rounded-2xl border border-gray-800 overflow-hidden shadow-xl shrink-0">
-                <div class="p-3 border-b border-gray-800 bg-[#1a1a1a]">
+            <!-- SIDEBAR (Categorías y Chat) -->
+            <div class="hidden md:flex flex-col w-56 lg:w-64 bg-card rounded-2xl border border-[color:var(--card-border)] overflow-hidden shadow-xl shrink-0">
+                <div class="p-3 border-b border-[color:var(--card-border)] bg-app-panel">
                     <h3 class="font-black text-white text-sm uppercase tracking-wider">Categorías</h3>
                 </div>
-                <!-- Lista de Categorías -->
-                <div id="listaCategoriasSidebar" class="flex-1 overflow-y-auto p-2 space-y-1 no-scrollbar">
-                    <!-- Se inyectan desde JS -->
-                </div>
+                <div id="listaCategoriasSidebar" class="flex-1 overflow-y-auto p-2 space-y-1 no-scrollbar"></div>
                 
+                <div id="contenedorChatPOS" class="h-64 border-t border-[color:var(--card-border)] bg-app-base flex flex-col">
+                    <div class="p-2 border-b border-[color:var(--card-border)] bg-app-panel flex justify-between items-center">
+                        <span class="text-xs font-bold text-accent">💬 Radio Interno</span>
+                    </div>
+                    <div id="chatBodyPOS" class="flex-1 overflow-y-auto p-2 text-xs space-y-2 no-scrollbar"></div>
+                    <div class="p-2 border-t border-[color:var(--card-border)] flex gap-2">
+                        <input type="text" id="inputChatPOS" onkeydown="enviarMensajeChat(event, 'inputChatPOS')" placeholder="Mensaje..." class="flex-1 bg-app-input border border-[color:var(--card-border)] rounded-lg px-2 py-1 text-xs text-white outline-none">
+                        <button onclick="enviarMensajeChat({key:'Enter'}, 'inputChatPOS')" class="bg-accent text-white font-bold px-2 rounded-lg text-xs">▶</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRODUCTOS -->
+            <div class="flex-1 flex flex-col bg-card rounded-2xl border border-[color:var(--card-border)] overflow-hidden shadow-xl min-h-[400px]">
+                <div class="md:hidden bg-app-panel p-3 border-b border-[color:var(--card-border)] flex justify-between items-center">
+                    <select id="filtroCategoriaComanda" onchange="cambiarCategoriaMenu(this.value)" class="bg-app-input text-xs text-white border border-[color:var(--card-border)] rounded-lg px-3 py-2 outline-none font-bold w-full">
+                        <option value="Todos">🍽️ Todas las Categorías</option>
+                    </select>
+                </div>
+                <div id="gridProductos" class="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 no-scrollbar content-start bg-app-base"></div>
+            </div>
+            
+            <!-- TICKET / CUENTA -->
+            <div class="w-full md:w-72 lg:w-80 flex flex-col bg-card rounded-2xl border border-[color:var(--card-border)] overflow-hidden shadow-xl shrink-0 h-[45vh] md:h-full">
+                <div class="bg-app-panel p-3 border-b border-[color:var(--card-border)] flex justify-between items-center">
+                    <div class="flex items-center gap-2"><span class="bg-accent text-white p-1.5 rounded-lg text-xs box-glow">📝</span><h2 class="font-extrabold text-white text-sm">Comanda</h2></div>
+                    <select id="selectMesa" class="bg-app-input text-white font-bold text-xs px-2 py-1.5 rounded-lg border border-[color:var(--card-border)] outline-none">
+                        <option value="Para Llevar">👜 Para Llevar</option><option value="Mesa 1">🍽️ Mesa 1</option><option value="Mesa 2">🍽️ Mesa 2</option>
+                    </select>
+                </div>
+                <div class="p-2 bg-app-base border-b border-[color:var(--card-border)]"><input type="text" id="clienteNombre" placeholder="👤 Nombre de cliente..." class="w-full bg-app-input border border-[color:var(--card-border)] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-accent"></div>
+                <div id="listaCarrito" class="flex-1 overflow-y-auto p-2 space-y-1.5 text-xs no-scrollbar bg-app-base"></div>
+                <div class="p-4 bg-app-panel border-t border-[color:var(--card-border)] shrink-0">
+                    <div class="flex justify-between items-center mb-3"><span class="text-gray-400 font-bold uppercase text-xs tracking-wider">Total a cobrar:</span><span id="totalCarrito" class="text-3xl font-black text-green-400">$0.00</span></div>
+                    <button onclick="procesarEnvioOrden()" type="button" class="w-full bg-green-500 hover:bg-green-400 text-black font-black py-4 rounded-xl text-sm transition active:scale-95 shadow-lg">ENVIAR A BARRA</button>
+                </div>
+            </div>
+            
+        </div>
+    </main>
                 <!-- Módulo de Chat Incrustado -->
                 <div id="contenedorChatPOS" class="h-64 border-t border-gray-800 bg-[#0a0a0a] flex flex-col">
                     <div class="p-2 border-b border-gray-800 bg-gray-900 flex justify-between items-center">
@@ -678,21 +717,28 @@ function togglePantallaCompleta() {
             </div>
         </div>
     </main>
-<!-- MONITOR CLIENTE PANTALLA COMPLETA REPARADO -->
-<main id="vista-pantalla-cliente" class="hidden fixed inset-0 z-[200] bg-[#050505] p-4 flex flex-col overflow-hidden">
-  <button onclick="togglePantallaCompleta(); entrarModo('monitor', 'monitor')" type="button" class="w-full bg-app-base hover:bg-gray-900 active:scale-95 text-gray-300 font-bold py-2.5 rounded-2xl text-xs transition border border-gray-800">📺 PANTALLA MONITOR</button>
-    <button onclick="document.exitFullscreen ? document.exitFullscreen() : null; cerrarSesion();" class="absolute top-4 left-4 z-[110] bg-black bg-opacity-60 border border-gray-700 text-gray-300 px-3 py-1.5 rounded-lg text-xs font-bold hover:text-white transition backdrop-blur-md">⬅ Salir</button>
-    
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full items-stretch flex-1 min-h-0 relative mt-8">
-        <div class="lg:col-span-1 bg-[#111] border border-gray-800 p-5 rounded-3xl shadow-2xl flex flex-col h-full overflow-hidden relative">
-            <h3 class="text-base font-black text-accent mb-4 flex items-center gap-2 shrink-0"><span>📺</span> ESTADO DE ÓRDENES</h3>
-            <div id="gridPantallaEstado" class="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar"></div>
+<!-- MONITOR CLIENTE (CON ESTILOS DEL SKIN Y BOTONES VISIBLES) -->
+    <main id="vista-pantalla-cliente" class="hidden flex-1 flex-col h-screen w-full bg-app-base p-4 overflow-hidden relative z-[100]">
+        
+        <!-- Barra superior de controles del Monitor -->
+        <div class="flex justify-between items-center mb-4 shrink-0">
+            <button onclick="document.exitFullscreen ? document.exitFullscreen() : null; cerrarSesion();" class="bg-card border border-[color:var(--card-border)] text-gray-300 px-4 py-2 rounded-xl text-sm font-bold hover:text-white transition shadow-lg">⬅ Salir del Monitor</button>
+            <button onclick="togglePantallaCompleta()" class="bg-accent bg-opacity-30 border border-accent text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-opacity-100 transition shadow-lg">🔲 Pantalla Completa</button>
         </div>
-        <div class="lg:col-span-3 bg-black border border-gray-800 p-2 rounded-3xl shadow-2xl flex items-center justify-center h-full relative overflow-hidden">
-            <div class="w-full h-full flex items-center justify-center bg-[#0a0a0a] rounded-2xl overflow-hidden relative" id="contenedorMediaCentral"></div>
+        
+        <!-- Contenedores con el color del Skin (bg-card) -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full items-stretch flex-1 min-h-0">
+            <!-- Panel de Estado -->
+            <div class="lg:col-span-1 bg-card border border-[color:var(--card-border)] p-5 rounded-3xl shadow-2xl flex flex-col h-full overflow-hidden">
+                <h3 class="text-base font-black text-accent mb-4 flex items-center gap-2 shrink-0"><span>📺</span> ESTADO DE ÓRDENES</h3>
+                <div id="gridPantallaEstado" class="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar"></div>
+            </div>
+            <!-- Panel Multimedia -->
+            <div class="lg:col-span-3 bg-card border border-[color:var(--card-border)] p-2 rounded-3xl shadow-2xl flex items-center justify-center h-full overflow-hidden">
+                <div class="w-full h-full flex items-center justify-center bg-app-base rounded-2xl overflow-hidden relative" id="contenedorMediaCentral"></div>
+            </div>
         </div>
-    </div>
-</main>
+    </main>
 
     <!-- MODAL DETALLE PRODUCTO -->
     <div id="modal-detalle-producto" class="fixed inset-0 bg-black bg-opacity-90 z-[120] hidden flex items-center justify-center p-4">
