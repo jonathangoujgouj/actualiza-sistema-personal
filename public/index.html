@@ -18,7 +18,6 @@
         .bg-app-panel { background-color: #0a0a10 !important; } 
         .bg-app-input { background-color: #0d0d14 !important; }
         
-        /* Marcos y divisiones con Neón Brillante */
         .neon-box {
             background: linear-gradient(135deg, rgba(15,15,21,0.95), rgba(10,10,16,0.98));
             border: 1px solid var(--accent);
@@ -42,7 +41,6 @@
             @page { margin: 0; size: auto; } 
         }
 
-        /* Mapa de Mesas Organizado por Grid adaptable (Vertical / Horizontal) */
         .mapa-grid-organizado {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -74,7 +72,7 @@
         var caja = { abierta: false, fondoInicial: 0 }; var productos = []; var comandas = []; var historialVentas = []; var egresos = []; var usuariosSistema = []; var archivosPublicidad = []; var archivosImagenes = []; var mensajesChat = [];
         var listaCompras = []; var config = { nombreNegocio: "LA BARRITA PRO", logoUrl: "", fondoPantallaUrl: "", promoTexto: "🔥 2x1 EN MICHELADAS Y ALITAS", promoTextoInferior: "📲 Wi-Fi: LaBarrita_VIP", tamanoTextoSup: 20, tamanoTextoInf: 15, redesUrl: "", mediaUrl: "", mostrarYouTube: false, videoConAudio: false, skinSeleccionada: "tech-neon" };
         var mesasData = []; var ipServidor = window.location.host; var carrito = []; var indexPublicidad = -1; var comandaCobroActiva = null; var metodoPago = 'Efectivo'; var timerPublicidad = null; var chartVentas = null; var modalProductoActivo = null;
-        var categoriaSeleccionadaMenu = 'Todos';
+        var categoriaSeleccionadaMenu = 'Todos'; var cantidadModalActual = 1;
 
         var SKINS = {
             "tech-neon": { bgMain: "#07070a", cardBg: "#0f0f15", border: "#1f1f2e", accent: "#a855f7", glow: "rgba(168, 85, 247, 0.35)" },
@@ -140,7 +138,7 @@
                 document.getElementById('appTopBar').classList.add('hidden'); 
                 if(btnAudio) btnAudio.classList.add('hidden');
                 var btnChat = document.getElementById('btnChatFlotante'); if (btnChat) btnChat.classList.add('hidden');
-                cambiarVista('pantalla-cliente'); renderizarMonitor(); iniciarCarruselPublicidad(); return; 
+                cambiarVista('pantalla-cliente'); renderizarMonitor(); iniciarCarruselPublicidad(); iniciarRelojDigital(); return; 
             }
             
             if (modo === 'cliente') {
@@ -158,7 +156,7 @@
                 }
             } else {
                 document.getElementById('appTopBar').classList.remove('hidden'); 
-                var chatPos = document.getElementById('contenedorChatPOS'); if (chatPos) chatPos.classList.remove('hidden');
+                var chatPos = document.getElementById('contenedorChatPOS'); if (chatPos) chatPos.classList.add('hidden');
                 var btnSalirC = document.getElementById('btnSalirClienteFlotante'); if(btnSalirC) btnSalirC.remove();
                 
                 var btnGrpCli = document.getElementById('btnGroupCliente'); if(btnGrpCli) btnGrpCli.classList.add('hidden');
@@ -204,7 +202,7 @@
             ['comandas', 'barra', 'inventario', 'admin', 'pantalla-cliente', 'mapa'].forEach(function(x) { var el = document.getElementById('vista-' + x); if (el) el.classList.add('hidden'); });
             var vActiva = document.getElementById('vista-' + v); if (vActiva) vActiva.classList.remove('hidden');
             if (v === 'inventario') renderizarInventario(); if (v === 'barra') { renderizarBarra(); renderizarInsumos(); } if (v === 'admin') { renderizarAdmin(); renderizarInsumos(); } if (v === 'mapa') { renderizarMapa(); }
-            if (v === 'pantalla-cliente') { renderizarMonitor(); iniciarCarruselPublicidad(); } else clearInterval(timerPublicidad); if (v === 'comandas') renderizarMenu();
+            if (v === 'pantalla-cliente') { renderizarMonitor(); iniciarCarruselPublicidad(); iniciarRelojDigital(); } else clearInterval(timerPublicidad); if (v === 'comandas') renderizarMenu();
         }
 
         function configurarAppBottomBar() {
@@ -313,7 +311,7 @@
                 htmlGrid += '<div class="col-span-full mt-2 mb-1 border-b border-[color:var(--card-border)] pb-1"><h3 class="text-xs font-black text-gray-400 uppercase tracking-widest">' + escapeHTML(c) + '</h3></div>';
                 prodsDeCat.forEach(function(p) {
                     var imgUrl = p.imagen ? encodeURI(p.imagen) : ''; var imgHtml = imgUrl ? '<img src="'+imgUrl+'" class="w-full h-full object-cover">' : '<span class="text-4xl opacity-20">🔥</span>';
-                    htmlGrid += '<div onclick="abrirDetalleProducto(' + p.id + ')" class="cursor-pointer flex flex-col bg-card rounded-2xl border border-[color:var(--card-border)] overflow-hidden hover:border-accent transition transform hover:scale-105 active:scale-95 shadow-lg">' +
+                    htmlGrid += '<div onclick="abrirModalCantidadProducto(' + p.id + ')" class="cursor-pointer flex flex-col bg-card neon-box rounded-2xl overflow-hidden hover:border-accent transition transform hover:scale-105 active:scale-95 shadow-lg">' +
                         '<div class="h-28 w-full bg-app-base flex items-center justify-center relative">' + imgHtml + (p.stock <= 0 ? '<div class="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center"><span class="text-red-500 font-black border-2 border-red-500 p-1 transform -rotate-12 bg-black text-[10px]">AGOTADO</span></div>' : '') + '</div>' +
                         '<div class="p-3 flex-1 flex flex-col justify-between bg-card text-left">' +
                         '<h4 class="font-bold text-gray-200 text-xs leading-tight mb-2">' + escapeHTML(p.nombre) + '</h4>' +
@@ -323,17 +321,28 @@
             }); grid.innerHTML = htmlGrid;
         }
 
-        function abrirDetalleProducto(id) {
-            var p = productos.find(function(x) { return x.id === id; }); if(!p) return; modalProductoActivo = p;
-            document.getElementById('detProdNombre').textContent = p.nombre; document.getElementById('detProdPrecio').textContent = '$' + Number(p.precio).toFixed(2);
-            document.getElementById('modal-detalle-producto').classList.remove('hidden');
+        // Modal para seleccionar la cantidad antes de agregar al carrito
+        function abrirModalCantidadProducto(id) {
+            var p = productos.find(function(x) { return x.id === id; }); if(!p || p.stock <= 0) return;
+            modalProductoActivo = p; cantidadModalActual = 1;
+            document.getElementById('modalCantNombre').textContent = p.nombre;
+            document.getElementById('modalCantPrecio').textContent = '$' + Number(p.precio).toFixed(2);
+            document.getElementById('spanCantidadModal').textContent = cantidadModalActual;
+            document.getElementById('modal-cantidad-producto').classList.remove('hidden');
         }
-        function agregarDesdeDetalle() {
-            if(!modalProductoActivo || modalProductoActivo.stock <= 0) return;
+        function cambiarCantidadModal(delta) {
+            cantidadModalActual = Math.max(1, cantidadModalActual + delta);
+            document.getElementById('spanCantidadModal').textContent = cantidadModalActual;
+        }
+        function confirmarAgregarCantidad() {
+            if(!modalProductoActivo) return;
             var item = carrito.find(function(x) { return x.id === modalProductoActivo.id; }); 
-            if (item) { item.cantidad++; } else { carrito.push(Object.assign({}, modalProductoActivo, { cantidad: 1 })); } 
-            renderizarCarrito(); document.getElementById('modal-detalle-producto').classList.add('hidden');
+            if (item) { item.cantidad += cantidadModalActual; } 
+            else { carrito.push(Object.assign({}, modalProductoActivo, { cantidad: cantidadModalActual })); } 
+            renderizarCarrito(); 
+            document.getElementById('modal-cantidad-producto').classList.add('hidden');
         }
+
         function ajustarCantidad(id, delta) {
             var item = carrito.find(function(x) { return x.id === id; }); if (!item) return; item.cantidad += delta; 
             if (item.cantidad <= 0) { carrito = carrito.filter(function(x) { return x.id !== id; }); } renderizarCarrito();
@@ -550,9 +559,6 @@
             document.getElementById('checkPermisoMenu').checked = u.permisos.menu; document.getElementById('checkPermisoMapa').checked = u.permisos.mapa; document.getElementById('checkPermisoAdmin').checked = u.permisos.admin;
             var btnGuardar = document.getElementById('btnGuardarNuevoUsuario'); btnGuardar.textContent = "Actualizar Usuario"; btnGuardar.setAttribute("data-edit-id", u.id);
         }
-        function guardarNewUsuario() {
-            // alias seguro
-        }
         function guardarNuevoUsuario() {
             var idEdicion = document.getElementById('btnGuardarNuevoUsuario').getAttribute('data-edit-id'); var usuario = document.getElementById('nuevoUsuarioNick').value.trim(); var nombre = document.getElementById('nuevoUsuarioNombre').value.trim(); var pin = document.getElementById('nuevoUsuarioPin').value.trim(); 
             var permisos = { menu: document.getElementById('checkPermisoMenu').checked, mapa: document.getElementById('checkPermisoMapa').checked, barra: document.getElementById('checkPermisoBarra').checked, inventario: document.getElementById('checkPermisoInventario').checked, admin: document.getElementById('checkPermisoAdmin').checked };
@@ -562,16 +568,44 @@
         }
         function eliminarUsuario(id) { if (confirm('¿Eliminar usuario?')) { if (socket) socket.emit('eliminar_usuario', id); } }
 
+        // Monitor con Reloj Digital, Ticket en Proceso y Rango de Tiempo Estimado
+        function iniciarRelojDigital() {
+            setInterval(function() {
+                var relojEl = document.getElementById('relojDigitalMonitor');
+                if(relojEl) {
+                    var ahora = new Date();
+                    relojEl.textContent = ahora.toLocaleTimeString();
+                }
+            }, 1000);
+        }
+
         function renderizarMonitor() {
             var cont = document.getElementById('gridPantallaEstado'); if(!cont) return;
+            var contenedorTicketActivo = document.getElementById('infoTicketEnProcesoMonitor');
+            
+            var activas = comandas.filter(function(c) { return c.estado !== 'Cobrado'; });
+            
+            if (activas.length > 0 && contenedorTicketActivo) {
+                var actual = activas[0];
+                contenedorTicketActivo.innerHTML = '<div class="bg-purple-900 bg-opacity-40 border border-purple-500 p-3 rounded-2xl text-center shadow-lg mb-4">' +
+                    '<span class="text-xxs text-gray-300 uppercase block font-bold">Ticket en Proceso</span>' +
+                    '<span class="text-xl font-black text-white">' + (actual.folio || 'Mesa') + '</span>' +
+                    '<div class="text-xxs text-green-400 mt-1 font-bold">⏱️ Tiempo Estimado: 10 - 15 min</div></div>';
+            } else if(contenedorTicketActivo) {
+                contenedorTicketActivo.innerHTML = '';
+            }
+
             cont.innerHTML = comandas.length === 0 ? '<p class="text-gray-500 text-center py-10 text-xs">Sin órdenes activas</p>' : comandas.map(function(c) {
                 return '<div class="p-3.5 rounded-2xl border ' + (c.estado === 'Listo' ? 'bg-green-900 bg-opacity-70 border-green-400 text-green-200' : 'bg-app-base border-[color:var(--card-border)] text-white') + ' flex justify-between items-center text-xs shadow-xl">' + '<div><span class="font-black text-sm block">' + escapeHTML(c.mesa) + '</span><span class="text-xxs text-gray-400">' + c.items.length + ' arts</span></div>' + '<span class="pill-badge uppercase ' + (c.estado === 'Listo' ? 'bg-green-500 text-black animate-bounce font-black' : 'bg-accent border border-accent') + '">' + escapeHTML(c.estado) + '</span></div>';
             }).join('');
         }
+
         function iniciarCarruselPublicidad() { 
             clearInterval(timerPublicidad); if (config.mostrarYouTube && config.mediaUrl && (config.mediaUrl.indexOf('youtube.com') !== -1 || config.mediaUrl.indexOf('youtu.be') !== -1)) { mostrarMediaPublicidad(); return; }
             mostrarMediaPublicidad(); timerPublicidad = setInterval(function() { mostrarMediaPublicidad(); }, 8500); 
         }
+
+        // Reproductor con Audio Habilitado para Videos Locales de Publicidad
         function mostrarMediaPublicidad() {
             var mediaCont = document.getElementById('contenedorMediaCentral'); if (!mediaCont) return; 
             if (config.mostrarYouTube && config.mediaUrl) {
@@ -580,8 +614,13 @@
             }
             if (archivosPublicidad && archivosPublicidad.length > 0) {
                 indexPublicidad = (indexPublicidad + 1) % archivosPublicidad.length; var ruta = encodeURI(archivosPublicidad[indexPublicidad]);
-                if (ruta.toLowerCase().indexOf('.mp4') !== -1) { mediaCont.innerHTML = '<video src="' + ruta + '" autoplay loop muted playsinline class="absolute inset-0 w-full h-full object-cover"></video>'; } 
-                else { mediaCont.innerHTML = '<img src="' + ruta + '" class="absolute inset-0 w-full h-full object-cover rounded-3xl">'; } return;
+                if (ruta.toLowerCase().indexOf('.mp4') !== -1) { 
+                    // Video local con audio habilitado (muted=false si config.videoConAudio está activo)
+                    var muteAttr = config.videoConAudio ? '' : 'muted';
+                    mediaCont.innerHTML = '<video src="' + ruta + '" autoplay loop ' + muteAttr + ' playsinline class="absolute inset-0 w-full h-full object-cover"></video>'; 
+                } else { 
+                    mediaCont.innerHTML = '<img src="' + ruta + '" class="absolute inset-0 w-full h-full object-cover rounded-3xl">'; 
+                } return;
             }
             mediaCont.innerHTML = '<div class="text-gray-500 text-sm">Sin publicidad. Añade videos o fotos a public/publicidad/</div>';
         }
@@ -661,6 +700,23 @@
         </div>
     </div>
 
+    <!-- MODAL SELECCIONAR CANTIDAD AL TOCAR PRODUCTO -->
+    <div id="modal-cantidad-producto" class="fixed inset-0 bg-black bg-opacity-90 z-[150] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-card neon-box p-6 rounded-3xl max-w-xs w-full text-center space-y-4 shadow-2xl">
+            <h3 id="modalCantNombre" class="font-extrabold text-accent text-base">Platillo</h3>
+            <span id="modalCantPrecio" class="text-green-400 font-black text-xl block"></span>
+            <div class="flex justify-center items-center gap-4 py-2">
+                <button onclick="cambiarCantidadModal(-1)" class="w-10 h-10 bg-gray-800 text-white font-black rounded-xl text-lg">-</button>
+                <span id="spanCantidadModal" class="text-2xl font-black text-white w-12">1</span>
+                <button onclick="cambiarCantidadModal(1)" class="w-10 h-10 bg-gray-800 text-white font-black rounded-xl text-lg">+</button>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="confirmarAgregarCantidad()" class="flex-1 bg-green-500 text-black font-extrabold py-3 rounded-xl text-xs shadow-lg">Agregar al Ticket</button>
+                <button onclick="document.getElementById('modal-cantidad-producto').classList.add('hidden')" class="flex-1 bg-gray-800 text-gray-300 font-bold py-3 rounded-xl text-xs">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- BARRA SUPERIOR CON USUARIO ACTIVO -->
     <header id="appTopBar" class="hidden bg-app-panel border-b border-[color:var(--card-border)] px-4 py-3 sticky top-0 z-40 flex justify-between items-center neon-box rounded-none">
         <div class="flex items-center gap-2"><span class="text-xl">🍺</span><h1 class="text-sm font-black text-accent tracking-wider">LA BARRITA</h1></div>
@@ -684,7 +740,7 @@
         <button onclick="volverMenuAnterior()" class="md:hidden absolute top-2 left-4 z-10 bg-card border border-[color:var(--card-border)] text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg">⬅ Salir</button>
         
         <div class="flex flex-col md:flex-row h-full gap-3 pt-12 md:pt-0">
-            <!-- COLUMNA 1: SIDEBAR (Siempre Visible y con Neón) -->
+            <!-- COLUMNA 1: SIDEBAR -->
             <div class="flex flex-col w-56 lg:w-64 bg-card neon-box rounded-2xl overflow-hidden shadow-xl shrink-0">
                 <div class="p-3 border-b border-[color:var(--card-border)] bg-app-panel">
                     <h3 class="font-black text-white text-sm uppercase tracking-wider">Product Menu</h3>
@@ -739,15 +795,21 @@
         </div>
     </main>
 
-    <!-- MONITOR CLIENTE -->
+    <!-- MONITOR CLIENTE (Con Reloj Digital, Ticket en Proceso y Rango de Tiempo) -->
     <main id="vista-pantalla-cliente" class="hidden fixed inset-0 z-[200] bg-[#050505] p-4 flex flex-col overflow-hidden">
         <div class="flex justify-between items-center mb-4 shrink-0">
             <button onclick="document.exitFullscreen ? document.exitFullscreen() : null; cerrarSesion();" class="bg-card border border-[color:var(--card-border)] text-gray-300 px-4 py-2 rounded-xl text-sm font-bold hover:text-white transition shadow-lg">⬅ Salir del Monitor</button>
+            
+            <!-- Reloj Digital en espacio libre superior -->
+            <div id="relojDigitalMonitor" class="text-accent text-xl font-black tracking-widest bg-black px-4 py-1.5 rounded-xl border border-[color:var(--card-border)]">00:00:00</div>
+            
             <button onclick="togglePantallaCompleta()" class="bg-accent bg-opacity-30 border border-accent text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-opacity-100 transition shadow-lg">🔲 Pantalla Completa</button>
         </div>
         
         <div class="flex-1 flex flex-col lg:flex-row gap-6 h-full min-h-0 overflow-hidden">
             <div class="w-full lg:w-1/4 bg-card neon-box p-5 rounded-3xl flex flex-col h-full overflow-hidden">
+                <!-- Espacio para Ticket en Proceso y Rango de Tiempo -->
+                <div id="infoTicketEnProcesoMonitor"></div>
                 <h3 class="text-base font-black text-accent mb-4 flex items-center gap-2 shrink-0"><span>📺</span> ESTADO DE ÓRDENES</h3>
                 <div id="gridPantallaEstado" class="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar"></div>
             </div>
@@ -793,7 +855,7 @@
                     <input type="number" id="prodStockMinimo" placeholder="Aviso Mínimo" class="w-full bg-app-input border border-[color:var(--card-border)] rounded-xl px-3 py-2 text-xs text-white">
                     <select id="prodCategoria" class="w-full bg-app-input border border-[color:var(--card-border)] rounded-xl px-2 py-2 text-xs text-white"><option value="Alitas">Alitas</option><option value="Combos">Combos</option><option value="Bebidas">Bebidas</option></select>
                 </div>
-                <select id="prodImagenUrl" class="w-full bg-app-input border border-[color:var(--card-border)] rounded-xl px-3 py-2 text-xs text-white"><option value="">Sin imagen (Subir a public/imagenes)</option></select>
+                <select id="prodImagenUrl" class="w-full bg-app-input border border-[color:var(--card-border)] rounded-xl px-3 py-2 text-xs text-white"><option value="">Sin imagen (Subir a public/productos)</option></select>
                 <button id="btnGuardarProducto" onclick="guardarProducto()" type="button" class="w-full bg-green-500 text-black font-extrabold py-2.5 rounded-xl text-xs mt-2">Guardar en Catálogo</button>
                 <button id="btnCancelarEdicion" onclick="limpiarFormProducto()" class="hidden w-full bg-app-panel text-gray-300 font-bold py-2 rounded-xl text-xs mt-2 border border-[color:var(--card-border)]">Cancelar Edición</button>
             </div>
@@ -881,7 +943,7 @@
         </div>
     </main>
 
-    <!-- MODAL DE COBRO CON FONDO SÓLIDO (Evita que se encime con el mapa) -->
+    <!-- MODAL DE COBRO CON FONDO SÓLIDO (Evita superposición) -->
     <div id="modal-cobro" class="fixed inset-0 bg-black bg-opacity-95 z-[9999] hidden flex items-center justify-center p-4 backdrop-blur-md">
         <div class="bg-card neon-box p-6 rounded-3xl max-w-4xl w-full shadow-2xl grid grid-cols-1 md:grid-cols-12 gap-6 relative">
             <button onclick="cerrarCobro()" class="absolute -top-4 -right-4 bg-red-600 text-white w-10 h-10 rounded-full font-black text-lg border-2 border-black shadow-lg">X</button>
@@ -934,9 +996,7 @@
         <div class="p-2 border-t border-[color:var(--card-border)] flex gap-2"><input type="text" id="inputChat" onkeydown="enviarMensajeChat(event)" placeholder="Mensaje interno..." class="flex-1 bg-app-input border border-[color:var(--card-border)] rounded-xl px-3 py-1.5 text-xs text-white outline-none"><button onclick="enviarMensajeChat({key:'Enter'})" class="bg-accent text-white font-bold px-3 rounded-xl text-xs">▶</button></div>
     </div>
 
-    <!-- Contenedor oculto para impresión rápida de etiquetas térmicas con QR -->
     <div id="area-impresion-etiquetas"></div>
-
     <nav id="appBottomBar" class="fixed bottom-0 left-0 right-0 bg-app-base bg-opacity-95 border-t border-[color:var(--card-border)] z-30 px-3 py-1 hidden"></nav>
 </body>
 </html>
