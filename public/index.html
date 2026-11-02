@@ -795,7 +795,7 @@
         </div>
     </main>
 
-  <!-- MONITOR CLIENTE (CORREGIDO PARA MOSTRAR PUBLICIDAD AL 100% Y EVITAR DUPLICADOS) -->
+ <!-- MONITOR CLIENTE (CORREGIDO PARA MOSTRAR PUBLICIDAD AL 100% Y EVITAR DUPLICADOS) -->
     <main id="vista-pantalla-cliente" class="hidden fixed inset-0 z-[200] bg-[#050505] p-3 flex flex-col overflow-hidden">
         <!-- Barra superior con controles y reloj -->
         <div class="flex justify-between items-center mb-2 shrink-0">
@@ -803,6 +803,21 @@
             <div id="relojDigitalMonitor" class="text-accent text-lg font-black tracking-widest bg-black px-4 py-1 rounded-xl border border-[color:var(--card-border)]">00:00:00</div>
             <button onclick="togglePantallaCompleta()" class="bg-accent bg-opacity-30 border border-accent text-white px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-opacity-100 transition shadow-lg">🔲 Pantalla</button>
         </div>
+        
+        <!-- Contenedores principales limpios sin duplicados -->
+        <div class="flex-1 flex flex-col lg:flex-row gap-4 h-[calc(100vh-60px)] min-h-0 overflow-hidden">
+            <!-- Panel izquierdo de órdenes -->
+            <div class="w-full lg:w-1/4 bg-card neon-box p-4 rounded-3xl flex flex-col h-full overflow-hidden">
+                <div id="infoTicketEnProcesoMonitor"></div>
+                <h3 class="text-sm font-black text-accent mb-3 flex items-center gap-2 shrink-0"><span>📺</span> ESTADO DE ÓRDENES</h3>
+                <div id="gridPantallaEstado" class="space-y-2 overflow-y-auto flex-1 pr-1 no-scrollbar"></div>
+            </div>
+            <!-- Panel derecho multimedia absoluto (Garantiza que la imagen o video llene todo el cuadro negro) -->
+            <div class="w-full lg:w-3/4 bg-black rounded-3xl relative overflow-hidden flex-1 h-full min-h-[300px] border border-[color:var(--card-border)] shadow-2xl">
+                <div id="contenedorMediaCentral" class="absolute inset-0 w-full h-full flex items-center justify-center bg-black overflow-hidden"></div>
+            </div>
+        </div>
+    </main>
         
         <!-- Contenedores principales limpios sin duplicados -->
         <div class="flex-1 flex flex-col lg:flex-row gap-4 h-[calc(100vh-60px)] min-h-0 overflow-hidden">
