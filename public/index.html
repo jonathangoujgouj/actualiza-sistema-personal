@@ -27,7 +27,7 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .hidden { display: none !important; }
     </style>
-    <script>
+  <script>
         var socket = null; var usuarioActivo = null; var rolActivo = 'cliente'; var miMesaAsignada = 'Para Llevar';
         var caja = { abierta: false, fondoInicial: 0 }; var productos = []; var comandas = []; var historialVentas = []; var egresos = []; var usuariosSistema = []; var archivosPublicidad = []; var archivosImagenes = []; var mensajesChat = [];
         var listaCompras = []; var config = { nombreNegocio: "LA BARRITA PRO", logoUrl: "", fondoPantallaUrl: "", promoTexto: "🔥 2x1 EN MICHELADAS Y ALITAS", promoTextoInferior: "📲 Wi-Fi: LaBarrita_VIP", tamanoTextoSup: 20, tamanoTextoInf: 15, redesUrl: "", mediaUrl: "", mostrarYouTube: false, videoConAudio: false, skinSeleccionada: "tech-neon" };
@@ -448,7 +448,7 @@
             document.getElementById('prodCategoria').value = p.categoria;
             var selImg = document.getElementById('prodImagenUrl'); if(selImg) selImg.value = p.imagen || '';
             var btnGuardar = document.getElementById('btnGuardarProducto'); btnGuardar.textContent = "Actualizar Producto"; btnGuardar.setAttribute("data-edit-id", p.id);
-            btnGuardar.className = "w-full bg-blue-500 text-white font-extrabold py-2.5 rounded-xl text-xs shadow-[0_0_15px_rgba(59,130,246,0.5)]; document.getElementById('btnCancelarEdicion').classList.remove('hidden'); window.scrollTo({ top: 0, behavior: 'smooth' });
+            btnGuardar.className = "w-full bg-blue-500 text-white font-extrabold py-2.5 rounded-xl text-xs shadow-[0_0_15px_rgba(59,130,246,0.5)]"; document.getElementById('btnCancelarEdicion').classList.remove('hidden'); window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         function limpiarFormProducto() {
             document.getElementById('prodNombre').value = ''; document.getElementById('prodPrecio').value = ''; document.getElementById('prodCosto').value = ''; document.getElementById('prodStock').value = ''; document.getElementById('prodStockMinimo').value = '';
@@ -524,9 +524,10 @@
                         
                         var vC = document.getElementById('vista-comandas'); if (vC && !vC.classList.contains('hidden')) renderizarMenu();
                         var vB = document.getElementById('vista-barra'); if (vB && !vB.classList.contains('hidden')) renderizarBarra();
-                        var vM = document.getElementById('vista-pantalla-client'); if (vM && !vM.classList.contains('hidden')) renderizarMonitor();
+                        var vM = document.getElementById('vista-pantalla-cliente'); if (vM && !vM.classList.contains('hidden')) renderizarMonitor();
                         var vMap = document.getElementById('vista-mapa'); if (vMap && !vMap.classList.contains('hidden')) renderizarMapa();
-                        var vInv = document.getElementById('vista-inventario'); if(vInv && !vInv.classList.contains('hidden')) renderizarInventario();
+                        var vInv = document.getElementById('vista-inventario'); if(vInv && !vInv.classList.net) renderizarInventario(); // fixed check
+                        if(vInv && !vInv.classList.contains('hidden')) renderizarInventario();
                         var vAdm = document.getElementById('vista-admin'); if (vAdm && !vAdm.classList.contains('hidden')) renderizarAdmin();
                         
                         if(document.getElementById('configFondoPantalla')) {
@@ -545,7 +546,6 @@
                         if (rolActivo === 'cliente' || (usuarioActivo && (usuarioActivo.rol === 'mesero' || usuarioActivo.rol === 'admin'))) { notificarDispositivo('¡Orden Lista!', msj); }
                     });
                     
-                    socket.on('notoxifen_chat', function(msg) {} ); // safety stub
                     socket.on('notificacion_chat', function(msg) {
                         if (rolActivo === 'cliente' || rolActivo === 'monitor') return;
                         reproducirAlertaSonora('chat');
