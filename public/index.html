@@ -5,186 +5,207 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#07060e">
-  <title>LA BARRITA POS // Cyber-Neon & Jukebox Suite</title>
+  <meta name="theme-color" content="#050505">
+  <title>LA BARRITA POS // Cyber-Neon Suite</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="/socket.io/socket.io.js"></script>
   <style>
-:root {
-      --skin-bg: #050505;       /* Negro carbón profundo inspirado en el diseño */
-      --skin-panel: #0b0c10;    /* Panel oscuro elegante */
-      --skin-card: #12141c;     /* Tarjetas con contraste sutil */
-      --skin-primary: #ff2a75;  /* Rosa neón vibrante para llamadas y precios */
-      --skin-accent: #00f0ff;   /* Cian eléctrico para estados */
-      --skin-gold: #ffb703;     /* Dorado para imperdibles / destaques */
+    :root {
+      --skin-bg: #050505;
+      --skin-panel: #0b0c10;
+      --skin-card: #12141c;
+      --skin-primary: #ff2a75;
+      --skin-accent: #00f0ff;
+      --skin-gold: #ffb703;
       --skin-text: #ffffff;
     }
 
-    /* Tarjetas con efecto de borde neón tenue */
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background-color: var(--skin-bg) !important;
+      color: var(--skin-text) !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      -webkit-user-select: none; user-select: none;
+    }
+
+    .vista-oculta { display: none !important; }
+    .vista-activa { display: -webkit-box !important; display: -webkit-flex !important; display: flex !important; }
+
+    button, select, input {
+      font-family: inherit; border-radius: 10px;
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      background-color: var(--skin-card); color: #ffffff; padding: 6px 12px; cursor: pointer;
+    }
+
     .cyber-panel {
       background-color: var(--skin-panel);
-      border: 1px solid rgba(0, 240, 255, 0.2);
-      border-radius: 14px;
-      padding: 14px;
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      border-radius: 14px; padding: 12px;
       box-shadow: 0 0 15px rgba(0, 0, 0, 0.6);
-      transition: all 0.3s ease;
-    }
-    
-    .cyber-panel:hover {
-      border-color: rgba(255, 42, 117, 0.4);
     }
 
     .cyber-btn-primary {
       background: linear-gradient(135deg, #ff2a75, #c9184a) !important;
-      color: #ffffff !important;
-      font-weight: 800;
-      border: none;
+      color: #ffffff !important; font-weight: 800; border: none;
       box-shadow: 0 0 12px rgba(255, 42, 117, 0.4);
     }
 
     .cyber-btn-accent {
       background: linear-gradient(135deg, #00f0ff, #0077b6) !important;
-      color: #04130e !important;
-      font-weight: 900;
-      border: none;
+      color: #04130e !important; font-weight: 900; border: none;
       box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+    }
+
+    /* Adaptación Dinámica de Orientación (Landscape / Portrait para Tablets y Celulares) */
+    .pos-layout {
+      display: -webkit-flex; display: flex;
+      flex: 1; min-height: 0; gap: 10px; overflow-y: auto;
+    }
+    body.modo-landscape .pos-layout { flex-direction: row !important; overflow: hidden !important; }
+    body.modo-portrait .pos-layout { flex-direction: column !important; overflow-y: auto !important; }
+
+    body.modo-landscape .pos-col-menu { width: 30%; height: 100%; }
+    body.modo-landscape .pos-col-mapa { width: 44%; height: 100%; }
+    body.modo-landscape .pos-col-check { width: 26%; height: 100%; }
+
+    body.modo-portrait .pos-col-menu,
+    body.modo-portrait .pos-col-mapa,
+    body.modo-portrait .pos-col-check { width: 100%; min-height: 380px; }
+
+    @keyframes tickerMove {
+      0% { -webkit-transform: translateX(0%); transform: translateX(0%); }
+      100% { -webkit-transform: translateX(-50%); transform: translateX(-50%); }
+    }
+    .marquee-track {
+      display: -webkit-inline-flex; display: inline-flex; white-space: nowrap;
+      -webkit-animation: tickerMove 28s linear infinite; animation: tickerMove 28s linear infinite;
     }
   </style>
 </head>
 <body class="flex flex-col h-full w-full">
-
-  <!-- ========================================================================= -->
-  <!-- 1. LAUNCHER DE PERFILES (FUNCIONA EN IPAD CLÁSICO, ANDROID Y PC)          -->
-  <!-- ========================================================================= -->
-  <div id="modal-perfiles" class="vista-oculta fixed inset-0 z-50 flex-col items-center justify-center p-4" style="background: rgba(7,6,14,0.96); overflow-y: auto;">
-    <div class="cyber-panel w-full max-w-2xl space-y-4">
+/* Corrección definitiva para los botones dentro de las ventanas modales */
+#modal-cobro-pos button:not(.cyber-btn-accent) {
+  background-color: #1a1b26 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 42, 117, 0.6) !important;
+  font-weight: bold;
+}
+#modal-cobro-pos button:not(.cyber-btn-accent):hover {
+  background-color: #2a2b3c !important;
+  border-color: #ff2a75 !important;
+}
+  <!-- =================SELECTOR DE PERFILES Y TERMINAL ================= -->
+  <div id="modal-perfiles" class="vista-oculta fixed inset-0 z-50 flex-col items-center justify-center p-4" style="background: rgba(5,5,5,0.95); overflow-y: auto;">
+    <div class="cyber-panel w-full max-w-xl space-y-4">
       <div class="flex justify-between items-center border-b border-pink-500/30 pb-3">
-        <div>
-          <h1 class="text-xl font-black text-white">LA BARRITA POS // SELECTOR DE TERMINAL</h1>
-          <p class="text-xs text-slate-300">Elige qué pantalla usarás en este dispositivo:</p>
-        </div>
-        <button onclick="cerrarSelectorPerfiles()" class="text-lg font-black">✕</button>
+        <h1 class="text-base font-black text-white">LA BARRITA POS // SELECCIÓN DE TERMINAL</h1>
+        <button onclick="cerrarSelectorPerfiles()">✕</button>
       </div>
-
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <button onclick="seleccionarTerminal('admin')" class="p-3 text-left cyber-panel">
-          <div class="text-lg font-black text-pink-400">👑 Administrador</div>
-          <div class="text-xs text-slate-300">Acceso total + Config (PIN: 1234)</div>
-        </button>
+      <div class="grid grid-cols-2 gap-3">
         <button onclick="seleccionarTerminal('caja')" class="p-3 text-left cyber-panel">
-          <div class="text-lg font-black text-emerald-400">💵 Caja y Mesas</div>
-          <div class="text-xs text-slate-300">Ventas, Cobros y Corte</div>
+          <div class="text-base font-black text-pink-400">💵 Caja, Mesas y POS</div>
+          <div class="text-xs text-slate-300">Punto de venta y cobros rápidos</div>
         </button>
         <button onclick="seleccionarTerminal('cocina')" class="p-3 text-left cyber-panel">
-          <div class="text-lg font-black text-amber-400">🔥 Cocina / Barra</div>
-          <div class="text-xs text-slate-300">Tocar orden para mostrar en TV</div>
+          <div class="text-base font-black text-amber-400">🔥 Cocina / Barra KDS</div>
+          <div class="text-xs text-slate-300">Control de comandas en tiempo real</div>
         </button>
-        <button onclick="seleccionarTerminal('tv')" class="p-3 text-left cyber-panel" style="border-color:#10b981;">
-          <div class="text-lg font-black text-emerald-300">📺 Pantalla TV + Jukebox</div>
-          <div class="text-xs text-slate-300">Turnos, Videos YouTube/Local</div>
+        <button onclick="seleccionarTerminal('tv')" class="p-3 text-left cyber-panel" style="border-color:#00f0ff;">
+          <div class="text-base font-black text-cyan-300">📺 Monitor TV + Rockola</div>
+          <div class="text-xs text-slate-300">Publicidad y turnos en pantalla grande</div>
         </button>
-        <button onclick="seleccionarTerminal('cliente')" class="p-3 text-left cyber-panel" style="border-color:#06b6d4;">
-          <div class="text-lg font-black text-cyan-300">🎵 Menú Cliente + Rockola</div>
-          <div class="text-xs text-slate-300">Pedir a mesa + Comprar Créditos Música</div>
-        </button>
-        <button onclick="lanzarVentanaIndependientePC()" class="p-3 text-left cyber-panel" style="border-color:#a855f7;">
-          <div class="text-lg font-black text-purple-300">🖥️ Ventana App PC</div>
-          <div class="text-xs text-slate-300">Abrir fuera del navegador</div>
+        <button onclick="seleccionarTerminal('config')" class="p-3 text-left cyber-panel" style="border-color:#ffb703;">
+          <div class="text-base font-black text-amber-300">⚙️ Configuración & Cloud</div>
+          <div class="text-xs text-slate-300">Media, carpetas y modo online</div>
         </button>
       </div>
     </div>
   </div>
 
-  <!-- ========================================================================= -->
-  <!-- 2. BARRA SUPERIOR DE NAVEGACIÓN SIEMPRE VISIBLE                           -->
-  <!-- ========================================================================= -->
-  <header class="h-12 px-3 flex items-center justify-between shrink-0 border-b border-pink-500/40" style="background-color: var(--skin-panel);">
+  <!-- ================= BARRA SUPERIOR FIJA ================= -->
+  <header class="h-14 px-3 flex items-center justify-between shrink-0 border-b border-pink-500/40 bg-[#0b0c10]">
     <div class="flex items-center gap-2">
-      <button onclick="abrirSelectorPerfiles()" class="cyber-btn-primary text-xs px-3 py-1.5 rounded-xl">
-        🏠 Perfil / App
+      <button onclick="abrirSelectorPerfiles()" class="cyber-btn-primary text-xs px-3 py-2 rounded-xl font-black">
+        🏠 Perfiles
       </button>
-      <button onclick="abrirDrawerModulos()" class="text-xs font-bold px-3 py-1.5 rounded-xl">
-        ☰ 6 Módulos
+      <button onclick="abrirDrawerModulos()" class="text-xs font-bold px-3 py-2 rounded-xl bg-gray-900 border border-gray-700">
+        ☰ Módulos
       </button>
     </div>
 
-    <div id="reloj-global" class="font-mono font-black text-xs px-3 py-1 rounded-xl border border-emerald-400/50 text-emerald-400">
-      01:55 p.m.
+    <!-- Indicador Cloud / Local -->
+    <div class="hidden sm:flex items-center gap-2 px-3 py-1 rounded-lg bg-black/60 border border-gray-800 text-[11px]">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span class="text-gray-300">Modo Local: <strong class="text-emerald-400">Activo</strong></span>
+      <span class="text-gray-500 text-[10px]">(Cloud Ready)</span>
     </div>
 
-    <div class="flex items-center gap-1.5">
-      <button onclick="irAModulo('tv')" title="Pantalla TV" class="text-xs font-bold px-2.5 py-1.5">📺 TV</button>
-      <button onclick="irAModulo('cliente')" title="Menú Cliente + Créditos Música" class="text-xs font-bold px-2.5 py-1.5">🎵 Rockola (<span id="badge-creditos-top">3</span>)</button>
-      <button onclick="irAModulo('config')" title="Explorador Carpetas, YouTube y Skins" class="text-xs font-bold px-2.5 py-1.5">⚙️ Media/Skins</button>
-      <button onclick="lanzarVentanaIndependientePC()" title="Abrir como Ventana Independiente fuera del navegador" class="text-xs font-bold px-2.5 py-1.5">🖥️ App</button>
-      <button onclick="window.location.reload()" class="text-xs font-bold px-2 py-1.5">🔄</button>
+    <div class="flex items-center gap-2">
+      <button onclick="irAModulo('tv')" class="text-xs font-bold px-3 py-2 rounded-xl bg-emerald-950 text-emerald-300 border border-emerald-600">📺 TV</button>
+      <div id="reloj-global" class="font-mono font-black text-xs px-3 py-1.5 rounded-xl border border-emerald-400/30 text-emerald-400">00:00</div>
     </div>
   </header>
 
-  <!-- DRAWER DE LOS 6 MÓDULOS -->
-  <div id="drawer-modulos" class="vista-oculta fixed inset-0 z-50" style="background: rgba(0,0,0,0.8);">
+  <!-- DRAWER DE MÓDULOS -->
+  <div id="drawer-modulos" class="vista-oculta fixed inset-0 z-50" style="background: rgba(0,0,0,0.85);">
     <div class="cyber-panel w-72 h-full flex flex-col justify-between">
       <div class="space-y-2">
         <div class="flex justify-between items-center border-b border-slate-700 pb-2">
-          <span class="font-black text-sm text-pink-400">MÓDULOS DEL SISTEMA</span>
+          <span class="font-black text-sm text-pink-400">MENÚ DE MÓDULOS</span>
           <button onclick="cerrarDrawerModulos()">✕</button>
         </div>
-        <button onclick="irAModulo('caja')" class="w-full text-left py-2.5 px-3 font-bold text-xs">💰 1. Caja, Floor Plan y Menú</button>
-        <button onclick="irAModulo('inventario')" class="w-full text-left py-2.5 px-3 font-bold text-xs">📦 2. Inventarios y Stock</button>
-        <button onclick="irAModulo('cocina')" class="w-full text-left py-2.5 px-3 font-bold text-xs">🔥 3. Cocina / Barra (Comandas)</button>
-        <button onclick="irAModulo('admin')" class="w-full text-left py-2.5 px-3 font-bold text-xs">📊 4. Administración y Meseros</button>
-        <button onclick="irAModulo('config')" class="w-full text-left py-2.5 px-3 font-bold text-xs">⚙️ 5. Carpetas Media, YouTube y Skins</button>
-        <button onclick="irAModulo('respaldo')" class="w-full text-left py-2.5 px-3 font-bold text-xs">☁️ 6. GitHub, Rescate y Ventana PC</button>
+        <button onclick="irAModulo('caja')" class="w-full text-left py-2.5 px-3 font-bold text-xs">💰 1. Caja, Mesas y Ventas</button>
+        <button onclick="irAModulo('cocina')" class="w-full text-left py-2.5 px-3 font-bold text-xs">🔥 2. Cocina / Barra (KDS)</button>
+        <button onclick="irAModulo('inventario')" class="w-full text-left py-2.5 px-3 font-bold text-xs">📦 3. Inventario y Stock</button>
+        <button onclick="irAModulo('admin')" class="w-full text-left py-2.5 px-3 font-bold text-xs">📊 4. Reportes y Rendimiento</button>
+        <button onclick="irAModulo('config')" class="w-full text-left py-2.5 px-3 font-bold text-xs">⚙️ 5. Media, YouTube y Cloud</button>
         <button onclick="irAModulo('tv')" class="w-full text-left py-2.5 px-3 font-bold text-xs cyber-btn-accent">📺 Pantalla TV Pública</button>
-        <button onclick="irAModulo('cliente')" class="w-full text-left py-2.5 px-3 font-bold text-xs cyber-btn-primary">🎵 Menú QR Cliente + Créditos Música</button>
       </div>
       <button onclick="cerrarDrawerModulos()" class="w-full py-2 text-xs font-bold">Cerrar Menú</button>
     </div>
   </div>
 
-  <!-- ========================================================================= -->
-  <!-- MÓDULO 1: CAJA, FLOOR PLAN Y CHECKOUT (DISEÑO FLUIDO IPAD / PC / ANDROID) -->
-  <!-- ========================================================================= -->
+  <!-- ================= MÓDULO 1: CAJA Y POS ================= -->
   <main id="mod-caja" class="seccion-sistema vista-activa flex-1 flex-col p-2.5 gap-2 overflow-hidden">
     <div class="flex flex-wrap items-center justify-between gap-2 cyber-panel py-1.5 px-3 shrink-0 text-xs">
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-3">
         <span class="font-black text-emerald-400">💰 Fondo: $<span id="txt-fondo">1500.00</span></span>
         <button onclick="editarFondoCaja()">✏️ Fondo</button>
         <button onclick="agregarGastoCaja()">➖ Gasto ($<span id="txt-gastos">0.00</span>)</button>
-        <button onclick="verCorteCaja()">🧾 Corte de Caja</button>
-      </div>
-      <div class="flex items-center gap-2">
-        <button onclick="irAModulo('cliente')" class="cyber-btn-primary text-xs">🎵 Abrir Menú Cliente + Créditos Canciones</button>
+        <button onclick="verCorteCaja()">🧾 Corte</button>
       </div>
     </div>
 
-    <div class="pos-3col-layout">
-      <!-- Columna 1: PRODUCT MENU (Incluye Recarga de Créditos de Música para Clientes) -->
+    <div class="pos-layout">
+      <!-- Menú de Productos y Créditos -->
       <section class="pos-col-menu cyber-panel flex flex-col overflow-hidden">
-        <div class="text-xs font-black text-pink-400 uppercase mb-2">PRODUCT MENU & CRÉDITOS ROCKOLA</div>
+        <div class="text-xs font-black text-pink-400 uppercase mb-2">CATÁLOGO DE PRODUCTOS</div>
         <select id="filtro-cat-pos" onchange="renderProductosPOS()" class="w-full mb-2 text-xs font-bold">
-          <option value="Todos">🍔 Todo (Alimentos, Bebidas y Créditos Música)</option>
+          <option value="Todos">🍔 Todo el Menú</option>
           <option value="Alitas">🍗 Alitas & Snacks</option>
-          <option value="Cervezas">🍺 Micheladas & Cervezas</option>
-          <option value="Musica">🎵 Créditos para Canciones / Videos</option>
+          <option value="Cervezas">🍺 Bebidas & Cervezas</option>
+          <option value="Musica">🪙 Créditos Rockola</option>
         </select>
         <div id="grid-menu-pos" class="flex-1 overflow-y-auto grid grid-cols-2 gap-2 pr-1 content-start"></div>
       </section>
 
-      <!-- Columna 2: FLOOR PLAN -->
+      <!-- Floor Plan Mesas -->
       <section class="pos-col-mapa cyber-panel flex flex-col overflow-hidden">
         <div class="flex justify-between items-center mb-2">
-          <span class="text-xs font-black text-pink-400 uppercase">FLOOR PLAN — DINING AREA</span>
-          <span class="text-[11px] text-slate-300">Toca una mesa para gestionar su cuenta</span>
+          <span class="text-xs font-black text-pink-400 uppercase">MAPA DE MESAS Y ÁREAS</span>
+          <span class="text-[11px] text-slate-300">Toca una mesa para su cuenta</span>
         </div>
         <div id="grid-mesas-pos" class="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-2 content-start"></div>
       </section>
 
-      <!-- Columna 3: CHECKOUT -->
+      <!-- Checkout / Cobro -->
       <section class="pos-col-check cyber-panel flex flex-col justify-between overflow-hidden">
         <div>
           <div class="flex justify-between items-center border-b border-slate-700 pb-2 mb-2">
-            <span class="text-xs font-black text-pink-400">CHECKOUT / BILLING</span>
+            <span class="text-xs font-black text-pink-400">CUENTA ACTIVA</span>
             <span id="lbl-mesa-activa" class="text-xs font-black text-emerald-400">MESA 3</span>
           </div>
         </div>
@@ -195,7 +216,7 @@
             <span id="lbl-total-pos" class="text-lg text-emerald-400">$0.00</span>
           </div>
           <div class="grid grid-cols-2 gap-2">
-            <button onclick="comandarOrdenActual()" class="py-2.5 text-xs font-black">🔥 Comandar</button>
+            <button onclick="comandarOrdenActual()" class="py-2.5 text-xs font-black cyber-btn-primary">🔥 Comandar</button>
             <button onclick="abrirModalCobro()" class="py-2.5 text-xs cyber-btn-accent">💳 Cobrar</button>
           </div>
         </div>
@@ -203,251 +224,73 @@
     </div>
   </main>
 
-  <!-- ========================================================================= -->
-  <!-- PANTALLA TV PÚBLICA (CORREGIDA EN ANDROID HORIZONTAL + YOUTUBE + CARPETAS)-->
-  <!-- ========================================================================= -->
-  <main id="mod-tv" class="seccion-sistema vista-oculta flex-1 flex-col overflow-hidden" style="background:#040907;">
-    <div class="tv-grid-layout">
-      
-      <!-- Lado Izquierdo: Estado de Órdenes + Contenedor Multimedia #2 + Redes -->
-      <div class="tv-col-left">
-        <section class="cyber-panel flex-1 flex flex-col overflow-hidden" style="background:#071510; border-color:#10b981;">
-          <div class="flex justify-between items-center border-b border-emerald-500/30 pb-1.5 mb-2 shrink-0">
-            <span class="text-xs font-black text-emerald-400">📋 ESTADO DE ÓRDENES</span>
-            <span class="text-[10px] text-emerald-300">En Vivo</span>
-          </div>
-          <div id="tv-ordenes-box" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
-        </section>
+  <!-- ================= MÓDULO PANTALLA TV PÚBLICA ================= -->
+  <main id="mod-tv" class="seccion-sistema vista-oculta flex-1 flex-col overflow-hidden" style="background:#020504;">
+    <div class="flex-1 flex flex-col sm:flex-row gap-2 p-2 overflow-hidden">
+      <!-- Lista de Órdenes -->
+      <section class="cyber-panel w-full sm:w-1/3 flex flex-col overflow-hidden" style="background:#071510; border-color:#00f0ff;">
+        <div class="border-b border-cyan-500/30 pb-2 mb-2">
+          <span class="text-xs font-black text-cyan-400">📋 ESTADO DE COMANDAS EN TV</span>
+        </div>
+        <div id="tv-ordenes-box" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
+      </section>
 
-        <!-- Contenedor Independiente #2 (Explorador de Carpeta o URL) -->
-        <section class="cyber-panel h-48 sm:h-52 shrink-0 flex flex-col justify-between p-0 overflow-hidden relative" style="background:#071510; border-color:#10b981;">
-          <div class="absolute top-1.5 left-2 right-2 flex justify-between z-10">
-            <span class="px-2 py-0.5 rounded bg-black/80 text-[10px] font-black text-emerald-300">🎬 PROMO #2</span>
-            <div class="flex gap-1">
-              <button onclick="irAModulo('config')" class="px-2 py-0.5 rounded bg-black/80 text-[10px]">📁 Carpeta</button>
-              <button onclick="siguienteMedia(2)" class="px-2 py-0.5 rounded bg-black/80 text-[10px]">⏭️ Sig.</button>
-            </div>
-          </div>
-          <div id="tv-visor-2" class="flex-1 w-full h-full bg-black flex items-center justify-center overflow-hidden"></div>
-          <div class="px-2 py-1 bg-black/90 border-t border-emerald-500/30 flex justify-between text-[10px] font-bold">
-            <span class="text-emerald-300">💬 WhatsApp</span>
-            <span class="text-pink-300">📸 @LaBarrita</span>
-            <span class="text-blue-300">📘 /LaBarrita</span>
-            <span class="text-white">🎵 TikTok</span>
-          </div>
-        </section>
-      </div>
-
-      <!-- Lado Derecho: Contenedor Principal Grande #1 (Soporta Videos de YouTube, MP4 Locales, Imágenes y Rockola) -->
-      <div class="tv-col-right cyber-panel p-0 overflow-hidden relative flex flex-col justify-between" style="background:#000; border-color:#10b981;">
-        <div class="absolute top-2.5 left-2.5 right-2.5 flex flex-wrap justify-between items-start gap-2 z-20 pointer-events-none">
-          <div class="px-3 py-1.5 rounded-xl bg-black/85 border-2 border-amber-400 flex items-center gap-2">
-            <span>🔔</span>
-            <div>
-              <div class="text-[9px] text-amber-300 font-bold uppercase">Atendiendo en Cocina / Barra</div>
-              <div id="tv-actual-banner" class="text-xs sm:text-sm font-black text-white">#T-295 — Mesa 3</div>
-            </div>
-          </div>
-
-          <div class="flex gap-1.5 pointer-events-auto">
-            <button onclick="irAModulo('config')" class="px-2.5 py-1 rounded-lg bg-black/85 border border-pink-400 text-pink-300 text-xs font-bold">
-              📁 Elegir Carpeta / YouTube
-            </button>
-            <button onclick="siguienteMedia(1)" class="px-2.5 py-1 rounded-lg bg-black/85 border border-emerald-400 text-emerald-300 text-xs font-bold">
-              ⏭️ Cambiar Media #1
-            </button>
+      <!-- Reproductor Multimedia Principal -->
+      <section class="cyber-panel flex-1 flex flex-col justify-between p-0 overflow-hidden relative" style="background:#000; border-color:#00f0ff;">
+        <div class="absolute top-2 left-2 right-2 flex justify-between items-center z-20 pointer-events-none">
+          <div class="px-3 py-1.5 rounded-xl bg-black/85 border border-amber-400">
+            <div class="text-[9px] text-amber-300 font-bold uppercase">Atendiendo Ahora</div>
+            <div id="tv-actual-banner" class="text-xs font-black text-white">#T-295 — Mesa 3</div>
           </div>
         </div>
-
-        <!-- Visor Principal #1 (Renderiza Iframe de YouTube, Video Local MP4 o Imagen de Carpeta) -->
         <div id="tv-visor-1" class="flex-1 w-full h-full flex items-center justify-center overflow-hidden bg-black"></div>
-
-        <!-- Barra de Cola de Canciones de Clientes (Jukebox Activo) -->
-        <div class="bg-black/90 border-t border-pink-500/40 px-3 py-1.5 flex items-center justify-between text-xs shrink-0">
-          <div class="truncate">
-            <span class="text-pink-400 font-black">🎵 ROCKOLA CLIENTES:</span>
-            <span id="tv-cancion-actual" class="text-white font-bold ml-1">Reproduciendo Playlist del Bar</span>
-          </div>
-          <button onclick="irAModulo('cliente')" class="cyber-btn-primary text-[10px] px-2.5 py-1 rounded-lg shrink-0">
-            + Pedir Canción (Créditos)
-          </button>
-        </div>
-      </div>
-
+      </section>
     </div>
 
-    <!-- Barra Inferior Marquee con Texto Propio + Próximas Órdenes en Orden -->
-    <footer class="h-11 bg-[#071510] border-t-2 border-emerald-500 flex items-center overflow-hidden shrink-0">
-      <div class="cyber-btn-accent px-3 h-full flex items-center text-xs shrink-0">🔥 FILA DE ORDENES</div>
+    <!-- Barra Marquee Inferior -->
+    <footer class="h-10 bg-[#071510] border-t-2 border-cyan-500 flex items-center overflow-hidden shrink-0">
+      <div class="cyber-btn-accent px-3 h-full flex items-center text-xs shrink-0">🔥 ANUNCIOS</div>
       <div class="flex-1 overflow-hidden">
-        <div id="tv-marquee-texto" class="marquee-track text-xs sm:text-sm font-black text-emerald-200 gap-10 pl-4"></div>
+        <div id="tv-marquee-texto" class="marquee-track text-xs font-black text-cyan-200 gap-10 pl-4"></div>
       </div>
     </footer>
   </main>
 
-  <!-- ========================================================================= -->
-  <!-- NUEVO MÓDULO: MENÚ DEL CLIENTE + ROCKOLA DE CRÉDITOS PARA CANCIONES/VIDEOS -->
-  <!-- ========================================================================= -->
-  <main id="mod-cliente" class="seccion-sistema vista-oculta flex-1 flex-col p-3 gap-3 overflow-y-auto">
-    <div class="cyber-panel flex flex-wrap justify-between items-center gap-2" style="border-color:#06b6d4;">
-      <div>
-        <h2 class="text-base sm:text-lg font-black text-cyan-300">📱 MENÚ DIGITAL DE MESA + 🎵 ROCKOLA CYBER-NEON</h2>
-        <p class="text-xs text-slate-300">Pide tus alimentos/bebidas al mesero o usa tus créditos para poner tu música o video de YouTube en la pantalla principal.</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <div class="px-3 py-1.5 rounded-xl bg-pink-500/20 border border-pink-400 text-pink-300 font-black text-xs">
-          🪙 Tus Créditos Musicales: <span id="cliente-creditos-num" class="text-base text-white">3</span>
-        </div>
-        <button onclick="comprarCreditosCliente(5, 50)" class="cyber-btn-accent text-xs px-3 py-2 rounded-xl">
-          + Comprar 5 Créditos ($50)
-        </button>
-      </div>
-    </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <!-- Sección 1: Pedir Canción por YouTube o desde la Computadora del Bar -->
-      <div class="cyber-panel space-y-3">
-        <h3 class="text-sm font-black text-pink-400">🎸 1. Poner Canción o Video en la Pantalla Principal (1 Crédito)</h3>
-        
-        <div class="space-y-2">
-          <label class="text-xs text-slate-300 block">Opción A: Pega un enlace o ID de YouTube (Se reproduce directo en la TV):</label>
-          <div class="flex gap-2">
-            <input id="input-cliente-yt" type="text" placeholder="Ej. https://www.youtube.com/watch?v=dQw4w9WgXcQ" class="flex-1 text-xs">
-            <button onclick="clienteEnviarCancionYouTube()" class="cyber-btn-primary text-xs px-3 py-2">▶️ Lanzar en TV (1 🪙)</button>
-          </div>
-        </div>
-
-        <div class="pt-2 border-t border-slate-800 space-y-2">
-          <label class="text-xs text-slate-300 block">Opción B: Selecciona una Canción / Video guardado en la PC del Bar:</label>
-          <div id="lista-canciones-locales-cliente" class="space-y-1.5 max-h-56 overflow-y-auto"></div>
-        </div>
-      </div>
-
-      <!-- Sección 2: Cola Musical Activa y Menú Rápido de Mesa -->
-      <div class="cyber-panel space-y-3">
-        <h3 class="text-sm font-black text-emerald-400">🎶 Cola de Reproducción Actual en Pantalla</h3>
-        <div id="cola-rockola-ui" class="space-y-2 max-h-60 overflow-y-auto text-xs"></div>
-      </div>
-    </div>
-  </main>
-
-  <!-- ========================================================================= -->
-  <!-- MÓDULO 5: EXPLORADOR DE CARPETAS LOCALES, YOUTUBE Y PERSONALIZADOR SKINS  -->
-  <!-- ========================================================================= -->
-  <main id="mod-config" class="seccion-sistema vista-oculta flex-1 flex-col p-4 gap-4 overflow-y-auto">
-    <h2 class="text-lg font-black text-pink-400 border-b border-pink-500/30 pb-2">
-      ⚙️ MÓDULO 5: EXPLORADOR DE CARPETAS DE IMÁGENES/VIDEOS, YOUTUBE Y PERSONALIZADOR DE SKINS
-    </h2>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      
-      <!-- 1. EXPLORADOR DE CARPETAS DE LA PC + CARGADOR DE ARCHIVOS MULTI-CONSOLA -->
-      <div class="cyber-panel space-y-3">
-        <h3 class="text-sm font-black text-emerald-400">📁 1. Explorar Carpetas para Contenedor #1 y #2</h3>
-        <p class="text-xs text-slate-300">Selecciona de qué carpeta del servidor o de tu PC/Celular quieres jalar los videos e imágenes:</p>
-
-        <div class="space-y-2">
-          <label class="text-xs font-bold text-cyan-300 block">A) Elegir Carpeta del Servidor POS:</label>
-          <select id="select-carpeta-servidor" onchange="explorarCarpetaServidor(this.value)" class="w-full text-xs font-bold">
-            <option value="public/publicidad">📂 public/publicidad (Videos y Promos TV)</option>
-            <option value="public/productos">📂 public/productos (Fotos del Menú)</option>
-            <option value="public/sistema">📂 public/sistema (Logos y Audios)</option>
-          </select>
-        </div>
-
-        <div class="space-y-2 pt-2 border-t border-slate-800">
-          <label class="text-xs font-bold text-pink-300 block">B) O Explorar Carpeta Directa de esta PC / Dispositivo:</label>
-          <input id="input-explorar-archivos" type="file" multiple accept="video/*,image/*,audio/*" onchange="cargarArchivosDesdeExplorador(event)" class="w-full text-xs">
-          <p class="text-[11px] text-slate-400">Puedes seleccionar varios videos `.mp4`, canciones `.mp3` o imágenes `.jpg/.png` de una carpeta y asignarlos al Contenedor #1, al #2 o a la Rockola.</p>
-        </div>
-
-        <div class="flex gap-2">
-          <button onclick="asignarSeleccionadosAContenedor(1)" class="flex-1 py-2 text-xs cyber-btn-accent">Asignar a Ventana #1</button>
-          <button onclick="asignarSeleccionadosAContenedor(2)" class="flex-1 py-2 text-xs cyber-btn-primary">Asignar a Promo #2</button>
-        </div>
-
-        <div id="lista-archivos-explorados" class="text-xs space-y-1 max-h-40 overflow-y-auto bg-black/50 p-2 rounded-xl"></div>
-      </div>
-
-      <!-- 2. REPRODUCTOR DE VIDEO DE YOUTUBE OPCIONAL + BARRA DE SCROLL -->
-      <div class="cyber-panel space-y-3">
-        <h3 class="text-sm font-black text-amber-400">▶️ 2. Lanzar Video o Playlist de YouTube (Reparado)</h3>
-        <p class="text-xs text-slate-300">Pega cualquier link de YouTube (`watch?v=...`, `youtu.be/...` o `shorts/...`) y lánzalo al instante:</p>
-
-        <input id="input-config-youtube" type="text" placeholder="https://www.youtube.com/watch?v=jfKfPfyJRdk" class="w-full text-xs">
-        <div class="grid grid-cols-2 gap-2">
-          <button onclick="lanzarYouTubeEnContenedor(1)" class="py-2 text-xs cyber-btn-primary">▶️ Lanzar en Ventana #1</button>
-          <button onclick="lanzarYouTubeEnContenedor(2)" class="py-2 text-xs font-bold">▶️ Lanzar en Promo #2</button>
-        </div>
-
-        <div class="pt-3 border-t border-slate-800 space-y-2">
-          <label class="text-xs font-bold text-emerald-300 block">📜 Texto Personalizado de la Barra de Scroll:</label>
-          <input id="input-config-marquee" type="text" value="🎉 ¡BIENVENIDOS A LA BARRITA POS! COMPRA TUS CRÉDITOS Y PON TU MÚSICA EN LA PANTALLA 🎉" oninput="cambiarTextoMarquee(this.value)" class="w-full text-xs">
-        </div>
-      </div>
-
-      <!-- 3. PERSONALIZADOR COMPLETO DE SKINS (TEMAS + COLORES A MEDIDA) -->
-      <div class="cyber-panel space-y-3">
-        <h3 class="text-sm font-black text-pink-400">🎨 3. Personalizador de Skins Cyber-Neon</h3>
-        <div class="grid grid-cols-2 gap-2 text-xs font-bold">
-          <button onclick="aplicarPresetSkin('#07060e','#100d22','#ec4899','#10b981')" class="p-2.5 rounded-xl border border-pink-500 text-pink-300">🌸 Cyber Pink</button>
-          <button onclick="aplicarPresetSkin('#020813','#07162c','#06b6d4','#22d3ee')" class="p-2.5 rounded-xl border border-cyan-400 text-cyan-300">💠 Neon Cyan</button>
-          <button onclick="aplicarPresetSkin('#041008','#082212','#10b981','#f59e0b')" class="p-2.5 rounded-xl border border-emerald-400 text-emerald-300">🧪 Matrix Green</button>
-          <button onclick="aplicarPresetSkin('#120c05','#241709','#f59e0b','#ec4899')" class="p-2.5 rounded-xl border border-amber-400 text-amber-300">👑 VIP Gold</button>
-        </div>
-
-        <div class="pt-2 border-t border-slate-800 space-y-2 text-xs">
-          <div class="font-bold text-slate-300">O crea tu propio Skin personalizado:</div>
-          <div class="flex justify-between items-center">
-            <span>Color de Fondo Principal:</span>
-            <input type="color" value="#07060e" onchange="actualizarColorSkin('--skin-bg', this.value)" class="w-12 h-8 p-0 border-0">
-          </div>
-          <div class="flex justify-between items-center">
-            <span>Color de Paneles:</span>
-            <input type="color" value="#100d22" onchange="actualizarColorSkin('--skin-panel', this.value)" class="w-12 h-8 p-0 border-0">
-          </div>
-          <div class="flex justify-between items-center">
-            <span>Color Neón Primario (Bordes/Botones):</span>
-            <input type="color" value="#ec4899" onchange="actualizarColorSkin('--skin-primary', this.value)" class="w-12 h-8 p-0 border-0">
-          </div>
-          <div class="flex justify-between items-center">
-            <span>Color Acento (Cobro/TV):</span>
-            <input type="color" value="#10b981" onchange="actualizarColorSkin('--skin-accent', this.value)" class="w-12 h-8 p-0 border-0">
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </main>
-
-  <!-- ========================================================================= -->
-  <!-- MÓDULO 3: COCINA Y BARRA (TOCAR ORDEN PARA MOSTRAR EN TV)                 -->
-  <!-- ========================================================================= -->
+  <!-- MÓDULO 2: COCINA KDS -->
   <main id="mod-cocina" class="seccion-sistema vista-oculta flex-1 flex-col p-4 gap-3 overflow-y-auto">
-    <h2 class="text-lg font-black text-amber-400">🔥 MÓDULO 3: COCINA Y BARRA — TOCA UNA ORDEN PARA ATENDERLA EN LA TV</h2>
+    <h2 class="text-base font-black text-amber-400">🔥 KDS COCINA Y BARRA (Toca para mostrar en TV)</h2>
     <div id="grid-cocina-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
   </main>
 
-  <!-- MÓDULOS 2, 4 Y 6 (INVENTARIO, ADMIN Y VENTANA INDEPENDIENTE / GITHUB) -->
+  <!-- MÓDULO 3: INVENTARIO -->
   <main id="mod-inventario" class="seccion-sistema vista-oculta flex-1 flex-col p-4 gap-3 overflow-y-auto">
-    <h2 class="text-lg font-black text-pink-400">📦 MÓDULO 2: INVENTARIOS Y STOCK</h2>
+    <h2 class="text-base font-black text-pink-400">📦 INVENTARIO Y STOCK</h2>
     <div id="box-tabla-inventario" class="cyber-panel overflow-x-auto text-xs"></div>
   </main>
 
+  <!-- MÓDULO 4: ADMIN -->
   <main id="mod-admin" class="seccion-sistema vista-oculta flex-1 flex-col p-4 gap-3 overflow-y-auto">
-    <h2 class="text-lg font-black text-pink-400">📊 MÓDULO 4: RENDIMIENTO Y CORTE</h2>
+    <h2 class="text-base font-black text-pink-400">📊 REPORTE DE VENTAS DEL DÍA</h2>
     <div id="box-metricas-admin" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
   </main>
 
-  <main id="mod-respaldo" class="seccion-sistema vista-oculta flex-1 flex-col p-4 gap-3 overflow-y-auto">
-    <h2 class="text-lg font-black text-pink-400">🖥️ MÓDULO 6: LANZADOR DE VENTANA INDEPENDIENTE PC Y GITHUB</h2>
-    <div class="cyber-panel space-y-3 text-xs">
-      <p class="text-sm font-bold text-emerald-300">¿Cómo volver a abrir la Ventana Independiente en la PC cuando quieras?</p>
-      <p>1. Haz clic en este botón para abrir una ventana limpia sin barras de navegador:</p>
-      <button onclick="lanzarVentanaIndependientePC()" class="cyber-btn-accent px-4 py-2.5 rounded-xl">🖥️ Lanzar Ventana Independiente Ahora</button>
-      <p class="pt-2">2. O desde tu carpeta <b>E:\Pos-Restaurant</b> en PowerShell ejecuta cualquiera de estos dos comandos:</p>
-      <pre class="bg-black p-3 rounded-xl text-emerald-400 font-mono select-text">npx.cmd electron electron-main.js</pre>
-      <pre class="bg-black p-3 rounded-xl text-cyan-400 font-mono select-text">start msedge --app=http://localhost:3000</pre>
+  <!-- MÓDULO 5: CONFIGURACIÓN Y CLOUD -->
+  <main id="mod-config" class="seccion-sistema vista-oculta flex-1 flex-col p-4 gap-4 overflow-y-auto">
+    <h2 class="text-base font-black text-pink-400">⚙️ CONFIGURACIÓN, MEDIA Y PREPARACIÓN CLOUD</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="cyber-panel space-y-3">
+        <h3 class="text-sm font-black text-cyan-400">🌐 Preparación para Internet / Cloud a Futuro</h3>
+        <p class="text-xs text-slate-300">Activa esta opción cuando contrates hosting o dominio web externo para recibir pedidos y reservaciones en línea automáticamente en este POS.</p>
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold">Habilitar Modo Cloud Externo:</span>
+          <button onclick="toggleModoCloud()" id="btn-cloud-toggle" class="px-3 py-1.5 text-xs cyber-btn-accent">Desactivado</button>
+        </div>
+      </div>
+      <div class="cyber-panel space-y-3">
+        <h3 class="text-sm font-black text-amber-400">▶️ YouTube & Mensaje en Pantalla TV</h3>
+        <input id="input-config-youtube" type="text" placeholder="Link YouTube (watch?v=...)" class="w-full text-xs mb-2">
+        <button onclick="lanzarYouTubeTV()" class="w-full cyber-btn-primary text-xs py-2">▶️ Reproducir en TV Principal</button>
+      </div>
     </div>
   </main>
 
@@ -455,15 +298,15 @@
   <div id="modal-cobro-pos" class="vista-oculta fixed inset-0 z-50 items-center justify-center p-4" style="background:rgba(0,0,0,0.85);">
     <div class="cyber-panel w-full max-w-md space-y-3">
       <div class="flex justify-between items-center border-b border-slate-700 pb-2">
-        <span id="cobro-titulo" class="text-lg font-black text-emerald-400">COBRAR MESA</span>
+        <span id="cobro-titulo" class="text-base font-black text-emerald-400">COBRAR MESA</span>
         <button onclick="cerrarModalCobro()">✕</button>
       </div>
-      <div class="text-2xl font-black text-white">Total: <span id="cobro-monto-total" class="text-emerald-400">$0.00</span></div>
+      <div class="text-xl font-black text-white">Total: <span id="cobro-monto-total" class="text-emerald-400">$0.00</span></div>
       <div>
         <label class="text-xs block mb-1">Efectivo Recibido ($):</label>
-        <input id="cobro-input-recibido" type="number" oninput="calcularCambio()" class="w-full text-lg font-black">
+        <input id="cobro-input-recibido" type="number" oninput="calcularCambio()" class="w-full text-base font-black">
       </div>
-      <div class="text-base font-black text-amber-300">Cambio: <span id="cobro-txt-cambio">$0.00</span></div>
+      <div class="text-sm font-black text-amber-300">Cambio: <span id="cobro-txt-cambio">$0.00</span></div>
       <div class="grid grid-cols-2 gap-2 pt-2">
         <button onclick="cerrarModalCobro()" class="py-2.5 text-xs font-bold">Cancelar</button>
         <button onclick="confirmarPagoMesa()" class="py-2.5 text-xs cyber-btn-accent">✅ Confirmar Pago</button>
@@ -471,61 +314,54 @@
     </div>
   </div>
 
-  <!-- ========================================================================= -->
-  <!-- LÓGICA JAVASCRIPT ES5 ULTRACOMPATIBLE (FUNCIONA EN IPAD, ANDROID Y PC)    -->
-  <!-- ========================================================================= -->
   <script>
     var socket = (typeof io !== 'undefined') ? io() : { emit: function(){}, on: function(){} };
-    var archivosLocalesCargados = [];
 
     var appState = {
-      mesaActiva: 3,
+      mesaActiva: 1,
       fondo: 1500,
       gastos: 0,
       ventas: 0,
-      creditosCliente: 3,
-      textoMarquee: '🎉 ¡BIENVENIDOS A LA BARRITA POS! COMPRA TUS CRÉDITOS EN EL MENÚ Y PON TUS CANCIONES O VIDEOS EN LA PANTALLA 🎉',
-      idx1: 0,
-      idx2: 0,
+      textoMarquee: '🎉 ¡BIENVENIDOS A LA BARRITA POS! DISFRUTA DE NUESTRAS PROMOS Y AMBIENTE ÚNICO 🎉',
       mediaContenedor1: [
-        { tipo: 'img', url: 'https://images.unsplash.com/photo-1561758033-d89a9ad46330?auto=format&fit=crop&w=1200&q=80', nombre: 'Salchipapas & Snacks Especiales La Barrita' },
-        { tipo: 'img', url: 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=1200&q=80', nombre: 'Coctelería Cyber-Neon 2x1' }
+        { tipo: 'img', url: 'https://images.unsplash.com/photo-1561758033-d89a9ad46330?auto=format&fit=crop&w=1200&q=80', nombre: 'Alitas BBQ & Snacks' },
+        { tipo: 'img', url: 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=1200&q=80', nombre: 'Micheladas & Cervezas 2x1' }
       ],
-      mediaContenedor2: [
-        { tipo: 'img', url: 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?auto=format&fit=crop&w=600&q=80', nombre: 'Alitas BBQ 10 Pz + Aderezos' },
-        { tipo: 'img', url: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=600&q=80', nombre: 'Mojitos & Margaritas Blue' }
-      ],
-      catalogoCancionesBar: [
-        { titulo: 'Cyberpunk Synthwave Mix - La Barrita', tipo: 'yt', url: 'https://www.youtube.com/watch?v=4xDzrJKXOOY' },
-        { titulo: 'Lofi Hip Hop Beats - Ambiente Bar', tipo: 'yt', url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk' }
-      ],
-      colaRockola: [],
+      idx1: 0,
       mesas: [
         { id: 1, nombre: 'MESA 1', cuenta: [] },
-        { id: 2, nombre: 'MESA 2', cuenta: [{ id: 1, nombre: 'Alitas BBQ (10 pz)', precio: 110, cant: 1 }] },
-        { id: 3, nombre: 'MESA 3', cuenta: [{ id: 2, nombre: 'Nachos Especiales', precio: 65, cant: 5 }] },
-        { id: 4, nombre: 'MESA 4', cuenta: [{ id: 3, nombre: 'Michelada Familiar', precio: 95, cant: 1 }] },
+        { id: 2, nombre: 'MESA 2', cuenta: [] },
+        { id: 3, nombre: 'MESA 3', cuenta: [{ id: 1, nombre: 'Alitas BBQ (10 pz)', precio: 110, cant: 2 }] },
+        { id: 4, nombre: 'MESA 4', cuenta: [] },
         { id: 5, nombre: 'MESA 5', cuenta: [] },
         { id: 6, nombre: 'MESA 6', cuenta: [] },
-        { id: 7, nombre: 'BARRA', cuenta: [] },
-        { id: 8, nombre: 'PARA LLEVAR', cuenta: [{ id: 1, nombre: 'Alitas BBQ (10 pz)', precio: 110, cant: 2 }] }
+        { id: 'Barra', nombre: 'BARRA', cuenta: [] },
+        { id: 'Para Llevar', nombre: 'PARA LLEVAR', cuenta: [] }
       ],
       productos: [
-        { id: 1, nombre: 'Alitas BBQ (10 pz)', cat: 'Alitas', precio: 110, stock: 30, creditos: 0 },
-        { id: 2, nombre: 'Nachos Especiales', cat: 'Alitas', precio: 65, stock: 25, creditos: 0 },
-        { id: 3, nombre: 'Michelada Familiar', cat: 'Cervezas', precio: 95, stock: 40, creditos: 0 },
-        { id: 4, nombre: 'Papas a la Francesa', cat: 'Alitas', precio: 65, stock: 35, creditos: 0 },
-        { id: 5, nombre: 'Salchipapas Especiales', cat: 'Alitas', precio: 85, stock: 20, creditos: 0 },
-        { id: 6, nombre: 'Cyber Margarita Blue', cat: 'Cervezas', precio: 120, stock: 18, creditos: 0 },
-        { id: 7, nombre: '🪙 1 Crédito Canción Rockola', cat: 'Musica', precio: 15, stock: 999, creditos: 1 },
-        { id: 8, nombre: '🪙 Pack 5 Créditos Musicales', cat: 'Musica', precio: 50, stock: 999, creditos: 5 }
+        { id: 1, nombre: 'Alitas BBQ (10 pz)', cat: 'Alitas', precio: 110, stock: 30 },
+        { id: 2, nombre: 'Nachos Especiales', cat: 'Alitas', precio: 65, stock: 25 },
+        { id: 3, nombre: 'Michelada Familiar', cat: 'Cervezas', precio: 95, stock: 40 },
+        { id: 4, nombre: 'Papas a la Francesa', cat: 'Alitas', precio: 65, stock: 35 }
       ],
       ordenesTV: [
-        { folio: 'T-295', mesa: 'Mesa 3', detalle: '5x Nachos Especiales + Queso Extra', mesero: 'General', min: '04:12', estado: 'ATENDIENDO' },
-        { folio: 'T-840', mesa: 'Mesa 2', detalle: '1x Alitas BBQ (10 pz), 1x Papas', mesero: 'Carlos', min: '06:30', estado: 'PREPARANDO' },
-        { folio: 'T-985', mesa: 'Para Llevar', detalle: '2x Alitas BBQ, 1x Michelada', mesero: 'Caja', min: '08:10', estado: 'PREPARANDO' }
+        { folio: 'T-295', mesa: 'Mesa 3', detalle: '2x Alitas BBQ (10 pz)', estado: 'ATENDIENDO' }
       ]
     };
+
+    // --- DETECTOR AUTOMÁTICO DE ORIENTACIÓN PARA TABLETS ---
+    function verificarOrientacion() {
+      var esLandscape = window.innerWidth > window.innerHeight;
+      if (esLandscape) {
+        document.body.classList.add('modo-landscape');
+        document.body.classList.remove('modo-portrait');
+      } else {
+        document.body.classList.add('modo-portrait');
+        document.body.classList.remove('modo-landscape');
+      }
+    }
+    window.addEventListener('resize', verificarOrientacion);
+    window.addEventListener('orientationchange', function() { setTimeout(verificarOrientacion, 200); });
 
     function ponerTexto(id, txt) {
       var el = document.getElementById(id);
@@ -534,15 +370,14 @@
 
     function mostrar(id) {
       var el = document.getElementById(id);
-      if (el) { el.className = el.className.replace('vista-oculta', 'vista-activa'); }
+      if (el) el.className = el.className.replace('vista-oculta', 'vista-activa');
     }
 
     function ocultar(id) {
       var el = document.getElementById(id);
-      if (el) { el.className = el.className.replace('vista-activa', 'vista-oculta'); }
+      if (el) el.className = el.className.replace('vista-activa', 'vista-oculta');
     }
 
-    // --- NAVEGACIÓN ENTRE MÓDULOS Y VENTANA INDEPENDIENTE PC ---
     function irAModulo(nombre) {
       var secciones = document.querySelectorAll('.seccion-sistema');
       for (var i = 0; i < secciones.length; i++) {
@@ -560,230 +395,13 @@
 
     function seleccionarTerminal(tipo) {
       cerrarSelectorPerfiles();
-      if (tipo === 'admin') {
-        var pin = prompt('Ingresa PIN de Administrador (1234):', '1234');
-        if (pin !== '1234') return alert('PIN Incorrecto');
-        irAModulo('caja');
-      } else if (tipo === 'caja') irAModulo('caja');
+      if (tipo === 'caja') irAModulo('caja');
       else if (tipo === 'cocina') irAModulo('cocina');
       else if (tipo === 'tv') irAModulo('tv');
-      else if (tipo === 'cliente') irAModulo('cliente');
+      else if (tipo === 'config') irAModulo('config');
     }
 
-    function lanzarVentanaIndependientePC() {
-      var w = window.open(
-        window.location.href,
-        'LaBarritaPOSApp',
-        'width=1360,height=780,menubar=no,toolbar=no,location=no,status=no,resizable=yes'
-      );
-      if (!w) alert('Permite las ventanas emergentes o ejecuta en PowerShell: npx.cmd electron electron-main.js');
-    }
-
-    // --- EXTRACTOR UNIVERSAL DE YOUTUBE (CONVIERTE CUALQUIER LINK A EMBED) ---
-    function obtenerEmbedYouTube(url) {
-      if (!url) return null;
-      var id = null;
-      var m1 = url.match(/[?&]v=([^&#]+)/);
-      var m2 = url.match(/youtu\.be\/([^?&#]+)/);
-      var m3 = url.match(/youtube\.com\/embed\/([^?&#]+)/);
-      var m4 = url.match(/youtube\.com\/shorts\/([^?&#]+)/);
-      if (m1) id = m1[1];
-      else if (m2) id = m2[1];
-      else if (m3) id = m3[1];
-      else if (m4) id = m4[1];
-      else if (url.length === 11) id = url;
-      if (!id) return null;
-      return 'https://www.youtube.com/embed/' + id + '?autoplay=1&rel=0';
-    }
-
-    function lanzarYouTubeEnContenedor(numContenedor) {
-      var inp = document.getElementById('input-config-youtube');
-      var url = inp ? inp.value.trim() : '';
-      var embed = obtenerEmbedYouTube(url);
-      if (!embed) return alert('Pega un enlace válido de YouTube (ej. https://www.youtube.com/watch?v=...)');
-
-      var item = { tipo: 'yt', url: embed, nombre: 'Video YouTube en Vivo' };
-      if (numContenedor === 1) {
-        appState.mediaContenedor1.unshift(item);
-        appState.idx1 = 0;
-      } else {
-        appState.mediaContenedor2.unshift(item);
-        appState.idx2 = 0;
-      }
-      irAModulo('tv');
-    }
-
-    // --- EXPLORADOR DE CARPETAS LOCALES Y DEL SERVIDOR ---
-    function cargarArchivosDesdeExplorador(ev) {
-      var files = ev.target.files;
-      if (!files || files.length === 0) return;
-      archivosLocalesCargados = [];
-      var html = '';
-      for (var i = 0; i < files.length; i++) {
-        var f = files[i];
-        var blobUrl = URL.createObjectURL(f);
-        var esVideo = f.type.indexOf('video') !== -1 || f.name.match(/\.(mp4|webm|ogg)$/i);
-        var esAudio = f.type.indexOf('audio') !== -1 || f.name.match(/\.(mp3|wav)$/i);
-        var tipo = (esVideo || esAudio) ? 'video' : 'img';
-        archivosLocalesCargados.push({ tipo: tipo, url: blobUrl, nombre: f.name });
-        appState.catalogoCancionesBar.push({ titulo: f.name, tipo: tipo, url: blobUrl });
-        html += '<div class="py-1 border-b border-slate-800">✅ ' + f.name + '</div>';
-      }
-      var box = document.getElementById('lista-archivos-explorados');
-      if (box) box.innerHTML = html;
-      renderClienteRockola();
-    }
-
-    function asignarSeleccionadosAContenedor(num) {
-      if (archivosLocalesCargados.length === 0) {
-        return alert('Primero selecciona uno o más archivos con el botón "Seleccionar archivos".');
-      }
-      if (num === 1) {
-        appState.mediaContenedor1 = archivosLocalesCargados.concat(appState.mediaContenedor1);
-        appState.idx1 = 0;
-      } else {
-        appState.mediaContenedor2 = archivosLocalesCargados.concat(appState.mediaContenedor2);
-        appState.idx2 = 0;
-      }
-      irAModulo('tv');
-    }
-
-    function explorarCarpetaServidor(carpeta) {
-      var box = document.getElementById('lista-archivos-explorados');
-      if (box) box.innerHTML = '<div>📂 Carpeta seleccionada: <b>/' + carpeta.replace('public/', '') + '</b>. Usa el selector de archivos de abajo para cargar todos los videos/fotos de esa carpeta al instante.</div>';
-    }
-
-    // --- ROCKOLA Y CRÉDITOS DE CLIENTES ---
-    function comprarCreditosCliente(cant, costo) {
-      appState.creditosCliente += cant;
-      var mesa = obtenerMesaActiva();
-      if (mesa) {
-        mesa.cuenta.push({ id: 99, nombre: 'Pack ' + cant + ' Créditos Rockola', precio: costo, cant: 1 });
-      }
-      renderizarTodo();
-      alert('🪙 ¡Se agregaron ' + cant + ' créditos musicales! Se cargaron $' + costo + ' a la cuenta de tu mesa.');
-    }
-
-    function clienteEnviarCancionYouTube() {
-      if (appState.creditosCliente <= 0) return alert('⚠️ No tienes créditos suficientes. Compra créditos arriba.');
-      var inp = document.getElementById('input-cliente-yt');
-      var url = inp ? inp.value.trim() : '';
-      var embed = obtenerEmbedYouTube(url);
-      if (!embed) return alert('Pega un link válido de YouTube.');
-
-      appState.creditosCliente -= 1;
-      var nueva = { tipo: 'yt', url: embed, nombre: 'Pedida por Cliente (YouTube)' };
-      appState.mediaContenedor1.unshift(nueva);
-      appState.idx1 = 0;
-      appState.colaRockola.push(nueva);
-      if (inp) inp.value = '';
-      irAModulo('tv');
-    }
-
-    function clienteTocarCancionLocal(idx) {
-      if (appState.creditosCliente <= 0) return alert('⚠️ Compra créditos para reproducir tu música.');
-      var c = appState.catalogoCancionesBar[idx];
-      if (!c) return;
-      appState.creditosCliente -= 1;
-      var item = { tipo: c.tipo === 'yt' ? 'yt' : 'video', url: c.tipo === 'yt' ? obtenerEmbedYouTube(c.url) : c.url, nombre: c.titulo };
-      appState.mediaContenedor1.unshift(item);
-      appState.idx1 = 0;
-      appState.colaRockola.push(item);
-      irAModulo('tv');
-    }
-
-    function renderClienteRockola() {
-      ponerTexto('badge-creditos-top', appState.creditosCliente);
-      ponerTexto('cliente-creditos-num', appState.creditosCliente);
-
-      var listLocal = document.getElementById('lista-canciones-locales-cliente');
-      if (listLocal) {
-        var html = '';
-        for (var i = 0; i < appState.catalogoCancionesBar.length; i++) {
-          var c = appState.catalogoCancionesBar[i];
-          html += '<div class="flex justify-between items-center p-2 rounded-xl bg-black/50 border border-slate-800 text-xs">' +
-            '<span class="font-bold truncate pr-2">🎵 ' + c.titulo + '</span>' +
-            '<button onclick="clienteTocarCancionLocal(' + i + ')" class="cyber-btn-primary text-[11px] px-2.5 py-1 shrink-0">Poner (1 🪙)</button></div>';
-        }
-        listLocal.innerHTML = html;
-      }
-
-      var colaUI = document.getElementById('cola-rockola-ui');
-      if (colaUI) {
-        if (appState.colaRockola.length === 0) {
-          colaUI.innerHTML = '<div class="text-slate-400">Aún no hay canciones en fila. ¡Sé el primero en poner tu música!</div>';
-        } else {
-          var hCola = '';
-          for (var j = 0; j < appState.colaRockola.length; j++) {
-            hCola += '<div class="p-2 rounded-xl bg-emerald-950/40 border border-emerald-500/40 font-bold text-emerald-300">' + (j + 1) + '. ' + appState.colaRockola[j].nombre + '</div>';
-          }
-          colaUI.innerHTML = hCola;
-        }
-      }
-    }
-
-    // --- PANTALLA TV RENDER ---
-    function renderVisorMultimedia(idDom, item) {
-      var box = document.getElementById(idDom);
-      if (!box || !item) return;
-      if (item.tipo === 'yt') {
-        box.innerHTML = '<iframe src="' + item.url + '" class="w-full h-full border-0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
-      } else if (item.tipo === 'video') {
-        box.innerHTML = '<video src="' + item.url + '" controls autoplay loop class="w-full h-full object-cover"></video>';
-      } else {
-        box.innerHTML = '<div class="relative w-full h-full"><img src="' + item.url + '" class="w-full h-full object-cover">' +
-          '<div class="absolute bottom-2 left-2 px-3 py-1 rounded bg-black/80 text-xs font-black text-white">' + (item.nombre || '') + '</div></div>';
-      }
-    }
-
-    function siguienteMedia(num) {
-      if (num === 1) appState.idx1 += 1;
-      else appState.idx2 += 1;
-      renderPantallaTV();
-    }
-
-    function renderPantallaTV() {
-      var boxOrd = document.getElementById('tv-ordenes-box');
-      if (boxOrd) {
-        var html = '';
-        for (var i = 0; i < appState.ordenesTV.length; i++) {
-          var o = appState.ordenesTV[i];
-          var esAt = (o.estado === 'ATENDIENDO');
-          html += '<div class="p-2.5 rounded-xl border grid grid-cols-12 items-center gap-2 ' +
-            (esAt ? 'bg-amber-950/60 border-amber-400' : 'bg-[#0b1f17] border-emerald-500/30') + '">' +
-            '<div class="col-span-3"><div class="text-sm font-black text-white">#' + o.folio + '</div><div class="text-[11px] text-emerald-400">' + o.mesa + '</div></div>' +
-            '<div class="col-span-6 px-2 border-l border-r border-emerald-500/20"><div class="text-xs font-bold text-white truncate">🍔 ' + o.detalle + '</div>' +
-            '<div class="text-[10px] text-emerald-300">👤 ' + o.mesero + ' • ⏱️ ' + o.min + '</div></div>' +
-            '<div class="col-span-3 text-right"><span class="px-2 py-1 rounded text-[10px] font-black ' +
-            (esAt ? 'bg-amber-400 text-slate-950' : 'bg-emerald-500 text-slate-950') + '">' + o.estado + '</span></div></div>';
-        }
-        boxOrd.innerHTML = html;
-      }
-
-      var m1 = appState.mediaContenedor1[appState.idx1 % appState.mediaContenedor1.length];
-      var m2 = appState.mediaContenedor2[appState.idx2 % appState.mediaContenedor2.length];
-      renderVisorMultimedia('tv-visor-1', m1);
-      renderVisorMultimedia('tv-visor-2', m2);
-      if (m1) ponerTexto('tv-cancion-actual', m1.nombre);
-
-      var actual = 'Ninguna';
-      var prox = [];
-      for (var k = 0; k < appState.ordenesTV.length; k++) {
-        if (appState.ordenesTV[k].estado === 'ATENDIENDO') actual = '#' + appState.ordenesTV[k].folio + ' — ' + appState.ordenesTV[k].mesa + ' (' + appState.ordenesTV[k].detalle + ')';
-        else prox.push('#' + appState.ordenesTV[k].folio + ' (' + appState.ordenesTV[k].mesa + ')');
-      }
-      ponerTexto('tv-actual-banner', actual);
-
-      var mq = document.getElementById('tv-marquee-texto');
-      if (mq) {
-        var str = '<span>' + appState.textoMarquee + '</span>' +
-          '<span class="text-amber-300"> 🔥 ATENDIENDO AHORA: ' + actual + ' </span>' +
-          '<span class="text-cyan-300"> ⏳ PRÓXIMAS COMANDAS EN ORDEN: ' + (prox.join(' ➔ ') || 'Sin fila') + ' </span>';
-        mq.innerHTML = str + str;
-      }
-    }
-
-    // --- POS CAJA, MESAS Y PERSONALIZADOR DE SKINS ---
+    // --- RENDERIZADO GENERAL ---
     function obtenerMesaActiva() {
       for (var i = 0; i < appState.mesas.length; i++) {
         if (appState.mesas[i].id === appState.mesaActiva) return appState.mesas[i];
@@ -794,13 +412,12 @@
     function renderProductosPOS() {
       var grid = document.getElementById('grid-menu-pos');
       if (!grid) return;
-      var sel = document.getElementById('filtro-cat-pos');
-      var cat = sel ? sel.value : 'Todos';
+      var cat = document.getElementById('filtro-cat-pos').value;
       var html = '';
       for (var i = 0; i < appState.productos.length; i++) {
         var p = appState.productos[i];
         if (cat === 'Todos' || p.cat === cat) {
-          html += '<div onclick="agregarProductoCuenta(' + p.id + ')" class="cyber-panel p-2.5 flex flex-col justify-between cursor-pointer" style="min-height:95px;">' +
+          html += '<div onclick="agregarProductoCuenta(' + p.id + ')" class="cyber-panel p-2.5 flex flex-col justify-between cursor-pointer" style="min-height:90px;">' +
             '<div class="text-xs font-black text-white">' + p.nombre + '</div>' +
             '<div class="flex justify-between items-center mt-2"><span class="text-xs font-black text-pink-400">$' + p.precio.toFixed(2) + '</span>' +
             '<span class="px-2 py-0.5 rounded cyber-btn-primary text-xs">+</span></div></div>';
@@ -819,9 +436,9 @@
         for (var j = 0; j < m.cuenta.length; j++) tot += m.cuenta[j].precio * m.cuenta[j].cant;
         var ocup = m.cuenta.length > 0;
         var act = (m.id === appState.mesaActiva);
-        html += '<div onclick="seleccionarMesa(' + m.id + ')" class="cyber-panel p-3 text-center cursor-pointer" style="border-width:' + (act ? '3px' : '1px') + '; border-color:' + (ocup ? '#f59e0b' : '#10b981') + ';">' +
+        html += '<div onclick="seleccionarMesa(\'' + m.id + '\')" class="cyber-panel p-3 text-center cursor-pointer" style="border-width:' + (act ? '3px' : '1px') + '; border-color:' + (ocup ? '#ffb703' : '#00f0ff') + ';">' +
           '<div class="text-sm font-black text-white">' + m.nombre + '</div>' +
-          '<div class="text-xs font-bold mt-1" style="color:' + (ocup ? '#fbbf24' : '#34d399') + ';">' + (ocup ? '$' + tot.toFixed(2) : 'Disponible') + '</div></div>';
+          '<div class="text-xs font-bold mt-1" style="color:' + (ocup ? '#ffb703' : '#00f0ff') + ';">' + (ocup ? '$' + tot.toFixed(2) : 'Disponible') + '</div></div>';
       }
       grid.innerHTML = html;
     }
@@ -839,18 +456,12 @@
         if (appState.productos[i].id === idProd) prod = appState.productos[i];
       }
       if (!mesa || !prod) return;
-
-      if (prod.creditos > 0) {
-        appState.creditosCliente += prod.creditos;
-      }
-
       var item = null;
       for (var j = 0; j < mesa.cuenta.length; j++) {
         if (mesa.cuenta[j].id === idProd) item = mesa.cuenta[j];
       }
       if (item) item.cant += 1;
       else mesa.cuenta.push({ id: prod.id, nombre: prod.nombre, precio: prod.precio, cant: 1 });
-
       renderizarTodo();
     }
 
@@ -868,33 +479,44 @@
           '<div><b>' + it.cant + 'x</b> ' + it.nombre + '</div>' +
           '<div class="font-black text-emerald-400">$' + (it.precio * it.cant).toFixed(2) + '</div></div>';
       }
-      if (lista) lista.innerHTML = html || '<div class="text-xs text-slate-400 text-center py-6">Sin productos en la orden</div>';
+      if (lista) lista.innerHTML = html || '<div class="text-xs text-slate-400 text-center py-6">Sin consumos en esta mesa</div>';
       ponerTexto('lbl-total-pos', '$' + total.toFixed(2));
     }
 
     function comandarOrdenActual() {
       var mesa = obtenerMesaActiva();
-      if (!mesa || mesa.cuenta.length === 0) return;
+      if (!mesa || mesa.cuenta.length === 0) return alert('La mesa está vacía.');
       var folio = 'T-' + Math.floor(Math.random() * 899 + 100);
       var det = [];
       for (var i = 0; i < mesa.cuenta.length; i++) det.push(mesa.cuenta[i].cant + 'x ' + mesa.cuenta[i].nombre);
-      appState.ordenesTV.push({ folio: folio, mesa: mesa.nombre, detalle: det.join(', '), mesero: 'General', min: 'Ahora', estado: 'PREPARANDO' });
+      appState.ordenesTV.unshift({ folio: folio, mesa: mesa.nombre, detalle: det.join(', '), estado: 'PREPARANDO' });
       renderizarTodo();
-      alert('🔥 Comanda #' + folio + ' enviada a Cocina y Pantalla TV.');
+      alert('🔥 Comanda #' + folio + ' enviada a Cocina y TV.');
     }
 
-    function abrirModalCobro() {
-      var mesa = obtenerMesaActiva();
-      if (!mesa) return;
-      var total = 0;
-      for (var i = 0; i < mesa.cuenta.length; i++) total += mesa.cuenta[i].precio * mesa.cuenta[i].cant;
-      ponerTexto('cobro-titulo', 'COBRAR ' + mesa.nombre);
-      ponerTexto('cobro-monto-total', '$' + total.toFixed(2));
-      var inp = document.getElementById('cobro-input-recibido');
-      if (inp) inp.value = total.toFixed(2);
-      ponerTexto('cobro-txt-cambio', '$0.00');
-      mostrar('modal-cobro-pos');
-    }
+  function abrirModalCobro() {
+  var mesa = obtenerMesaActiva();
+  if (!mesa) return;
+  var total = 0;
+  for (var i = 0; i < mesa.cuenta.length; i++) {
+    total += mesa.cuenta[i].precio * mesa.cuenta[i].cant;
+  }
+  
+  if (total <= 0) {
+    alert('⚠️ Esta mesa no tiene productos en la cuenta para cobrar.');
+    return; // Evita que se abra la ventana con ceros
+  }
+
+  ponerTexto('cobro-titulo', 'COBRAR ' + mesa.nombre);
+  ponerTexto('cobro-monto-total', '$' + total.toFixed(2));
+  var inp = document.getElementById('cobro-input-recibido');
+  if (inp) {
+    inp.value = total.toFixed(2);
+    inp.focus();
+  }
+  ponerTexto('cobro-txt-cambio', '$0.00');
+  mostrar('modal-cobro-pos');
+}
 
     function cerrarModalCobro() { ocultar('modal-cobro-pos'); }
 
@@ -912,9 +534,9 @@
       mesa.cuenta = [];
       cerrarModalCobro();
       renderizarTodo();
+      alert('✅ Pago procesado con éxito.');
     }
 
-    // --- COCINA KDS INTERACTIVO ---
     function renderCocinaCards() {
       var grid = document.getElementById('grid-cocina-cards');
       if (!grid) return;
@@ -923,15 +545,15 @@
         var o = appState.ordenesTV[i];
         html += '<div class="cyber-panel space-y-2">' +
           '<div class="flex justify-between font-black text-sm"><span>#' + o.folio + ' (' + o.mesa + ')</span><span class="text-amber-400">' + o.estado + '</span></div>' +
-          '<div class="text-xs text-emerald-300">' + o.detalle + '</div>' +
+          '<div class="text-xs text-cyan-300">' + o.detalle + '</div>' +
           '<div class="grid grid-cols-2 gap-2 pt-2">' +
-          '<button onclick="atenderOrdenEnTV(\'' + o.folio + '\')" class="cyber-btn-accent py-2 text-xs">🔥 Atender en TV</button>' +
-          '<button onclick="terminarOrdenCocina(' + i + ')" class="py-2 text-xs">✅ Entregada</button></div></div>';
+          '<button onclick="atenderOrden(\'' + o.folio + '\')" class="cyber-btn-accent py-2 text-xs">🔥 Mostrar en TV</button>' +
+          '<button onclick="terminarOrden(' + i + ')" class="py-2 text-xs">✅ Entregar</button></div></div>';
       }
       grid.innerHTML = html;
     }
 
-    function atenderOrdenEnTV(folio) {
+    function atenderOrden(folio) {
       for (var i = 0; i < appState.ordenesTV.length; i++) {
         if (appState.ordenesTV[i].folio === folio) appState.ordenesTV[i].estado = 'ATENDIENDO';
         else appState.ordenesTV[i].estado = 'PREPARANDO';
@@ -939,30 +561,55 @@
       renderizarTodo();
     }
 
-    function terminarOrdenCocina(idx) {
+    function terminarOrden(idx) {
       appState.ordenesTV.splice(idx, 1);
       renderizarTodo();
     }
 
-    // --- PERSONALIZACIÓN DE SKINS EN TIEMPO REAL ---
-    function actualizarColorSkin(variable, valor) {
-      document.documentElement.style.setProperty(variable, valor);
+    function renderPantallaTV() {
+      var boxOrd = document.getElementById('tv-ordenes-box');
+      if (boxOrd) {
+        var html = '';
+        for (var i = 0; i < appState.ordenesTV.length; i++) {
+          var o = appState.ordenesTV[i];
+          var esAt = (o.estado === 'ATENDIENDO');
+          html += '<div class="p-2.5 rounded-xl border flex justify-between items-center ' +
+            (esAt ? 'bg-amber-950/60 border-amber-400' : 'bg-[#0b1f17] border-cyan-500/30') + '">' +
+            '<div><div class="text-sm font-black text-white">#' + o.folio + ' — ' + o.mesa + '</div><div class="text-xs text-cyan-300">' + o.detalle + '</div></div>' +
+            '<span class="px-2 py-1 rounded text-[10px] font-black ' + (esAt ? 'bg-amber-400 text-black' : 'bg-cyan-500 text-black') + '">' + o.estado + '</span></div>';
+        }
+        boxOrd.innerHTML = html;
+      }
+
+      var m1 = appState.mediaContenedor1[appState.idx1 % appState.mediaContenedor1.length];
+      var visor = document.getElementById('tv-visor-1');
+      if (visor && m1) {
+        if (m1.tipo === 'yt') {
+          visor.innerHTML = '<iframe src="' + m1.url + '" class="w-full h-full border-0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
+        } else {
+          visor.innerHTML = '<img src="' + m1.url + '" class="w-full h-full object-cover">';
+        }
+      }
+
+      var actual = 'Ninguna';
+      for (var k = 0; k < appState.ordenesTV.length; k++) {
+        if (appState.ordenesTV[k].estado === 'ATENDIENDO') actual = '#' + appState.ordenesTV[k].folio + ' (' + appState.ordenesTV[k].mesa + ')';
+      }
+      ponerTexto('tv-actual-banner', actual);
+
+      var mq = document.getElementById('tv-marquee-texto');
+      if (mq) {
+        var str = '<span>' + appState.textoMarquee + '</span><span class="text-amber-300"> 🔥 ATENDIENDO: ' + actual + ' </span>';
+        mq.innerHTML = str + str;
+      }
     }
 
-    function aplicarPresetSkin(bg, panel, primary, accent) {
-      actualizarColorSkin('--skin-bg', bg);
-      actualizarColorSkin('--skin-panel', panel);
-      actualizarColorSkin('--skin-primary', primary);
-      actualizarColorSkin('--skin-accent', accent);
-    }
-
-    function cambiarTextoMarquee(val) {
-      appState.textoMarquee = val;
-      renderPantallaTV();
+    function toggleModoCloud() {
+      alert('La infraestructura Cloud está preparada para conectarse a tu hosting en el futuro.');
     }
 
     function editarFondoCaja() {
-      var f = parseFloat(prompt('Fondo de caja ($):', appState.fondo));
+      var f = parseFloat(prompt('Nuevo fondo de caja ($):', appState.fondo));
       if (!isNaN(f)) { appState.fondo = f; ponerTexto('txt-fondo', f.toFixed(2)); }
     }
     function agregarGastoCaja() {
@@ -970,16 +617,16 @@
       if (!isNaN(g)) { appState.gastos += g; ponerTexto('txt-gastos', appState.gastos.toFixed(2)); }
     }
     function verCorteCaja() {
-      alert('CORTE DE CAJA:\nFondo: $' + appState.fondo + '\nVentas: $' + appState.ventas + '\nGastos: $' + appState.gastos + '\nTotal Efectivo: $' + (appState.fondo + appState.ventas - appState.gastos));
+      alert('CORTE DE CAJA:\nFondo Inicial: $' + appState.fondo + '\nVentas Totales: $' + appState.ventas + '\nGastos: $' + appState.gastos + '\nEfectivo en Caja: $' + (appState.fondo + appState.ventas - appState.gastos));
     }
 
     function renderizarTodo() {
+      verificarOrientacion();
       renderProductosPOS();
       renderMesasPOS();
       renderCheckoutPOS();
       renderPantallaTV();
       renderCocinaCards();
-      renderClienteRockola();
     }
 
     setInterval(function() {
