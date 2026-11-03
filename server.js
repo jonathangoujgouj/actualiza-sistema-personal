@@ -1,3 +1,29 @@
+// Agrega esto en tu estructura inicial de datos (server.js)
+const configuracionCloud = {
+    modoOnlineHabilitado: false, // Activar cuando contrates dominio/internet
+    urlWebExterna: "",          // Ej: https://labarrita.com
+    aceptarReservacionesWeb: true,
+    aceptarPedidosDomicilio: true
+};
+
+// Endpoint comodín preparado para recibir pedidos o reservaciones futuras desde internet
+app.post('/api/cloud/sincronizar-externo', express.json(), (req, res) => {
+    const db = leerDB();
+    if (!db.config.modoOnlineHabilitado) {
+        return res.status(403).json({ success: false, mensaje: "El sistema está operando en modo local cerrado." });
+    }
+    
+    // Aquí entrarán en el futuro los pedidos de la web o app de clientes
+    const nuevoPedidoWeb = req.body;
+    db.comandas.unshift(nuevoPedidoWeb);
+    guardarDB(db);
+    
+    // Notificar a las pantallas locales por Socket.io en tiempo real
+    io.emit('sincronizar_todo', filtrarDatosParaCliente(db));
+    io.emit('sonido_comanda_nueva', { mesa: nuevoPedidoWeb.mesa });
+    
+    res.json({ success: true, mensaje: "Pedido web recibido e inyectado en el POS local." });
+});
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
