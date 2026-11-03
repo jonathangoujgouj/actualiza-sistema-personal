@@ -10,123 +10,44 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    /* ==========================================================================
-       MOTOR CSS NATIVO UNIVERSAL (GARANTIZA QUE EL IPAD CLÁSICO NUNCA FALLE)
-       ========================================================================== */
-    :root {
-      --skin-bg: #07060e;
-      --skin-panel: #100d22;
-      --skin-card: #16122b;
-      --skin-primary: #ec4899;
-      --skin-accent: #10b981;
-      --skin-text: #f8fafc;
+:root {
+      --skin-bg: #050505;       /* Negro carbón profundo inspirado en el diseño */
+      --skin-panel: #0b0c10;    /* Panel oscuro elegante */
+      --skin-card: #12141c;     /* Tarjetas con contraste sutil */
+      --skin-primary: #ff2a75;  /* Rosa neón vibrante para llamadas y precios */
+      --skin-accent: #00f0ff;   /* Cian eléctrico para estados */
+      --skin-gold: #ffb703;     /* Dorado para imperdibles / destaques */
+      --skin-text: #ffffff;
     }
 
-    * { box-sizing: border-box; }
-
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      background-color: var(--skin-bg) !important;
-      color: var(--skin-text) !important;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      overflow: hidden;
-      -webkit-user-select: none;
-      user-select: none;
-    }
-
-    /* Clases infalibles para ocultar/mostrar vistas en iPad iOS 9/10/12 y Android */
-    .vista-oculta { display: none !important; }
-    .vista-activa { display: -webkit-box !important; display: -webkit-flex !important; display: flex !important; }
-
-    /* Estilos de respaldo para botones y paneles si Tailwind CDN no carga en iPad */
-    button, select, input {
-      font-family: inherit;
-      border-radius: 10px;
-      border: 1px solid rgba(236, 72, 153, 0.4);
-      background-color: var(--skin-card);
-      color: #ffffff;
-      padding: 6px 12px;
-      cursor: pointer;
-    }
-
+    /* Tarjetas con efecto de borde neón tenue */
     .cyber-panel {
       background-color: var(--skin-panel);
-      border: 1px solid var(--skin-primary);
-      border-radius: 16px;
-      padding: 12px;
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.6);
+      transition: all 0.3s ease;
+    }
+    
+    .cyber-panel:hover {
+      border-color: rgba(255, 42, 117, 0.4);
     }
 
     .cyber-btn-primary {
-      background-color: var(--skin-primary) !important;
+      background: linear-gradient(135deg, #ff2a75, #c9184a) !important;
       color: #ffffff !important;
       font-weight: 800;
       border: none;
+      box-shadow: 0 0 12px rgba(255, 42, 117, 0.4);
     }
 
     .cyber-btn-accent {
-      background-color: var(--skin-accent) !important;
+      background: linear-gradient(135deg, #00f0ff, #0077b6) !important;
       color: #04130e !important;
       font-weight: 900;
       border: none;
-    }
-
-    /* Layout adaptable para Android Horizontal (Corrige la Imagen 2 donde se aplastaban las órdenes) */
-    .tv-grid-layout {
-      display: -webkit-flex;
-      display: flex;
-      -webkit-flex-direction: column;
-      flex-direction: column;
-      gap: 10px;
-      height: calc(100% - 44px);
-      padding: 10px;
-      overflow-y: auto;
-    }
-
-    @media (min-width: 640px), (orientation: landscape) {
-      .tv-grid-layout {
-        -webkit-flex-direction: row;
-        flex-direction: row;
-        overflow: hidden;
-      }
-      .tv-col-left { width: 38%; height: 100%; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; gap: 10px; }
-      .tv-col-right { width: 62%; height: 100%; }
-    }
-
-    /* Layout POS 3 Columnas compatible con iPad */
-    .pos-3col-layout {
-      display: -webkit-flex;
-      display: flex;
-      -webkit-flex-direction: column;
-      flex-direction: column;
-      gap: 10px;
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
-    }
-    @media (min-width: 768px) {
-      .pos-3col-layout {
-        -webkit-flex-direction: row;
-        flex-direction: row;
-        overflow: hidden;
-      }
-      .pos-col-menu { width: 27%; height: 100%; }
-      .pos-col-mapa { width: 46%; height: 100%; }
-      .pos-col-check { width: 27%; height: 100%; }
-    }
-
-    @keyframes tickerMove {
-      0% { -webkit-transform: translateX(0%); transform: translateX(0%); }
-      100% { -webkit-transform: translateX(-50%); transform: translateX(-50%); }
-    }
-    .marquee-track {
-      display: -webkit-inline-flex;
-      display: inline-flex;
-      white-space: nowrap;
-      -webkit-animation: tickerMove 28s linear infinite;
-      animation: tickerMove 28s linear infinite;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
     }
   </style>
 </head>
